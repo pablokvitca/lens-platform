@@ -1,16 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { SignupFormData } from "../../types/signup";
 import { EMPTY_AVAILABILITY } from "../../types/signup";
 import StepIndicator from "./StepIndicator";
 import PersonalInfoStep from "./PersonalInfoStep";
 import AvailabilityStep from "./AvailabilityStep";
 import SuccessMessage from "./SuccessMessage";
+import { useAuth } from "../../hooks/useAuth";
 
 type Step = 1 | 2 | "complete";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const STEPS = ["Personal Info", "Availability"];
 
 export default function SignupWizard() {
+  const { isAuthenticated, isLoading, user, discordUsername, login } =
+    useAuth();
+
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [formData, setFormData] = useState<SignupFormData>({
     firstName: "",
@@ -19,23 +24,71 @@ export default function SignupWizard() {
     discordUsername: undefined,
     availability: { ...EMPTY_AVAILABILITY },
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleDiscordConnect = () => {
-    // Mock Discord OAuth - in production this would redirect to Discord
-    setTimeout(() => {
+  // Sync auth state with form data
+  useEffect(() => {
+    if (isAuthenticated && discordUsername) {
       setFormData((prev) => ({
         ...prev,
         discordConnected: true,
-        discordUsername: "MockUser#1234",
+        discordUsername: discordUsername,
+        // Pre-fill name from database if available
+        firstName: user?.first_name || prev.firstName,
+        lastName: user?.last_name || prev.lastName,
       }));
-    }, 500);
+    }
+  }, [isAuthenticated, discordUsername, user]);
+
+  const handleDiscordConnect = () => {
+    // Redirect to Discord OAuth
+    login();
   };
 
-  const handleSubmit = () => {
-    // Mock submission - log to console
-    console.log("Form submitted:", formData);
-    setCurrentStep("complete");
+  const handleSubmit = async () => {
+    if (!isAuthenticated) {
+      console.error("User not authenticated");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Update user profile in the database
+      const response = await fetch(`${API_URL}/api/users/me`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          first_name: formData.firstName || null,
+          last_name: formData.lastName || null,
+          availability_utc: JSON.stringify(formData.availability),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update profile");
+      }
+
+      setCurrentStep("complete");
+    } catch (error) {
+      console.error("Failed to submit:", error);
+      alert("Failed to save your profile. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   if (currentStep === "complete") {
     return <SuccessMessage formData={formData} />;

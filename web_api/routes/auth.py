@@ -1,0 +1,278 @@
+"""
+Authentication routes for Discord OAuth and code-based auth.
+
+Endpoints:
+- GET /auth/discord - Start Discord OAuth flow
+- GET /auth/discord/callback - Handle OAuth callback
+- GET /auth/code - Validate temp code from Discord bot
+- POST /auth/logout - Clear session
+- GET /auth/me - Get current user info
+"""
+
+import os
+import secrets
+from datetime import datetime, timezone
+from urllib.parse import urlencode
+
+import httpx
+from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi.responses import RedirectResponse
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from core.database import get_client
+from core.auth import get_or_create_user
+from auth import create_jwt, get_current_user, set_session_cookie
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Discord OAuth configuration
+DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID")
+DISCORD_CLIENT_SECRET = os.environ.get("DISCORD_CLIENT_SECRET")
+DISCORD_REDIRECT_URI = os.environ.get(
+    "DISCORD_REDIRECT_URI", "http://localhost:8000/auth/discord/callback"
+)
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+
+# In-memory state storage for OAuth CSRF protection
+# In production, use Redis or database
+_oauth_states: dict[str, str] = {}
+
+
+def _validate_auth_code(code: str) -> tuple[dict | None, str | None]:
+    """
+    Validate an auth code and mark it as used.
+
+    Args:
+        code: The auth code to validate
+
+    Returns:
+        Tuple of (auth_code_record, error_string).
+        If valid, returns (record, None).
+        If invalid, returns (None, error_string).
+    """
+    supabase = get_client()
+
+    # Look up the code
+    result = (
+        supabase.table("auth_codes")
+        .select("*")
+        .eq("code", code)
+        .is_("used_at", "null")
+        .execute()
+    )
+
+    if not result.data:
+        return None, "invalid_code"
+
+    auth_code = result.data[0]
+
+    # Check if expired
+    expires_at = datetime.fromisoformat(auth_code["expires_at"].replace("Z", "+00:00"))
+    if datetime.now(timezone.utc) > expires_at:
+        return None, "expired_code"
+
+    # Mark code as used
+    supabase.table("auth_codes").update(
+        {"used_at": datetime.now(timezone.utc).isoformat()}
+    ).eq("code_id", auth_code["code_id"]).execute()
+
+    return auth_code, None
+
+
+@router.get("/discord")
+async def discord_oauth_start(request: Request, next: str = "/"):
+    """
+    Start Discord OAuth flow.
+
+    Redirects user to Discord's authorization page.
+    Stores the 'next' URL in state for redirect after auth.
+    """
+    if not DISCORD_CLIENT_ID:
+        raise HTTPException(500, "Discord OAuth not configured")
+
+    # Generate state for CSRF protection
+    state = secrets.token_urlsafe(32)
+    _oauth_states[state] = next
+
+    # Build Discord OAuth URL
+    params = {
+        "client_id": DISCORD_CLIENT_ID,
+        "redirect_uri": DISCORD_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "identify email",
+        "state": state,
+    }
+    oauth_url = f"https://discord.com/oauth2/authorize?{urlencode(params)}"
+
+    return RedirectResponse(url=oauth_url)
+
+
+@router.get("/discord/callback")
+async def discord_oauth_callback(
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+):
+    """
+    Handle Discord OAuth callback.
+
+    Exchanges the authorization code for an access token,
+    fetches user info, creates/updates user in database,
+    and sets session cookie.
+    """
+    # Handle OAuth errors
+    if error:
+        return RedirectResponse(url=f"{FRONTEND_URL}/signup?error={error}")
+
+    if not code or not state:
+        return RedirectResponse(url=f"{FRONTEND_URL}/signup?error=missing_params")
+
+    # Validate state (CSRF protection)
+    next_url = _oauth_states.pop(state, None)
+    if next_url is None:
+        return RedirectResponse(url=f"{FRONTEND_URL}/signup?error=invalid_state")
+
+    if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
+        raise HTTPException(500, "Discord OAuth not configured")
+
+    # Exchange code for access token
+    async with httpx.AsyncClient() as client:
+        token_response = await client.post(
+            "https://discord.com/api/oauth2/token",
+            data={
+                "client_id": DISCORD_CLIENT_ID,
+                "client_secret": DISCORD_CLIENT_SECRET,
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": DISCORD_REDIRECT_URI,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        if token_response.status_code != 200:
+            return RedirectResponse(url=f"{FRONTEND_URL}/signup?error=token_exchange")
+
+        token_data = token_response.json()
+        access_token = token_data["access_token"]
+
+        # Fetch user info from Discord
+        user_response = await client.get(
+            "https://discord.com/api/users/@me",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        if user_response.status_code != 200:
+            return RedirectResponse(url=f"{FRONTEND_URL}/signup?error=user_fetch")
+
+        discord_user = user_response.json()
+
+    # Extract user info
+    discord_id = discord_user["id"]
+    discord_username = discord_user.get("global_name") or discord_user["username"]
+    email = discord_user.get("email")
+
+    # Create or update user in database
+    get_or_create_user(discord_id, discord_username, email)
+
+    # Create JWT and set cookie
+    token = create_jwt(discord_id, discord_username)
+
+    response = RedirectResponse(url=f"{FRONTEND_URL}{next_url}")
+    set_session_cookie(response, token)
+
+    return response
+
+
+@router.get("/code")
+async def validate_auth_code(code: str, next: str = "/"):
+    """
+    Validate a temporary auth code from the Discord bot.
+
+    The Discord bot creates codes and stores them in the auth_codes table.
+    This endpoint validates the code, marks it as used, and creates a session.
+    """
+    if not code:
+        return RedirectResponse(url=f"{FRONTEND_URL}/signup?error=missing_code")
+
+    auth_code, error = _validate_auth_code(code)
+    if error:
+        return RedirectResponse(url=f"{FRONTEND_URL}/signup?error={error}")
+
+    # Get or create user
+    discord_id = auth_code["discord_id"]
+    user = get_or_create_user(discord_id)
+    discord_username = user.get("discord_username") or f"User_{discord_id[:8]}"
+
+    # Create JWT and set cookie
+    token = create_jwt(discord_id, discord_username)
+
+    response = RedirectResponse(url=f"{FRONTEND_URL}{next}")
+    set_session_cookie(response, token)
+
+    return response
+
+
+@router.post("/code")
+async def validate_auth_code_api(code: str, next: str = "/", response: Response = None):
+    """
+    Validate a temporary auth code from the Discord bot (API version).
+
+    Returns JSON response instead of redirect, for frontend fetch calls.
+    Sets the session cookie on the response.
+    """
+    if not code:
+        return {"status": "error", "error": "missing_code"}
+
+    auth_code, error = _validate_auth_code(code)
+    if error:
+        return {"status": "error", "error": error}
+
+    # Get or create user
+    discord_id = auth_code["discord_id"]
+    user = get_or_create_user(discord_id)
+    discord_username = user.get("discord_username") or f"User_{discord_id[:8]}"
+
+    # Create JWT and set cookie
+    token = create_jwt(discord_id, discord_username)
+    set_session_cookie(response, token)
+
+    return {"status": "ok", "next": next}
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    """Clear the session cookie."""
+    response.delete_cookie(key="session")
+    return {"status": "logged_out"}
+
+
+@router.get("/me")
+async def get_me(request: Request):
+    """
+    Get current authenticated user info.
+
+    Returns the user's Discord ID, username, and profile from the database.
+    """
+    user = await get_current_user(request)
+
+    supabase = get_client()
+    result = (
+        supabase.table("users")
+        .select("*")
+        .eq("discord_id", user["sub"])
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(404, "User not found in database")
+
+    db_user = result.data[0]
+
+    return {
+        "discord_id": user["sub"],
+        "discord_username": user["username"],
+        "user": db_user,
+    }

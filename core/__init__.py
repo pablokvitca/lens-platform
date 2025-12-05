@@ -51,6 +51,9 @@ from .cohorts import (
     find_availability_overlap, format_local_time, get_timezone_abbrev
 )
 
+# Auth (Discord-to-Web flow)
+from .auth import create_auth_code, get_or_create_user
+
 __all__ = [
     # Data
     'load_data', 'save_data', 'get_user_data', 'save_user_data',
@@ -80,4 +83,6 @@ __all__ = [
     'get_enrolled_users', 'get_users_with_availability', 'get_facilitators', 'toggle_facilitator',
     # Cohorts / Availability
     'find_availability_overlap', 'format_local_time', 'get_timezone_abbrev',
+    # Auth
+    'create_auth_code', 'get_or_create_user',
 ]
