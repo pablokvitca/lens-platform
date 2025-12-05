@@ -8,5 +8,5 @@ export default function Home() {
         Welcome to the AI Safety education platform.
       </p>
     </div>
-  )
+  );
 }
