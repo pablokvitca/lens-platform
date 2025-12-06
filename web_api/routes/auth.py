@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.database import get_client
 from core.auth import get_or_create_user
-from auth import create_jwt, get_current_user, set_session_cookie
+from web_api.auth import create_jwt, get_current_user, set_session_cookie
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

@@ -4,17 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-**Bot (Python):**
+**Unified Backend (FastAPI + Discord Bot):**
 ```bash
-cd discord_bot
 pip install -r requirements.txt
-python main.py                    # Requires .env with DISCORD_BOT_TOKEN
+uvicorn main:app --host 0.0.0.0 --port 8000   # Preferred: starts both services
+# OR
+python main.py                                 # Alternative (may have import issues)
+
+# Requires .env with:
+#   DISCORD_BOT_TOKEN=your_token
+#   SUPABASE_URL=your_url
+#   SUPABASE_KEY=your_key
 ```
 
-**Activities (Node.js):**
+**Web Frontend (React/Vite):**
 ```bash
-cd activities
-npm run dev                       # Serves on localhost:5000
+cd web_frontend
+npm install
+npm run dev                       # Serves on localhost:5173
 ```
 
 **Tests:**
@@ -22,14 +29,36 @@ npm run dev                       # Serves on localhost:5000
 pytest discord_bot/tests/         # Scheduler algorithm tests
 ```
 
+**Legacy (standalone, for reference):**
+```bash
+cd discord_bot && python main.py  # Discord bot only
+cd web_api && python main.py      # FastAPI only
+```
+
 ## Architecture
 
-This is a Discord bot + web activities platform for AI Safety education course logistics.
+This is a Discord bot + web platform for AI Safety education course logistics.
+
+### Unified Backend
+
+**One process, one asyncio event loop** running two peer services:
+- **FastAPI** (HTTP server on :8000) - serves web API for React frontend
+- **Discord bot** (WebSocket to Discord) - handles slash commands and events
+
+Both services share:
+- The same event loop (can call each other's async functions directly)
+- The same `core/` business logic
+- The same database connections (Supabase)
+
+This eliminates need for IPC/message queues between services.
 
 ### 3-Layer Architecture
 
 ```
 ai-safety-course-platform/
+├── main.py                     # Unified backend entry point (FastAPI + Discord bot)
+├── requirements.txt            # Combined Python dependencies
+│
 ├── core/                       # Layer 1: Business Logic (platform-agnostic)
 │   ├── scheduling.py           # Scheduling algorithm + Person/Group dataclasses
 │   ├── courses.py              # Course management (create, sync, progress)
@@ -42,7 +71,7 @@ ai-safety-course-platform/
 │   └── cohort_names.py         # Cohort name generation
 │
 ├── discord_bot/                # Layer 2a: Discord Adapter
-│   ├── main.py                 # Bot entry point
+│   ├── main.py                 # Bot setup (imported by root main.py)
 │   ├── cogs/
 │   │   ├── scheduler_cog.py    # /schedule command → calls core/
 │   │   ├── courses_cog.py      # /add-course, reactions → calls core/
@@ -51,8 +80,14 @@ ai-safety-course-platform/
 │   ├── utils/                  # Re-exports from core/ for backward compat
 │   └── tests/
 │
-├── web_api/                    # Layer 2b: REST API (future)
-├── web_frontend/               # Layer 3b: React (future)
+├── web_api/                    # Layer 2b: REST API
+│   ├── main.py                 # Legacy standalone entry (not used in unified mode)
+│   ├── auth.py                 # JWT utilities (create_jwt, verify_jwt, get_current_user)
+│   └── routes/                 # API endpoints (imported by root main.py)
+│       ├── auth.py             # /auth/* - Discord OAuth, session management
+│       └── users.py            # /api/users/* - User profile endpoints
+│
+├── web_frontend/               # Layer 3: React frontend
 └── activities/                 # Discord Activities (vanilla JS)
 ```
 
@@ -63,7 +98,9 @@ ai-safety-course-platform/
 - `courses.py` - `create_course()`, `mark_week_complete()`, `get_user_progress()`
 - `enrollment.py` - `get_user_profile()`, `save_user_profile()`, `get_facilitators()`
 - `cohorts.py` - `find_availability_overlap()`, `format_local_time()`
-- `data.py` - `load_data()`, `save_data()`, `load_courses()`, `save_courses()`
+- `data.py` - JSON persistence (legacy, being migrated to Supabase)
+- `database.py` - Supabase client singleton (`get_client()`)
+- `auth.py` - Discord-to-Web auth flow (`create_auth_code()`, `get_or_create_user()`)
 
 ### Discord Bot (`discord_bot/`)
 
@@ -123,8 +160,8 @@ from core import (
 
 ## Hosting
 
-Two Railway services:
-(removed because it was outdated)
+Single Railway service running the unified backend (`uvicorn main:app`).
+Database: Supabase (PostgreSQL).
 
 # jj
 

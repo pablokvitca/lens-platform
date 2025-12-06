@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from auth import get_current_user
+from web_api.auth import get_current_user
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
