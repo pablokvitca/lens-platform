@@ -36,9 +36,30 @@ DISCORD_REDIRECT_URI = os.environ.get(
 )
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 
+# Allowed origins for redirect (security whitelist)
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:8000",
+    "http://localhost:8001",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8001",
+]
+# Add production domain via env var if not already in list
+if FRONTEND_URL not in ALLOWED_ORIGINS:
+    ALLOWED_ORIGINS.append(FRONTEND_URL)
+
+
+def _validate_origin(origin: str | None) -> str:
+    """Validate and return origin, or fallback to FRONTEND_URL."""
+    if origin and origin in ALLOWED_ORIGINS:
+        return origin
+    return FRONTEND_URL
+
+
 # In-memory state storage for OAuth CSRF protection
 # In production, use Redis or database
-_oauth_states: dict[str, str] = {}
+_oauth_states: dict[str, dict] = {}
 
 
 def _validate_auth_code(code: str) -> tuple[dict | None, str | None]:
@@ -83,19 +104,26 @@ def _validate_auth_code(code: str) -> tuple[dict | None, str | None]:
 
 
 @router.get("/discord")
-async def discord_oauth_start(request: Request, next: str = "/"):
+async def discord_oauth_start(request: Request, next: str = "/", origin: str | None = None):
     """
     Start Discord OAuth flow.
 
     Redirects user to Discord's authorization page.
-    Stores the 'next' URL in state for redirect after auth.
+    Stores the 'next' URL and origin in state for redirect after auth.
+
+    Args:
+        next: Path to redirect to after auth (default: "/")
+        origin: Frontend origin URL (validated against whitelist)
     """
     if not DISCORD_CLIENT_ID:
         raise HTTPException(500, "Discord OAuth not configured")
 
+    # Validate origin against whitelist
+    validated_origin = _validate_origin(origin)
+
     # Generate state for CSRF protection
     state = secrets.token_urlsafe(32)
-    _oauth_states[state] = next
+    _oauth_states[state] = {"next": next, "origin": validated_origin}
 
     # Build Discord OAuth URL
     params = {
@@ -131,9 +159,13 @@ async def discord_oauth_callback(
         return RedirectResponse(url=f"{FRONTEND_URL}/signup?error=missing_params")
 
     # Validate state (CSRF protection)
-    next_url = _oauth_states.pop(state, None)
-    if next_url is None:
+    state_data = _oauth_states.pop(state, None)
+    if state_data is None:
         return RedirectResponse(url=f"{FRONTEND_URL}/signup?error=invalid_state")
+
+    # Extract origin and next path from state
+    next_url = state_data.get("next", "/")
+    origin = state_data.get("origin", FRONTEND_URL)
 
     if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
         raise HTTPException(500, "Discord OAuth not configured")
@@ -180,26 +212,34 @@ async def discord_oauth_callback(
     # Create JWT and set cookie
     token = create_jwt(discord_id, discord_username)
 
-    response = RedirectResponse(url=f"{FRONTEND_URL}{next_url}")
+    response = RedirectResponse(url=f"{origin}{next_url}")
     set_session_cookie(response, token)
 
     return response
 
 
 @router.get("/code")
-async def validate_auth_code(code: str, next: str = "/"):
+async def validate_auth_code(code: str, next: str = "/", origin: str | None = None):
     """
     Validate a temporary auth code from the Discord bot.
 
     The Discord bot creates codes and stores them in the auth_codes table.
     This endpoint validates the code, marks it as used, and creates a session.
+
+    Args:
+        code: The auth code to validate
+        next: Path to redirect to after auth (default: "/")
+        origin: Frontend origin URL (validated against whitelist)
     """
+    # Validate origin against whitelist
+    redirect_base = _validate_origin(origin)
+
     if not code:
-        return RedirectResponse(url=f"{FRONTEND_URL}/signup?error=missing_code")
+        return RedirectResponse(url=f"{redirect_base}/signup?error=missing_code")
 
     auth_code, error = _validate_auth_code(code)
     if error:
-        return RedirectResponse(url=f"{FRONTEND_URL}/signup?error={error}")
+        return RedirectResponse(url=f"{redirect_base}/signup?error={error}")
 
     # Get or create user
     discord_id = auth_code["discord_id"]
@@ -209,7 +249,7 @@ async def validate_auth_code(code: str, next: str = "/"):
     # Create JWT and set cookie
     token = create_jwt(discord_id, discord_username)
 
-    response = RedirectResponse(url=f"{FRONTEND_URL}{next}")
+    response = RedirectResponse(url=f"{redirect_base}{next}")
     set_session_cookie(response, token)
 
     return response

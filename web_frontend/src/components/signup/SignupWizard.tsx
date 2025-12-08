@@ -23,7 +23,7 @@ export default function SignupWizard() {
     availability: { ...EMPTY_AVAILABILITY },
     timezone: getBrowserTimezone(),
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [_isSubmitting, setIsSubmitting] = useState(false);
 
   // Sync auth state with form data
   useEffect(() => {

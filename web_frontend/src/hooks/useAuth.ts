@@ -85,7 +85,8 @@ export function useAuth(): UseAuthReturn {
   const login = useCallback(() => {
     // Redirect to Discord OAuth, with current path as the return URL
     const next = encodeURIComponent(window.location.pathname);
-    window.location.href = `${API_URL}/auth/discord?next=${next}`;
+    const origin = encodeURIComponent(window.location.origin);
+    window.location.href = `${API_URL}/auth/discord?next=${next}&origin=${origin}`;
   }, []);
 
   const logout = useCallback(async () => {

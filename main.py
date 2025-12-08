@@ -33,6 +33,8 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 # Import bot from discord_bot module
 from discord_bot.main import bot
@@ -127,7 +129,19 @@ app.include_router(users_router)
 
 @app.get("/")
 async def root():
-    """Root endpoint with bot status."""
+    """Serve landing page if it exists, otherwise return API status."""
+    landing_path = project_root / "static" / "landing.html"
+    if landing_path.exists():
+        return FileResponse(landing_path)
+    return {
+        "status": "ok",
+        "bot_ready": bot.is_ready() if bot else False,
+    }
+
+
+@app.get("/api/status")
+async def api_status():
+    """API status endpoint (moved from /)."""
     return {
         "status": "ok",
         "bot_ready": bot.is_ready() if bot else False,
@@ -142,6 +156,21 @@ async def health():
         "bot_connected": bot.is_ready() if bot else False,
         "bot_latency_ms": round(bot.latency * 1000) if bot and bot.is_ready() else None,
     }
+
+
+# SPA routes - serve React app for frontend routes (only if built SPA exists)
+spa_path = project_root / "static" / "spa"
+if spa_path.exists():
+    @app.get("/signup")
+    @app.get("/auth/code")
+    async def spa():
+        """Serve React SPA for frontend routes."""
+        return FileResponse(spa_path / "index.html")
+
+    # Mount static assets from built SPA
+    assets_path = spa_path / "assets"
+    if assets_path.exists():
+        app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
 
 
 if __name__ == "__main__":

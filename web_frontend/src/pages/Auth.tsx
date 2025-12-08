@@ -27,7 +27,8 @@ export default function Auth() {
     }
 
     // Validate code via API
-    fetch(`${API_URL}/auth/code?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`, {
+    const origin = encodeURIComponent(window.location.origin);
+    fetch(`${API_URL}/auth/code?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}&origin=${origin}`, {
       method: "POST",
       credentials: "include",
     })
@@ -61,7 +62,8 @@ export default function Auth() {
   }, [code, next, navigate]);
 
   const handleDiscordLogin = () => {
-    window.location.href = `${API_URL}/auth/discord?next=${encodeURIComponent(next)}`;
+    const origin = encodeURIComponent(window.location.origin);
+    window.location.href = `${API_URL}/auth/discord?next=${encodeURIComponent(next)}&origin=${origin}`;
   };
 
   if (status === "loading") {
