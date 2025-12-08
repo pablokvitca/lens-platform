@@ -9,8 +9,8 @@ from .data import (
     load_courses, save_courses, get_course
 )
 
-# Database (Supabase)
-from .database import get_client, is_configured
+# Database (SQLAlchemy)
+from .database import get_connection, get_transaction, get_engine, close_engine, is_configured
 
 # Constants
 from .constants import DAY_CODES, DAY_NAMES, TIMEZONES
@@ -61,8 +61,8 @@ __all__ = [
     # Data
     'load_data', 'save_data', 'get_user_data', 'save_user_data',
     'load_courses', 'save_courses', 'get_course',
-    # Database (Supabase)
-    'get_client', 'is_configured',
+    # Database (SQLAlchemy)
+    'get_connection', 'get_transaction', 'get_engine', 'close_engine', 'is_configured',
     # Constants
     'DAY_CODES', 'DAY_NAMES', 'TIMEZONES',
     # Timezone

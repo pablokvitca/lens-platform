@@ -1,0 +1,25 @@
+Generic single-database configuration for Alembic.
+
+This directory contains Alembic migration scripts for the AI Safety Course Platform.
+
+## Usage
+
+After setting DATABASE_URL in .env:
+
+    # Mark current database as at baseline
+    alembic stamp 001
+
+    # Create a new migration
+    alembic revision --autogenerate -m "description"
+
+    # Apply all pending migrations
+    alembic upgrade head
+
+    # Rollback one migration
+    alembic downgrade -1
+
+    # Show current revision
+    alembic current
+
+    # Show migration history
+    alembic history

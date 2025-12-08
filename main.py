@@ -30,9 +30,14 @@ sys.path.append(str(project_root / "discord_bot"))
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load .env.local first (if exists), then .env as fallback
+# .env.local is gitignored and used for local dev overrides
+load_dotenv(project_root / ".env.local")  # Local overrides (gitignored)
+load_dotenv()  # Fallback to .env
 
 from fastapi import FastAPI
+
+from core.database import close_engine
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -99,6 +104,7 @@ async def lifespan(app: FastAPI):
     # Graceful shutdown of all peer services
     print("Shutting down peer services...")
     await stop_bot()
+    await close_engine()  # Close database connections
     if _bot_task:
         _bot_task.cancel()
         try:

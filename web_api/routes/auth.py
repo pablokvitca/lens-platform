@@ -11,19 +11,21 @@ Endpoints:
 
 import os
 import secrets
-from datetime import datetime, timezone
+import sys
+from pathlib import Path
 from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
+from sqlalchemy import select
 
-import sys
-from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from core.database import get_client
 from core.auth import get_or_create_user
+from core.database import get_connection, get_transaction
+from core.queries.auth import validate_auth_code
+from core.tables import users
 from web_api.auth import create_jwt, get_current_user, set_session_cookie
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -62,7 +64,7 @@ def _validate_origin(origin: str | None) -> str:
 _oauth_states: dict[str, dict] = {}
 
 
-def _validate_auth_code(code: str) -> tuple[dict | None, str | None]:
+async def _validate_auth_code(code: str) -> tuple[dict | None, str | None]:
     """
     Validate an auth code and mark it as used.
 
@@ -74,37 +76,14 @@ def _validate_auth_code(code: str) -> tuple[dict | None, str | None]:
         If valid, returns (record, None).
         If invalid, returns (None, error_string).
     """
-    supabase = get_client()
-
-    # Look up the code
-    result = (
-        supabase.table("auth_codes")
-        .select("*")
-        .eq("code", code)
-        .is_("used_at", "null")
-        .execute()
-    )
-
-    if not result.data:
-        return None, "invalid_code"
-
-    auth_code = result.data[0]
-
-    # Check if expired
-    expires_at = datetime.fromisoformat(auth_code["expires_at"].replace("Z", "+00:00"))
-    if datetime.now(timezone.utc) > expires_at:
-        return None, "expired_code"
-
-    # Mark code as used
-    supabase.table("auth_codes").update(
-        {"used_at": datetime.now(timezone.utc).isoformat()}
-    ).eq("code_id", auth_code["code_id"]).execute()
-
-    return auth_code, None
+    async with get_transaction() as conn:
+        return await validate_auth_code(conn, code)
 
 
 @router.get("/discord")
-async def discord_oauth_start(request: Request, next: str = "/", origin: str | None = None):
+async def discord_oauth_start(
+    request: Request, next: str = "/", origin: str | None = None
+):
     """
     Start Discord OAuth flow.
 
@@ -207,7 +186,7 @@ async def discord_oauth_callback(
     email = discord_user.get("email")
 
     # Create or update user in database
-    get_or_create_user(discord_id, discord_username, email)
+    await get_or_create_user(discord_id, discord_username, email)
 
     # Create JWT and set cookie
     token = create_jwt(discord_id, discord_username)
@@ -219,7 +198,9 @@ async def discord_oauth_callback(
 
 
 @router.get("/code")
-async def validate_auth_code(code: str, next: str = "/", origin: str | None = None):
+async def validate_auth_code_endpoint(
+    code: str, next: str = "/", origin: str | None = None
+):
     """
     Validate a temporary auth code from the Discord bot.
 
@@ -237,13 +218,13 @@ async def validate_auth_code(code: str, next: str = "/", origin: str | None = No
     if not code:
         return RedirectResponse(url=f"{redirect_base}/signup?error=missing_code")
 
-    auth_code, error = _validate_auth_code(code)
+    auth_code, error = await _validate_auth_code(code)
     if error:
         return RedirectResponse(url=f"{redirect_base}/signup?error={error}")
 
     # Get or create user
     discord_id = auth_code["discord_id"]
-    user = get_or_create_user(discord_id)
+    user = await get_or_create_user(discord_id)
     discord_username = user.get("discord_username") or f"User_{discord_id[:8]}"
 
     # Create JWT and set cookie
@@ -266,13 +247,13 @@ async def validate_auth_code_api(code: str, next: str = "/", response: Response 
     if not code:
         return {"status": "error", "error": "missing_code"}
 
-    auth_code, error = _validate_auth_code(code)
+    auth_code, error = await _validate_auth_code(code)
     if error:
         return {"status": "error", "error": error}
 
     # Get or create user
     discord_id = auth_code["discord_id"]
-    user = get_or_create_user(discord_id)
+    user = await get_or_create_user(discord_id)
     discord_username = user.get("discord_username") or f"User_{discord_id[:8]}"
 
     # Create JWT and set cookie
@@ -298,18 +279,16 @@ async def get_me(request: Request):
     """
     user = await get_current_user(request)
 
-    supabase = get_client()
-    result = (
-        supabase.table("users")
-        .select("*")
-        .eq("discord_id", user["sub"])
-        .execute()
-    )
+    async with get_connection() as conn:
+        result = await conn.execute(
+            select(users).where(users.c.discord_id == user["sub"])
+        )
+        row = result.mappings().first()
 
-    if not result.data:
+    if not row:
         raise HTTPException(404, "User not found in database")
 
-    db_user = result.data[0]
+    db_user = dict(row)
 
     return {
         "discord_id": user["sub"],
