@@ -71,6 +71,274 @@ We believe that by bringing together motivated individuals from diverse backgrou
 
         await interaction.response.send_message(embed=embed)
 
+    @app_commands.command(name="txt", description="Test text file attachment")
+    async def txt_test(self, interaction: discord.Interaction):
+        """Send a long text file as attachment to see how Discord collapses it."""
+        import io
+
+        content = """AI SAFETY FUNDAMENTALS COURSE
+=============================
+
+Welcome to the AI Safety Fundamentals course! This comprehensive program is designed to introduce you to the key concepts, challenges, and ongoing research in AI alignment and safety.
+
+
+CHAPTER 1: INTRODUCTION TO AI SAFETY
+------------------------------------
+
+Artificial intelligence has made remarkable progress in recent years. Systems can now write essays, generate images, play complex games at superhuman levels, and assist with scientific research. As these systems become more capable, questions about their safety and alignment with human values become increasingly important.
+
+The field of AI safety encompasses a broad range of research areas, from technical alignment research to governance and policy considerations. This course will introduce you to the key concepts and ongoing debates in this field.
+
+Why does AI safety matter? Consider the following scenarios:
+
+1. An AI system optimizing for engagement on social media might learn to promote divisive content because it generates more clicks and comments.
+
+2. An AI system trained to maximize a company's profits might find unexpected and potentially harmful ways to achieve that goal.
+
+3. A highly capable AI system might pursue its objectives in ways that conflict with human values, even if those objectives seemed benign when specified.
+
+These examples illustrate a core challenge in AI safety: ensuring that AI systems do what we actually want, not just what we literally asked for.
+
+
+CHAPTER 2: THE ALIGNMENT PROBLEM
+--------------------------------
+
+The alignment problem refers to the challenge of ensuring that AI systems pursue goals that are aligned with human values and intentions. This problem becomes more pressing as AI systems become more capable.
+
+There are several key aspects to the alignment problem:
+
+OUTER ALIGNMENT: This refers to the challenge of specifying the right objective function. Even if an AI system perfectly optimizes for its given objective, that objective might not capture what we actually want.
+
+INNER ALIGNMENT: Even if we specify the right objective, there's no guarantee that the AI system will internally pursue that objective. The system might learn to pursue a different objective that happens to correlate with good performance during training.
+
+ROBUSTNESS: AI systems need to behave safely even in novel situations they weren't explicitly trained for. This includes handling distributional shift, adversarial inputs, and edge cases.
+
+INTERPRETABILITY: To verify that an AI system is aligned, we need to understand how it makes decisions. This is challenging for modern deep learning systems, which are often described as "black boxes."
+
+
+CHAPTER 3: TECHNICAL APPROACHES TO AI SAFETY
+--------------------------------------------
+
+Researchers are pursuing many different technical approaches to AI safety:
+
+REINFORCEMENT LEARNING FROM HUMAN FEEDBACK (RLHF)
+This approach trains AI systems using human preferences as a reward signal. Instead of specifying a fixed reward function, humans provide feedback on the AI's outputs, and the system learns to produce outputs that humans prefer.
+
+CONSTITUTIONAL AI
+This approach trains AI systems to follow a set of principles or "constitution." The system learns to evaluate its own outputs against these principles and modify its behavior accordingly.
+
+INTERPRETABILITY RESEARCH
+This research aims to understand how AI systems make decisions. Techniques include probing neural networks, analyzing attention patterns, and developing methods to explain model outputs.
+
+FORMAL VERIFICATION
+This approach uses mathematical proofs to verify that AI systems satisfy certain safety properties. While powerful, it's currently limited to relatively simple systems.
+
+RED TEAMING
+This involves actively trying to find failures and vulnerabilities in AI systems. By identifying problems before deployment, developers can improve system safety.
+
+
+CHAPTER 4: GOVERNANCE AND POLICY
+--------------------------------
+
+Technical solutions alone are not sufficient for AI safety. Governance and policy play crucial roles:
+
+REGULATION: Governments are beginning to develop regulations for AI systems, particularly in high-risk domains like healthcare and autonomous vehicles.
+
+STANDARDS: Industry groups and standards organizations are developing best practices for AI development and deployment.
+
+INTERNATIONAL COORDINATION: Given the global nature of AI development, international cooperation is essential for effective governance.
+
+CORPORATE RESPONSIBILITY: AI companies have significant influence over how AI is developed and deployed. Their choices about safety investments and deployment practices matter enormously.
+
+
+CHAPTER 5: EXISTENTIAL RISK
+---------------------------
+
+Some researchers are concerned about existential risk from advanced AI - the possibility that highly capable AI systems could pose a threat to humanity's long-term survival.
+
+Key concerns include:
+
+LOSS OF CONTROL: As AI systems become more capable, we might lose the ability to correct their behavior if something goes wrong.
+
+RAPID CAPABILITY GAINS: AI capabilities might improve faster than our ability to ensure safety, creating a dangerous gap.
+
+COMPETITIVE PRESSURES: Organizations might cut corners on safety in order to deploy AI systems faster than competitors.
+
+CONCENTRATION OF POWER: Advanced AI could enable unprecedented concentration of power, with potentially negative consequences.
+
+Not all researchers agree about the severity of these risks or the timeline over which they might materialize. However, many believe that taking these concerns seriously and investing in safety research now is prudent.
+
+
+CHAPTER 6: WHAT YOU CAN DO
+--------------------------
+
+There are many ways to contribute to AI safety:
+
+TECHNICAL RESEARCH: If you have a technical background, consider working on alignment research, interpretability, or other safety-relevant areas.
+
+POLICY AND GOVERNANCE: Help develop sensible regulations and governance frameworks for AI.
+
+COMMUNICATION: Help communicate AI safety concepts to broader audiences.
+
+CAREER CHOICES: Consider how your career choices might impact AI safety, whether in AI development, policy, journalism, or other fields.
+
+CONTINUED LEARNING: Stay informed about developments in AI and AI safety.
+
+
+COURSE LOGISTICS
+----------------
+
+Duration: 8 weeks
+Time Commitment: 2-3 hours per week
+Format: Weekly readings + group discussion
+Cohort Size: 4-6 participants
+Prerequisites: None required
+
+Each week includes:
+- Required readings (1-2 hours)
+- Optional supplementary materials
+- Group discussion session (1 hour)
+- Reflection questions
+
+Topics by week:
+Week 1: Introduction to AI Safety
+Week 2: The Alignment Problem
+Week 3: Current AI Systems and Their Limitations
+Week 4: Technical Approaches (Part 1)
+Week 5: Technical Approaches (Part 2)
+Week 6: Governance and Policy
+Week 7: Long-term Risks and Benefits
+Week 8: Careers and Next Steps
+
+
+RESOURCES
+---------
+
+Course Website: https://aisafetyfundamentals.com/
+Stampy AI FAQ: https://stampy.ai/
+Alignment Forum: https://alignmentforum.org/
+AI Safety Camp: https://aisafety.camp/
+80,000 Hours AI Safety Guide: https://80000hours.org/problem-profiles/artificial-intelligence/
+
+
+QUOTES TO CONSIDER
+------------------
+
+"The development of full artificial intelligence could spell the end of the human race. It would take off on its own, and re-design itself at an ever increasing rate."
+— Stephen Hawking
+
+"We need to be super careful with AI. Potentially more dangerous than nukes."
+— Elon Musk
+
+"I think we should be very careful about artificial intelligence. If I had to guess at what our biggest existential threat is, it's probably that."
+— Elon Musk
+
+"The real question is, when will we draft an artificial intelligence bill of rights? What will that consist of? And who will get to decide that?"
+— Gray Scott
+
+"By far the greatest danger of Artificial Intelligence is that people conclude too early that they understand it."
+— Eliezer Yudkowsky
+
+
+Sign up with /signup to join a cohort and start learning!
+"""
+
+        # Create a file-like object from the string
+        file = discord.File(io.StringIO(content), filename="ai_safety_course_info.txt")
+
+        await interaction.response.send_message("Here's the course information:", file=file)
+
+    @app_commands.command(name="spoiler", description="Test spoiler text")
+    async def spoiler_test(self, interaction: discord.Interaction):
+        """Send a long spoiler text to see how Discord handles it."""
+        message = """**AI Safety Course - Click to reveal spoilers!**
+
+||The alignment problem refers to the challenge of ensuring that AI systems pursue goals that are aligned with human values and intentions. This problem becomes more pressing as AI systems become more capable.
+
+There are several key aspects to the alignment problem:
+
+OUTER ALIGNMENT: This refers to the challenge of specifying the right objective function. Even if an AI system perfectly optimizes for its given objective, that objective might not capture what we actually want.
+
+INNER ALIGNMENT: Even if we specify the right objective, there's no guarantee that the AI system will internally pursue that objective. The system might learn to pursue a different objective that happens to correlate with good performance during training.
+
+ROBUSTNESS: AI systems need to behave safely even in novel situations they weren't explicitly trained for. This includes handling distributional shift, adversarial inputs, and edge cases.
+
+INTERPRETABILITY: To verify that an AI system is aligned, we need to understand how it makes decisions. This is challenging for modern deep learning systems, which are often described as "black boxes."
+
+Some researchers are concerned about existential risk from advanced AI - the possibility that highly capable AI systems could pose a threat to humanity's long-term survival.
+
+Key concerns include:
+• Loss of control as AI systems become more capable
+• Rapid capability gains outpacing safety measures
+• Competitive pressures leading to corner-cutting on safety
+• Unprecedented concentration of power
+
+"By far the greatest danger of Artificial Intelligence is that people conclude too early that they understand it." — Eliezer Yudkowsky||"""
+
+        await interaction.response.send_message(message)
+
+    @app_commands.command(name="collapse", description="Test collapsible content with buttons")
+    async def collapse_test(self, interaction: discord.Interaction):
+        """Demonstrate expand/collapse behavior using buttons."""
+        view = CollapseView()
+        await interaction.response.send_message(
+            content=view.get_collapsed_content(),
+            view=view
+        )
+
+
+class CollapseView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=300)  # 5 minute timeout
+        self.expanded = False
+        self.summary = "**AI Safety Fundamentals Course**\nClick below to expand details..."
+        self.details = """**AI Safety Fundamentals Course**
+
+The alignment problem refers to the challenge of ensuring that AI systems pursue goals that are aligned with human values and intentions. This problem becomes more pressing as AI systems become more capable.
+
+**Key aspects of the alignment problem:**
+
+• **Outer Alignment:** The challenge of specifying the right objective function. Even if an AI system perfectly optimizes for its given objective, that objective might not capture what we actually want.
+
+• **Inner Alignment:** Even if we specify the right objective, there's no guarantee that the AI system will internally pursue that objective.
+
+• **Robustness:** AI systems need to behave safely even in novel situations they weren't explicitly trained for.
+
+• **Interpretability:** To verify that an AI system is aligned, we need to understand how it makes decisions.
+
+**Existential Risk Concerns:**
+• Loss of control as AI systems become more capable
+• Rapid capability gains outpacing safety measures
+• Competitive pressures leading to corner-cutting on safety
+• Unprecedented concentration of power
+
+**Course Details:**
+• Duration: 8 weeks
+• Time Commitment: 2-3 hours per week
+• Cohort Size: 4-6 participants
+• Prerequisites: None required
+
+*"By far the greatest danger of Artificial Intelligence is that people conclude too early that they understand it."* — Eliezer Yudkowsky"""
+
+    def get_collapsed_content(self):
+        return self.summary
+
+    def get_expanded_content(self):
+        return self.details
+
+    @discord.ui.button(label="▼ Expand", style=discord.ButtonStyle.primary)
+    async def toggle_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.expanded = not self.expanded
+
+        if self.expanded:
+            button.label = "▲ Collapse"
+            content = self.get_expanded_content()
+        else:
+            button.label = "▼ Expand"
+            content = self.get_collapsed_content()
+
+        await interaction.response.edit_message(content=content, view=self)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(PingCog(bot))
