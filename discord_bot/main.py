@@ -32,6 +32,7 @@ COGS = [
     "cogs.enrollment_cog",
     "cogs.scheduler_cog",
     "cogs.cohorts_cog",
+    "cogs.stampy_cog",
     # "cogs.meetings_cog",  # Temporarily disabled
 ]
 
