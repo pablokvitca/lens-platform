@@ -16,6 +16,13 @@ STAMPY_NAME = "Stampy"
 STAMPY_AVATAR = "https://stampy.ai/images/stampy-logo.png"
 
 
+def format_thinking(text: str, prefix: str = "*Thinking...*") -> str:
+    """Format thinking text with quote+subtext styling."""
+    lines = text.split('\n')
+    formatted = '\n'.join(f'> -# {line}' if line.strip() else '> ' for line in lines)
+    return f"{prefix}\n{formatted}"
+
+
 class StampyCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -77,6 +84,9 @@ class StampyCog(commands.Cog):
         webhook = await self._get_webhook(message.channel)
         print(f"[Stampy] Got webhook, sending initial thinking message...")
 
+        # Char limit for formatted content (leave room for prefix/suffix)
+        THINKING_CHAR_LIMIT = 1800
+
         # Initial thinking message
         thinking_msg = await webhook.send(
             "*Thinking...*",
@@ -86,38 +96,64 @@ class StampyCog(commands.Cog):
         )
         print(f"[Stampy] Sent thinking message: {thinking_msg.id}")
 
+        thinking_msgs = [thinking_msg]  # Track all thinking messages
         thinking_chunks = []
+        thinking_finalized_chars = 0  # How many chars already in finalized messages
         answer_chunks = []
         answer_msg = None
-        last_thinking_len = 0
+        last_thinking_update = 0
         last_answer_len = 0
 
         try:
             async for state, content in stampy.ask(message.content):
                 if state == "thinking":
                     thinking_chunks.append(content)
-                    current = "".join(thinking_chunks)
-                    # Update every 300 chars
-                    if len(current) - last_thinking_len > 300:
-                        display = current[:1950] + "..." if len(current) > 1950 else current
-                        await thinking_msg.edit(content=f"*Thinking...*\n{display}")
-                        last_thinking_len = len(current)
+                    full_thinking = "".join(thinking_chunks)
+                    current_msg_content = full_thinking[thinking_finalized_chars:]
+
+                    # Check if we need a continuation message
+                    if len(current_msg_content) > THINKING_CHAR_LIMIT:
+                        # Finalize current thinking message
+                        finalize_text = current_msg_content[:THINKING_CHAR_LIMIT]
+                        display = format_thinking(finalize_text, "*Thinking:*")
+                        await thinking_msgs[-1].edit(content=display)
+                        thinking_finalized_chars += len(finalize_text)
+
+                        # Start new continuation message
+                        remaining = current_msg_content[THINKING_CHAR_LIMIT:]
+                        new_msg = await webhook.send(
+                            format_thinking(remaining[:THINKING_CHAR_LIMIT], "*Thinking (continued)...*"),
+                            username=STAMPY_NAME,
+                            avatar_url=STAMPY_AVATAR,
+                            wait=True,
+                        )
+                        thinking_msgs.append(new_msg)
+                        last_thinking_update = len(full_thinking)
+                        print(f"[Stampy] Created thinking continuation message #{len(thinking_msgs)}")
+
+                    # Update every 100 chars
+                    elif len(full_thinking) - last_thinking_update > 100:
+                        prefix = "*Thinking...*" if len(thinking_msgs) == 1 else "*Thinking (continued)...*"
+                        display = format_thinking(current_msg_content, prefix)
+                        await thinking_msgs[-1].edit(content=display)
+                        last_thinking_update = len(full_thinking)
 
                 elif state == "streaming":
                     # First streaming chunk - finalize thinking, start answer
                     if answer_msg is None:
-                        # Finalize thinking message
+                        # Finalize all thinking messages
                         final_thinking = "".join(thinking_chunks)
                         if final_thinking:
-                            display = f"*Thinking:*\n{final_thinking[:1950]}"
-                            if len(final_thinking) > 1950:
-                                display += "..."
-                            await thinking_msg.edit(content=display)
-                            print(f"[Stampy] Finalized thinking: {len(final_thinking)} chars")
+                            # Finalize the last thinking message
+                            current_msg_content = final_thinking[thinking_finalized_chars:]
+                            prefix = "*Thinking:*" if len(thinking_msgs) == 1 else "*Thinking (continued):*"
+                            display = format_thinking(current_msg_content, prefix)
+                            await thinking_msgs[-1].edit(content=display)
+                            print(f"[Stampy] Finalized thinking: {len(final_thinking)} chars in {len(thinking_msgs)} message(s)")
                         else:
-                            await thinking_msg.edit(content="*(No thinking content)*")
+                            await thinking_msgs[-1].edit(content="*(No thinking content)*")
 
-                        # Start answer message with clear header
+                        # Start answer message
                         answer_msg = await webhook.send(
                             "**Answer:**\nGenerating...",
                             username=STAMPY_NAME,
@@ -128,7 +164,8 @@ class StampyCog(commands.Cog):
 
                     answer_chunks.append(content)
                     current = "".join(answer_chunks)
-                    if len(current) - last_answer_len > 300:
+                    # Update every 100 chars
+                    if len(current) - last_answer_len > 100:
                         display = current[:1990] + "..." if len(current) > 1990 else current
                         await answer_msg.edit(content=display)
                         last_answer_len = len(current)
@@ -138,7 +175,6 @@ class StampyCog(commands.Cog):
             print(f"[Stampy] Got {len(final_answer)} chars of answer")
 
             if answer_msg:
-                # Prefix with "Answer:" header
                 header = "**Answer:**\n"
                 if len(header + final_answer) > 2000:
                     await answer_msg.edit(content=header + final_answer[:1990-len(header)] + "...")
@@ -152,7 +188,7 @@ class StampyCog(commands.Cog):
                     await answer_msg.edit(content=header + final_answer if final_answer else "No response received")
             else:
                 # No streaming content received, just thinking
-                await thinking_msg.edit(content="*(No answer received - only thinking)*")
+                await thinking_msgs[-1].edit(content="*(No answer received - only thinking)*")
 
         except Exception as e:
             print(f"[Stampy] Error streaming: {e}")
@@ -160,7 +196,7 @@ class StampyCog(commands.Cog):
             if answer_msg:
                 await answer_msg.edit(content=f"Error: {str(e)}")
             else:
-                await thinking_msg.edit(content=f"Error: {str(e)}")
+                await thinking_msgs[-1].edit(content=f"Error: {str(e)}")
 
 
 async def setup(bot):
