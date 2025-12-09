@@ -51,6 +51,7 @@ from web_api.routes.users import router as users_router
 
 # Track bot task for cleanup
 _bot_task: asyncio.Task | None = None
+_vite_process: asyncio.subprocess.Process | None = None
 
 
 async def start_bot():
@@ -84,12 +85,72 @@ async def stop_bot():
         print("Discord bot stopped")
 
 
+async def start_vite_dev():
+    """
+    Start Vite dev server as subprocess.
+
+    Only runs when DEV_MODE is enabled (via --dev flag).
+    The Vite server provides HMR for frontend development.
+    Port is read from VITE_PORT env var (default: 5173).
+    """
+    global _vite_process
+
+    if os.getenv("DEV_MODE", "").lower() not in ("true", "1", "yes"):
+        return
+
+    port = int(os.getenv("VITE_PORT", "5173"))
+
+    try:
+        _vite_process = await asyncio.create_subprocess_exec(
+            "npm",
+            "run",
+            "dev",
+            "--",
+            "--port",
+            str(port),
+            cwd=project_root / "web_frontend",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        print(f"Vite dev server started on port {port} (PID {_vite_process.pid})")
+
+        # Stream Vite output (don't await - let it run in background)
+        asyncio.create_task(_stream_vite_output())
+    except Exception as e:
+        print(f"Failed to start Vite dev server: {e}")
+
+
+async def _stream_vite_output():
+    """Stream Vite subprocess output to console."""
+    if _vite_process and _vite_process.stdout:
+        async for line in _vite_process.stdout:
+            print(f"[vite] {line.decode().rstrip()}")
+
+
+async def stop_vite_dev():
+    """Stop Vite dev server gracefully."""
+    global _vite_process
+
+    if _vite_process:
+        try:
+            _vite_process.terminate()
+            await asyncio.wait_for(_vite_process.wait(), timeout=5.0)
+            print("Vite dev server stopped")
+        except ProcessLookupError:
+            # Process already exited
+            print("Vite dev server already stopped")
+        except asyncio.TimeoutError:
+            _vite_process.kill()
+            print("Vite dev server killed (timeout)")
+        _vite_process = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     FastAPI lifespan context manager.
 
-    Starts peer services (Discord bot, future scheduler) as background tasks.
+    Starts peer services (Discord bot, Vite dev server) as background tasks.
     They run concurrently with FastAPI in the same event loop.
     """
     global _bot_task
@@ -97,12 +158,15 @@ async def lifespan(app: FastAPI):
     # Start peer services as background tasks
     print("Starting Discord bot...")
     _bot_task = asyncio.create_task(start_bot())
-    # Future: scheduler_task = asyncio.create_task(start_scheduler())
+
+    # Start Vite dev server if in dev mode
+    await start_vite_dev()
 
     yield  # FastAPI runs here, bot runs alongside it
 
     # Graceful shutdown of all peer services
     print("Shutting down peer services...")
+    await stop_vite_dev()
     await stop_bot()
     await close_engine()  # Close database connections
     if _bot_task:
@@ -139,12 +203,17 @@ app.include_router(auth_router)
 app.include_router(users_router)
 
 
+# New paths for static files
+static_path = project_root / "web_frontend" / "static"  # Truly static HTML (landing page)
+spa_path = project_root / "web_frontend" / "dist"  # React SPA build
+
+
 @app.get("/")
 async def root():
     """Serve landing page if it exists, otherwise return API status."""
-    landing_path = project_root / "static" / "landing.html"
-    if landing_path.exists():
-        return FileResponse(landing_path)
+    landing_file = static_path / "landing.html"
+    if landing_file.exists():
+        return FileResponse(landing_file)
     return {
         "status": "ok",
         "bot_ready": bot.is_ready() if bot else False,
@@ -170,9 +239,10 @@ async def health():
     }
 
 
-# SPA routes - serve React app for frontend routes (only if built SPA exists)
-spa_path = project_root / "static" / "spa"
-if spa_path.exists():
+# SPA routes - serve React app for frontend routes (only in production, not dev mode)
+dev_mode = os.getenv("DEV_MODE", "").lower() in ("true", "1", "yes")
+if spa_path.exists() and not dev_mode:
+
     @app.get("/signup")
     @app.get("/auth/code")
     async def spa():
@@ -201,11 +271,27 @@ if __name__ == "__main__":
         default=8000,
         help="Port to run the server on (default: 8000)",
     )
+    parser.add_argument(
+        "--dev",
+        action="store_true",
+        help="Enable dev mode: spawns Vite dev server with HMR",
+    )
+    parser.add_argument(
+        "--vite-port",
+        type=int,
+        default=5173,
+        help="Port for Vite dev server (default: 5173, only used with --dev)",
+    )
     args = parser.parse_args()
 
-    # Set env var so it persists across uvicorn reloads
+    # Set env vars so they persist across uvicorn reloads
     if args.no_bot:
         os.environ["DISABLE_DISCORD_BOT"] = "true"
+    if args.dev:
+        os.environ["DEV_MODE"] = "true"
+        os.environ["VITE_PORT"] = str(args.vite_port)
+        print(f"Dev mode enabled - Vite will run on port {args.vite_port}")
+        print(f"Access frontend at: http://localhost:{args.vite_port}")
 
     # Run with uvicorn
     # Pass app object directly (not string) to avoid module reimport issues

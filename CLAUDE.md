@@ -14,6 +14,11 @@ python main.py --no-bot             # Without Discord bot
 python main.py --port 8001          # Custom port
 python main.py --no-bot --port 8001 # Both options
 
+# Development mode (spawns Vite dev server with HMR):
+python main.py --dev                # FastAPI :8000 + Vite :5173
+python main.py --dev --no-bot       # Without Discord bot
+python main.py --dev --vite-port 5174  # Custom Vite port
+
 # Requires .env with:
 #   DISCORD_BOT_TOKEN=your_token
 #   DATABASE_URL=postgresql://...
@@ -21,13 +26,24 @@ python main.py --no-bot --port 8001 # Both options
 
 **Web Frontend (React/Vite):**
 
-Only needed when you want to run only the frontend without the backend. With python main.py, the frontend is automatically included.
+In dev mode (`--dev`), Vite is spawned automatically. Access the frontend at `http://localhost:5173` for HMR.
+
+For manual frontend-only development:
 
 ```bash
 cd web_frontend
 npm install
 npm run dev                       # Serves on localhost:5173
 ```
+
+### Workspace-Specific Ports
+
+When running multiple workspaces simultaneously, use different ports to avoid conflicts:
+
+| Workspace | FastAPI | Vite | Command |
+|-----------|---------|------|---------|
+| WS1 (ai-safety-course-platform) | 8000 | 5173 | `python main.py --dev` |
+| WS2 | 8001 | 5174 | `python main.py --dev --port 8001 --vite-port 5174` |
 
 **Tests:**
 
