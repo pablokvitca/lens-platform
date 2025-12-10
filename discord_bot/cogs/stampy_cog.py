@@ -103,40 +103,6 @@ def format_refs_inline(text: str, ref_to_display: dict[str, str] = None) -> str:
     return re.sub(r'\[([\d,\s]+)\]', replace_refs, text)
 
 
-INITIAL_PADDING_PAIRS = 450  # Starting number of padding groups (each is 4 chars: 3 braille + 1 space)
-SPACE_PAIRS_PER_CHAR_RATIO = 0.12  # Remove ~0.12 pairs per character (each pair is now 4 chars: 3 braille + 1 space)
-BRAILLE_BLANK = '\u2800'  # Braille blank (wider than regular space)
-INITIAL_TRAILING_NEWLINES = 10  # Starting newlines for paragraph breaks
-
-
-def pad_with_space_reservoir(text: str, initial_pairs: int = INITIAL_PADDING_PAIRS) -> str:
-    """Pad text with trailing braille+space pairs and newlines.
-
-    Uses 3 braille blanks + 1 regular space per padding unit.
-    Also adds trailing newlines to compensate for paragraph breaks (\n\n) in text.
-    Ends with a dot since Discord trims trailing whitespace.
-    """
-    # Calculate how many pairs to remove based on text length
-    pairs_to_remove = int(len(text) * SPACE_PAIRS_PER_CHAR_RATIO)
-    remaining_pairs = max(0, initial_pairs - pairs_to_remove)
-
-    # Count double newlines in text, remove one trailing newline for each
-    double_newlines = text.count('\n\n')
-    remaining_newlines = max(0, INITIAL_TRAILING_NEWLINES - double_newlines)
-
-    result = text
-    if remaining_pairs > 0:
-        padding = (BRAILLE_BLANK * 3 + ' ') * remaining_pairs
-        result += padding
-
-    # Add trailing newlines
-    if remaining_newlines > 0:
-        result += '\n' * remaining_newlines
-
-    result += "."  # Trailing dot to prevent Discord trimming
-    return result
-
-
 class ThinkingExpandView(discord.ui.View):
     """View with button to expand/collapse full thinking - works during and after streaming."""
     def __init__(self):
@@ -363,7 +329,7 @@ class StampyCog(commands.Cog):
                             if not answer_msg_precreated and num_lines >= MIN_LINES_FOR_BUTTON:
                                 t0 = time.time()
                                 answer_msg = await webhook.send(
-                                    pad_with_space_reservoir(""),  # Start with just padding
+                                    "...",
                                     username=STAMPY_NAME,
                                     avatar_url=STAMPY_AVATAR,
                                     wait=True,
@@ -411,7 +377,7 @@ class StampyCog(commands.Cog):
                             print(f"[Timing] Answer message not pre-created, creating now...")
                             t0 = time.time()
                             answer_msg = await webhook.send(
-                                pad_with_space_reservoir(""),
+                                "...",
                                 username=STAMPY_NAME,
                                 avatar_url=STAMPY_AVATAR,
                                 wait=True,
@@ -434,8 +400,6 @@ class StampyCog(commands.Cog):
                     if now - last_answer_update >= SCROLL_UPDATE_INTERVAL:
                         # Format references inline during streaming
                         display = format_refs_inline(current)
-                        # Pad with space reservoir to prevent message jumping
-                        display = pad_with_space_reservoir(display)
                         display = display[:1990] + "..." if len(display) > 1990 else display
                         try:
                             t0 = time.time()
