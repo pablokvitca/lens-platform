@@ -6,10 +6,15 @@ import Availability from "./pages/Availability";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import InteractiveLesson from "./pages/InteractiveLesson";
+import ArticleLesson from "./pages/ArticleLesson";
 
 function App() {
   return (
     <Routes>
+      {/* Full-screen prototypes (no Layout) */}
+      <Route path="/prototype/article-lesson" element={<ArticleLesson />} />
+
+      {/* Standard pages with Layout */}
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/signup" element={<Signup />} />
