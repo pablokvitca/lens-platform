@@ -1,135 +1,195 @@
 """
 User enrollment and profile management.
+
+All functions are async and use the database.
 """
 
-from .data import load_data, get_user_data, save_user_data
+import json
+from typing import Any
+
+from .database import get_connection, get_transaction
+from .queries import users as user_queries
+from .scheduling import Person, parse_interval_string
+from .constants import DAY_CODES
 
 
-def get_user_profile(user_id: str) -> dict:
+async def get_user_profile(discord_id: str) -> dict[str, Any] | None:
     """
     Get a user's full profile.
 
+    Args:
+        discord_id: Discord user ID
+
     Returns:
-        User profile dict or empty dict if not found
+        User profile dict or None if not found
     """
-    return get_user_data(user_id)
+    async with get_connection() as conn:
+        return await user_queries.get_user_profile(conn, discord_id)
 
 
-def save_user_profile(
-    user_id: str,
-    name: str = None,
-    courses: list = None,
-    experience: str = None,
+async def save_user_profile(
+    discord_id: str,
+    nickname: str = None,
     timezone: str = None,
-    availability: dict = None,
-    if_needed: dict = None,
-    is_facilitator: bool = None
-) -> dict:
+    availability_utc: str = None,
+    if_needed_availability_utc: str = None,
+) -> dict[str, Any]:
     """
     Save or update a user's profile.
 
     Args:
-        user_id: User ID
-        name: Display name
-        courses: List of course IDs
-        experience: Experience level (beginner/intermediate/advanced)
+        discord_id: Discord user ID
+        nickname: Display name
         timezone: Timezone string (e.g., "America/New_York")
-        availability: Dict of day -> list of time slots (in UTC)
-        if_needed: Dict of day -> list of if-needed time slots (in UTC)
-        is_facilitator: Whether user is a facilitator
+        availability_utc: JSON string of day -> list of time slots (in UTC)
+        if_needed_availability_utc: JSON string of if-needed slots (in UTC)
 
     Returns:
         Updated user profile
     """
-    user_data = get_user_data(user_id)
-
-    if name is not None:
-        user_data["name"] = name
-    if courses is not None:
-        user_data["courses"] = courses
-    if experience is not None:
-        user_data["experience"] = experience
+    fields = {}
+    if nickname is not None:
+        fields["nickname"] = nickname
     if timezone is not None:
-        user_data["timezone"] = timezone
-    if availability is not None:
-        user_data["availability"] = availability
-    if if_needed is not None:
-        user_data["if_needed"] = if_needed
-    if is_facilitator is not None:
-        user_data["is_facilitator"] = is_facilitator
+        fields["timezone"] = timezone
+    if availability_utc is not None:
+        fields["availability_utc"] = availability_utc
+    if if_needed_availability_utc is not None:
+        fields["if_needed_availability_utc"] = if_needed_availability_utc
 
-    save_user_data(user_id, user_data)
-    return user_data
+    async with get_transaction() as conn:
+        return await user_queries.save_user_profile(conn, discord_id, **fields)
 
 
-def get_enrolled_users(course_id: str = None) -> dict:
-    """
-    Get all enrolled users, optionally filtered by course.
-
-    Args:
-        course_id: If provided, only return users in this course
-
-    Returns:
-        Dict of user_id -> user_data
-    """
-    all_users = load_data()
-
-    if course_id is None:
-        return all_users
-
-    return {
-        user_id: data
-        for user_id, data in all_users.items()
-        if course_id in data.get("courses", [])
-    }
-
-
-def get_users_with_availability() -> dict:
+async def get_users_with_availability() -> list[dict[str, Any]]:
     """
     Get all users who have set availability.
 
     Returns:
-        Dict of user_id -> user_data for users with availability
+        List of user dicts for users with availability
     """
-    all_users = load_data()
-
-    return {
-        user_id: data
-        for user_id, data in all_users.items()
-        if data.get("availability") or data.get("if_needed")
-    }
+    async with get_connection() as conn:
+        return await user_queries.get_all_users_with_availability(conn)
 
 
-def get_facilitators() -> dict:
+async def get_facilitators() -> list[dict[str, Any]]:
     """
     Get all users marked as facilitators.
 
     Returns:
-        Dict of user_id -> user_data for facilitators
+        List of user dicts for facilitators
     """
-    all_users = load_data()
-
-    return {
-        user_id: data
-        for user_id, data in all_users.items()
-        if data.get("is_facilitator", False)
-    }
+    async with get_connection() as conn:
+        return await user_queries.get_facilitators(conn)
 
 
-def toggle_facilitator(user_id: str) -> bool:
+async def toggle_facilitator(discord_id: str) -> bool:
     """
     Toggle a user's facilitator status.
 
+    Args:
+        discord_id: Discord user ID
+
     Returns:
-        New facilitator status (True/False)
+        New facilitator status (True/False), or False if user doesn't exist
     """
-    user_data = get_user_data(user_id)
+    async with get_transaction() as conn:
+        return await user_queries.toggle_facilitator(conn, discord_id)
 
-    if not user_data:
-        return False
 
-    current_status = user_data.get("is_facilitator", False)
-    user_data["is_facilitator"] = not current_status
-    save_user_data(user_id, user_data)
+async def is_facilitator(discord_id: str) -> bool:
+    """
+    Check if a user is a facilitator.
 
-    return not current_status
+    Args:
+        discord_id: Discord user ID
+
+    Returns:
+        True if user is a facilitator, False otherwise
+    """
+    async with get_connection() as conn:
+        return await user_queries.is_facilitator(conn, discord_id)
+
+
+async def get_people_for_scheduling() -> tuple[list[Person], dict[str, dict]]:
+    """
+    Get all users with availability as Person objects for scheduling.
+
+    Also returns the raw user data dict for facilitator checking.
+
+    Returns:
+        Tuple of (list of Person objects, dict of discord_id -> user data)
+    """
+    async with get_connection() as conn:
+        users = await user_queries.get_all_users_with_availability(conn)
+        facilitator_list = await user_queries.get_facilitators(conn)
+
+    # Create set of facilitator discord_ids for quick lookup
+    facilitator_discord_ids = {f["discord_id"] for f in facilitator_list}
+
+    people = []
+    user_data_dict = {}
+
+    for user in users:
+        discord_id = user.get("discord_id")
+        if not discord_id:
+            continue
+
+        # Parse availability from JSON strings
+        availability_str = user.get("availability_utc")
+        if_needed_str = user.get("if_needed_availability_utc")
+
+        availability = json.loads(availability_str) if availability_str else {}
+        if_needed = json.loads(if_needed_str) if if_needed_str else {}
+
+        if not availability and not if_needed:
+            continue
+
+        # Convert availability dict to interval strings, then parse to tuples
+        interval_strs = []
+        for day, slots in availability.items():
+            day_code = DAY_CODES.get(day, day[0])
+            for slot in sorted(slots):
+                hour = int(slot.split(":")[0])
+                end_hour = hour + 1
+                interval_str = f"{day_code}{slot} {day_code}{end_hour:02d}:00"
+                interval_strs.append(interval_str)
+
+        # Parse interval strings to (start_minutes, end_minutes) tuples
+        intervals = parse_interval_string(", ".join(interval_strs)) if interval_strs else []
+
+        # Convert if_needed dict to interval strings, then parse to tuples
+        if_needed_strs = []
+        for day, slots in if_needed.items():
+            day_code = DAY_CODES.get(day, day[0])
+            for slot in sorted(slots):
+                hour = int(slot.split(":")[0])
+                end_hour = hour + 1
+                interval_str = f"{day_code}{slot} {day_code}{end_hour:02d}:00"
+                if_needed_strs.append(interval_str)
+
+        if_needed_intervals = parse_interval_string(", ".join(if_needed_strs)) if if_needed_strs else []
+
+        # Get name
+        name = user.get("nickname") or user.get("discord_username") or f"User_{discord_id[:8]}"
+
+        # Create Person object
+        person = Person(
+            id=discord_id,
+            name=name,
+            intervals=intervals,
+            if_needed_intervals=if_needed_intervals,
+            timezone=user.get("timezone", "UTC"),
+            courses=[],  # Course enrollment handled separately
+            experience=None
+        )
+        people.append(person)
+
+        # Store user data for facilitator checking
+        user_data_dict[discord_id] = {
+            "name": name,
+            "timezone": user.get("timezone", "UTC"),
+            "is_facilitator": discord_id in facilitator_discord_ids,
+        }
+
+    return people, user_data_dict

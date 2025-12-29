@@ -3,10 +3,10 @@
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from ..tables import users
+from ..tables import facilitators, users
 
 
 async def get_user_by_discord_id(
@@ -93,3 +93,152 @@ async def get_or_create_user(
         return existing
 
     return await create_user(conn, discord_id, discord_username, email, email_verified)
+
+
+async def get_user_profile(
+    conn: AsyncConnection,
+    discord_id: str,
+) -> dict[str, Any] | None:
+    """
+    Get a user's full profile by Discord ID.
+
+    Returns user data as a dict, or None if not found.
+    """
+    return await get_user_by_discord_id(conn, discord_id)
+
+
+async def save_user_profile(
+    conn: AsyncConnection,
+    discord_id: str,
+    **fields: Any,
+) -> dict[str, Any]:
+    """
+    Save or update a user's profile.
+
+    Creates user if they don't exist, otherwise updates.
+    Supported fields: nickname, timezone, availability_utc, if_needed_availability_utc
+    """
+    existing = await get_user_by_discord_id(conn, discord_id)
+
+    if existing:
+        # Filter to only valid user columns
+        valid_fields = {
+            k: v for k, v in fields.items()
+            if k in (
+                "nickname", "timezone", "availability_utc",
+                "if_needed_availability_utc", "email", "discord_username"
+            )
+        }
+        if valid_fields:
+            return await update_user(conn, discord_id, **valid_fields)
+        return existing
+
+    # Create new user with provided fields
+    return await create_user(
+        conn,
+        discord_id,
+        discord_username=fields.get("discord_username"),
+        email=fields.get("email"),
+    )
+
+
+async def get_all_users_with_availability(
+    conn: AsyncConnection,
+) -> list[dict[str, Any]]:
+    """
+    Get all users who have set availability.
+
+    Returns list of user dicts where availability_utc or if_needed_availability_utc is set.
+    """
+    result = await conn.execute(
+        select(users).where(
+            (users.c.availability_utc.isnot(None)) |
+            (users.c.if_needed_availability_utc.isnot(None))
+        )
+    )
+    return [dict(row) for row in result.mappings()]
+
+
+async def get_users_by_discord_ids(
+    conn: AsyncConnection,
+    discord_ids: list[str],
+) -> list[dict[str, Any]]:
+    """
+    Get multiple users by their Discord IDs.
+
+    Returns list of user dicts for found users.
+    """
+    if not discord_ids:
+        return []
+
+    result = await conn.execute(
+        select(users).where(users.c.discord_id.in_(discord_ids))
+    )
+    return [dict(row) for row in result.mappings()]
+
+
+async def get_facilitators(
+    conn: AsyncConnection,
+) -> list[dict[str, Any]]:
+    """
+    Get all users who are facilitators.
+
+    Returns list of user dicts with facilitator info joined.
+    """
+    result = await conn.execute(
+        select(users, facilitators.c.facilitator_id, facilitators.c.max_active_groups)
+        .join(facilitators, users.c.user_id == facilitators.c.user_id)
+        .where(facilitators.c.facilitator_id.isnot(None))
+    )
+    return [dict(row) for row in result.mappings()]
+
+
+async def is_facilitator(
+    conn: AsyncConnection,
+    discord_id: str,
+) -> bool:
+    """Check if a user is a facilitator."""
+    user = await get_user_by_discord_id(conn, discord_id)
+    if not user:
+        return False
+
+    result = await conn.execute(
+        select(facilitators).where(facilitators.c.user_id == user["user_id"])
+    )
+    return result.first() is not None
+
+
+async def toggle_facilitator(
+    conn: AsyncConnection,
+    discord_id: str,
+) -> bool:
+    """
+    Toggle a user's facilitator status.
+
+    Returns the new facilitator status (True if now a facilitator, False if removed).
+    Returns False if user doesn't exist.
+    """
+    user = await get_user_by_discord_id(conn, discord_id)
+    if not user:
+        return False
+
+    user_id = user["user_id"]
+
+    # Check if already a facilitator
+    result = await conn.execute(
+        select(facilitators).where(facilitators.c.user_id == user_id)
+    )
+    existing = result.first()
+
+    if existing:
+        # Remove facilitator status
+        await conn.execute(
+            delete(facilitators).where(facilitators.c.user_id == user_id)
+        )
+        return False
+    else:
+        # Add facilitator status
+        await conn.execute(
+            insert(facilitators).values(user_id=user_id)
+        )
+        return True

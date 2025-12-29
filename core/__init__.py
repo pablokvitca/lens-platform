@@ -40,10 +40,11 @@ from .courses import (
     mark_week_complete, get_user_progress, get_user_enrolled_courses, is_week_accessible
 )
 
-# Enrollment
+# Enrollment (async functions - must be awaited)
 from .enrollment import (
     get_user_profile, save_user_profile,
-    get_enrolled_users, get_users_with_availability, get_facilitators, toggle_facilitator
+    get_users_with_availability, get_facilitators, toggle_facilitator, is_facilitator,
+    get_people_for_scheduling
 )
 
 # Cohorts / Availability
@@ -82,9 +83,10 @@ __all__ = [
     'get_all_courses', 'create_course', 'update_course', 'delete_course',
     'add_course_week', 'update_course_week',
     'mark_week_complete', 'get_user_progress', 'get_user_enrolled_courses', 'is_week_accessible',
-    # Enrollment
+    # Enrollment (async)
     'get_user_profile', 'save_user_profile',
-    'get_enrolled_users', 'get_users_with_availability', 'get_facilitators', 'toggle_facilitator',
+    'get_users_with_availability', 'get_facilitators', 'toggle_facilitator', 'is_facilitator',
+    'get_people_for_scheduling',
     # Cohorts / Availability
     'find_availability_overlap', 'format_local_time', 'get_timezone_abbrev',
     # Auth

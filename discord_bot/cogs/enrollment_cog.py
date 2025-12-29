@@ -5,6 +5,7 @@ The /signup command now generates a web link with an auth code,
 redirecting users to the web frontend for profile setup.
 """
 
+import json
 import os
 import discord
 from discord import app_commands
@@ -17,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core import (
     DAY_CODES,
     utc_to_local_time,
-    get_user_data,
+    get_user_profile,
     toggle_facilitator,
     create_auth_code,
 )
@@ -33,7 +34,7 @@ class EnrollmentCog(commands.Cog):
     async def signup(self, interaction: discord.Interaction):
         """Generate a web signup link with an auth code."""
         discord_id = str(interaction.user.id)
-        code = create_auth_code(discord_id)
+        code = await create_auth_code(discord_id)
 
         web_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
         link = f"{web_url}/auth/code?code={code}&next=/signup"
@@ -49,21 +50,29 @@ class EnrollmentCog(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         user_id = str(interaction.user.id)
-        user_data = get_user_data(user_id)
+        user_data = await get_user_profile(user_id)
 
-        if not user_data or (not user_data.get("availability") and not user_data.get("if_needed")):
+        if not user_data:
             await interaction.followup.send(
-                "You haven't set up your availability yet! Use `/signup` to get started."
+                "You haven't set up your profile yet! Use `/signup` to get started."
             )
             return
 
-        name = user_data.get("name", interaction.user.display_name)
-        courses = user_data.get("courses", [])
-        course_str = ", ".join(courses) if courses else "Not set"
-        experience = user_data.get("experience", "Not set")
-        user_tz = user_data.get("timezone", "UTC")
-        availability = user_data.get("availability", {})
-        if_needed = user_data.get("if_needed", {})
+        # Parse availability from JSON strings
+        availability_str = user_data.get("availability_utc")
+        if_needed_str = user_data.get("if_needed_availability_utc")
+
+        availability = json.loads(availability_str) if availability_str else {}
+        if_needed = json.loads(if_needed_str) if if_needed_str else {}
+
+        if not availability and not if_needed:
+            await interaction.followup.send(
+                "You haven't set up your availability yet! Use `/signup` to update your profile."
+            )
+            return
+
+        name = user_data.get("nickname") or user_data.get("discord_username") or interaction.user.display_name
+        user_tz = user_data.get("timezone") or "UTC"
 
         local_slots = []
         utc_slots = []
@@ -96,7 +105,7 @@ class EnrollmentCog(commands.Cog):
 
         embed.add_field(
             name="Profile",
-            value=f"**Courses:** {course_str}\n**Experience:** {experience}\n**Timezone:** {user_tz}",
+            value=f"**Timezone:** {user_tz}",
             inline=False
         )
 
@@ -120,7 +129,7 @@ class EnrollmentCog(commands.Cog):
     async def toggle_facilitator_cmd(self, interaction: discord.Interaction):
         """Toggle whether you are marked as a facilitator."""
         user_id = str(interaction.user.id)
-        user_data = get_user_data(user_id)
+        user_data = await get_user_profile(user_id)
 
         if not user_data:
             await interaction.response.send_message(
@@ -131,8 +140,8 @@ class EnrollmentCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        # Use core function to toggle
-        new_status = toggle_facilitator(user_id)
+        # Use core function to toggle (now async)
+        new_status = await toggle_facilitator(user_id)
 
         role_message = ""
         if interaction.guild:

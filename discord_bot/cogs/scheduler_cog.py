@@ -11,10 +11,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core import (
-    load_data, DAY_CODES,
-    Person, run_scheduling, balance_cohorts, find_cohort_time_options,
+    Person, run_scheduling, balance_cohorts,
     format_time_range, calculate_total_available_time,
-    convert_user_data_to_people
+    get_people_for_scheduling
 )
 
 
@@ -47,9 +46,8 @@ class SchedulerCog(commands.Cog):
 
         await interaction.response.defer()
 
-        # Load and convert user data
-        user_data = load_data()
-        all_people = convert_user_data_to_people(user_data, DAY_CODES)
+        # Load people from database
+        all_people, user_data = await get_people_for_scheduling()
 
         if not all_people:
             await interaction.followup.send(
@@ -89,7 +87,7 @@ class SchedulerCog(commands.Cog):
 
         # Progress message
         progress_msg = await interaction.followup.send(
-            f"🔄 Running scheduling algorithm...\n"
+            f"Running scheduling algorithm...\n"
             f"Courses: {len(people_by_course)} | Total people: {len(all_people)}",
             ephemeral=False
         )
@@ -162,7 +160,7 @@ class SchedulerCog(commands.Cog):
             async def update_progress(current, total, best_score, total_people):
                 try:
                     await progress_msg.edit(
-                        content=f"🔄 Scheduling **{course_name}**...\n"
+                        content=f"Scheduling **{course_name}**...\n"
                                 f"Iteration: {current}/{total} | "
                                 f"Best: {best_score}/{total_people}"
                     )
@@ -211,7 +209,7 @@ class SchedulerCog(commands.Cog):
         placement_rate = total_scheduled * 100 // len(all_people) if all_people else 0
 
         embed = discord.Embed(
-            title="📅 Scheduling Complete!",
+            title="Scheduling Complete!",
             color=discord.Color.green() if placement_rate >= 80 else discord.Color.yellow()
         )
 
@@ -229,7 +227,7 @@ class SchedulerCog(commands.Cog):
         for course_name, (solution, score, unassigned) in all_solutions.items():
             if solution:
                 embed.add_field(
-                    name=f"📚 {course_name}",
+                    name=f"{course_name}",
                     value=f"{len(solution)} cohort(s), {score} people",
                     inline=False
                 )
@@ -250,7 +248,7 @@ class SchedulerCog(commands.Cog):
             if unassigned:
                 unassigned_names = [p.name for p in unassigned]
                 embed.add_field(
-                    name=f"⚠️ {course_name} - Unassigned ({len(unassigned)})",
+                    name=f"{course_name} - Unassigned ({len(unassigned)})",
                     value=", ".join(unassigned_names[:10]) + ("..." if len(unassigned_names) > 10 else ""),
                     inline=False
                 )
@@ -261,8 +259,8 @@ class SchedulerCog(commands.Cog):
     async def list_users(self, interaction: discord.Interaction):
         """List all users who have set their availability."""
 
-        user_data = load_data()
-        people = convert_user_data_to_people(user_data, DAY_CODES)
+        # Load people from database
+        people, user_data = await get_people_for_scheduling()
 
         if not people:
             await interaction.response.send_message(
@@ -272,7 +270,7 @@ class SchedulerCog(commands.Cog):
             return
 
         embed = discord.Embed(
-            title=f"📋 Registered Users ({len(people)})",
+            title=f"Registered Users ({len(people)})",
             color=discord.Color.blue()
         )
 
@@ -282,7 +280,7 @@ class SchedulerCog(commands.Cog):
 
             # Check facilitator status
             is_facilitator = user_data.get(person.id, {}).get("is_facilitator", False)
-            facilitator_badge = " ⭐" if is_facilitator else ""
+            facilitator_badge = " *" if is_facilitator else ""
 
             courses_str = ", ".join(person.courses) if person.courses else "N/A"
             embed.add_field(
@@ -293,7 +291,9 @@ class SchedulerCog(commands.Cog):
             )
 
         if len(people) > 25:
-            embed.set_footer(text=f"... and {len(people) - 25} more")
+            embed.set_footer(text=f"... and {len(people) - 25} more | * = Facilitator")
+        else:
+            embed.set_footer(text="* = Facilitator")
 
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
