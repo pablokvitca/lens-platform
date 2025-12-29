@@ -44,6 +44,41 @@ class Group:
     selected_time: Optional[tuple] = None  # (start_minutes, end_minutes)
 
 
+@dataclass
+class CourseSchedulingResult:
+    """Result of scheduling a single course."""
+    course_name: str
+    groups: list  # list of Group
+    score: int  # number of people scheduled
+    unassigned: list  # list of Person
+
+
+@dataclass
+class MultiCourseSchedulingResult:
+    """Result of scheduling across all courses."""
+    course_results: dict  # course_name -> CourseSchedulingResult
+    total_scheduled: int
+    total_cohorts: int
+    total_balance_moves: int
+    total_people: int
+
+
+# Exceptions
+class SchedulingError(Exception):
+    """Base exception for scheduling errors."""
+    pass
+
+
+class NoUsersError(SchedulingError):
+    """No users have availability set."""
+    pass
+
+
+class NoFacilitatorsError(SchedulingError):
+    """Facilitator mode enabled but no facilitators marked."""
+    pass
+
+
 def parse_interval_string(interval_str: str) -> list:
     """
     Parse availability string into intervals.
@@ -190,6 +225,74 @@ def format_time_range(start_minutes: int, end_minutes: int) -> str:
         return f"{DAY_NAMES[start_day % 7]} {fmt_time(start_hour, start_min)}-{fmt_time(end_hour, end_min)}"
     else:
         return f"{DAY_NAMES[start_day % 7]} {fmt_time(start_hour, start_min)} - {DAY_NAMES[end_day % 7]} {fmt_time(end_hour, end_min)}"
+
+
+def group_people_by_course(people: list) -> dict:
+    """
+    Group people by course.
+
+    People enrolled in multiple courses appear in multiple groups.
+    People with no courses go into "Uncategorized".
+
+    Returns: dict mapping course_name -> list of Person
+    """
+    people_by_course = {}
+    for person in people:
+        if person.courses:
+            for course in person.courses:
+                if course not in people_by_course:
+                    people_by_course[course] = []
+                people_by_course[course].append(person)
+        else:
+            if "Uncategorized" not in people_by_course:
+                people_by_course["Uncategorized"] = []
+            people_by_course["Uncategorized"].append(person)
+    return people_by_course
+
+
+def remove_blocked_intervals(person: Person, blocked_times: list) -> Person:
+    """
+    Return new Person with intervals that conflict with blocked_times removed.
+
+    Args:
+        person: The person to adjust
+        blocked_times: List of (start, end) tuples representing already-assigned times
+
+    Returns:
+        New Person with conflicting intervals removed
+    """
+    if not blocked_times:
+        return person
+
+    new_intervals = []
+    for start, end in person.intervals:
+        conflicts = False
+        for b_start, b_end in blocked_times:
+            if start < b_end and end > b_start:
+                conflicts = True
+                break
+        if not conflicts:
+            new_intervals.append((start, end))
+
+    new_if_needed = []
+    for start, end in person.if_needed_intervals:
+        conflicts = False
+        for b_start, b_end in blocked_times:
+            if start < b_end and end > b_start:
+                conflicts = True
+                break
+        if not conflicts:
+            new_if_needed.append((start, end))
+
+    return Person(
+        id=person.id,
+        name=person.name,
+        intervals=new_intervals,
+        if_needed_intervals=new_if_needed,
+        timezone=person.timezone,
+        courses=person.courses,
+        experience=person.experience
+    )
 
 
 def run_greedy_iteration(people: list, meeting_length: int, min_people: int,
@@ -419,6 +522,139 @@ def balance_cohorts(groups: list, meeting_length: int, time_increment: int = 30,
     return move_count
 
 
+async def schedule_people(
+    all_people: list,
+    meeting_length: int = 60,
+    min_people: int = 4,
+    max_people: int = 8,
+    num_iterations: int = 1000,
+    balance: bool = True,
+    use_if_needed: bool = True,
+    facilitator_ids: set = None,
+    progress_callback=None
+) -> MultiCourseSchedulingResult:
+    """
+    Run scheduling across multiple courses, handling cross-course conflicts.
+
+    People enrolled in multiple courses are scheduled for each course,
+    with later courses seeing reduced availability (blocked by earlier assignments).
+
+    Args:
+        all_people: List of Person objects to schedule
+        meeting_length: Meeting duration in minutes
+        min_people: Minimum people per cohort
+        max_people: Maximum people per cohort
+        num_iterations: Scheduling algorithm iterations per course
+        balance: Whether to balance cohort sizes after scheduling
+        use_if_needed: Include "if needed" availability slots
+        facilitator_ids: Set of person IDs who are facilitators (or None)
+        progress_callback: Optional async fn(course_name, iteration, total, best_score, people_count)
+
+    Returns:
+        MultiCourseSchedulingResult with all course results and totals
+    """
+    # Group people by course
+    people_by_course = group_people_by_course(all_people)
+
+    # Track results
+    course_results = {}
+    total_scheduled = 0
+    total_cohorts = 0
+    total_balance_moves = 0
+
+    # Track assigned times for each person across courses (for conflict prevention)
+    # person_id -> list of (start, end) tuples
+    assigned_times = {}
+
+    for course_name, people in people_by_course.items():
+        if len(people) < min_people:
+            # Not enough people for this course
+            course_results[course_name] = CourseSchedulingResult(
+                course_name=course_name,
+                groups=[],
+                score=0,
+                unassigned=people
+            )
+            continue
+
+        # Get facilitators for this course
+        course_facilitator_ids = None
+        if facilitator_ids:
+            course_facilitator_ids = {p.id for p in people if p.id in facilitator_ids}
+            if not course_facilitator_ids:
+                # No facilitators in this course, skip if facilitator mode
+                course_results[course_name] = CourseSchedulingResult(
+                    course_name=course_name,
+                    groups=[],
+                    score=0,
+                    unassigned=people
+                )
+                continue
+
+        # Remove already-assigned times from people's availability
+        adjusted_people = [
+            remove_blocked_intervals(person, assigned_times.get(person.id, []))
+            for person in people
+        ]
+
+        # Create course-specific progress callback
+        async def course_progress(iteration, total, best_score, people_count):
+            if progress_callback:
+                await progress_callback(course_name, iteration, total, best_score, people_count)
+
+        # Run scheduling for this course
+        solution, score, best_iter, total_iter = await run_scheduling(
+            people=adjusted_people,
+            meeting_length=meeting_length,
+            min_people=min_people,
+            max_people=max_people,
+            num_iterations=num_iterations,
+            facilitator_ids=course_facilitator_ids,
+            use_if_needed=use_if_needed,
+            progress_callback=course_progress
+        )
+
+        # Balance cohorts if enabled
+        moves = 0
+        if balance and solution and len(solution) >= 2:
+            moves = balance_cohorts(solution, meeting_length, use_if_needed=use_if_needed)
+            total_balance_moves += moves
+
+        # Track assigned times for multi-course users
+        if solution:
+            for group in solution:
+                if group.selected_time:
+                    for person in group.people:
+                        if person.id not in assigned_times:
+                            assigned_times[person.id] = []
+                        assigned_times[person.id].append(group.selected_time)
+
+        # Compute unassigned
+        if solution:
+            assigned_ids = {p.id for g in solution for p in g.people}
+            unassigned = [p for p in people if p.id not in assigned_ids]
+            total_scheduled += score
+            total_cohorts += len(solution)
+        else:
+            unassigned = people
+            solution = []
+
+        course_results[course_name] = CourseSchedulingResult(
+            course_name=course_name,
+            groups=solution,
+            score=score,
+            unassigned=unassigned
+        )
+
+    return MultiCourseSchedulingResult(
+        course_results=course_results,
+        total_scheduled=total_scheduled,
+        total_cohorts=total_cohorts,
+        total_balance_moves=total_balance_moves,
+        total_people=len(all_people)
+    )
+
+
 def convert_user_data_to_people(user_data: dict, day_codes: dict = None) -> list:
     """
     Convert stored user data dict to Person objects for scheduling.
@@ -481,3 +717,69 @@ def convert_user_data_to_people(user_data: dict, day_codes: dict = None) -> list
         people.append(person)
 
     return people
+
+
+async def schedule(
+    meeting_length: int = 60,
+    min_people: int = 4,
+    max_people: int = 8,
+    num_iterations: int = 1000,
+    balance: bool = True,
+    use_if_needed: bool = True,
+    facilitator_mode: bool = False,
+    progress_callback=None
+) -> MultiCourseSchedulingResult:
+    """
+    Load users from database and run scheduling across all courses.
+
+    This is the main entry point for scheduling - handles data loading,
+    facilitator extraction, and runs the scheduling algorithm.
+
+    Args:
+        meeting_length: Meeting duration in minutes
+        min_people: Minimum people per cohort
+        max_people: Maximum people per cohort
+        num_iterations: Scheduling algorithm iterations per course
+        balance: Whether to balance cohort sizes after scheduling
+        use_if_needed: Include "if needed" availability slots
+        facilitator_mode: Require each cohort to have one facilitator
+        progress_callback: Optional async fn(course_name, iteration, total, best_score, people_count)
+
+    Returns:
+        MultiCourseSchedulingResult with all course results and totals
+
+    Raises:
+        NoUsersError: If no users have availability set
+        NoFacilitatorsError: If facilitator_mode=True but no facilitators marked
+    """
+    # Local import to avoid circular dependency (enrollment imports from scheduling)
+    from .enrollment import get_people_for_scheduling
+
+    # Load from database
+    all_people, user_data = await get_people_for_scheduling()
+
+    if not all_people:
+        raise NoUsersError("No users have set their availability yet")
+
+    # Extract facilitators if needed
+    facilitator_ids = None
+    if facilitator_mode:
+        facilitator_ids = {
+            user_id for user_id, data in user_data.items()
+            if data.get("is_facilitator", False)
+        }
+        if not facilitator_ids:
+            raise NoFacilitatorsError("No facilitators are marked")
+
+    # Run scheduling
+    return await schedule_people(
+        all_people=all_people,
+        meeting_length=meeting_length,
+        min_people=min_people,
+        max_people=max_people,
+        num_iterations=num_iterations,
+        balance=balance,
+        use_if_needed=use_if_needed,
+        facilitator_ids=facilitator_ids,
+        progress_callback=progress_callback
+    )

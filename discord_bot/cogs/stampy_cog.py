@@ -1,5 +1,8 @@
 """
-Stampy Discord cog.
+Stampy Discord cog. 
+This cog deals with formatting Stampy messages in a way that works with the Discord UI.
+Any Stampy logic such as adding message history and system prompts should be done in /core,
+though currently (29.12.25) this is not implemented.
 """
 import discord
 from discord.ext import commands

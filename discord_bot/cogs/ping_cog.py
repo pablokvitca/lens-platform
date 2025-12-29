@@ -1,5 +1,6 @@
 """
 Simple ping command to check if the bot is online.
+And some other testing commands.
 """
 
 import discord

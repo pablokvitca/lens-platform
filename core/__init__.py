@@ -25,11 +25,13 @@ from .cohort_names import CohortNameGenerator, COHORT_NAMES
 
 # Scheduling algorithm
 from .scheduling import (
-    Person, Group, DAY_MAP,
+    Person, Group, CourseSchedulingResult, MultiCourseSchedulingResult, DAY_MAP,
+    SchedulingError, NoUsersError, NoFacilitatorsError,
     parse_interval_string, calculate_total_available_time,
     is_group_valid, find_cohort_time_options, format_time_range,
+    group_people_by_course, remove_blocked_intervals,
     run_greedy_iteration, run_scheduling, balance_cohorts,
-    convert_user_data_to_people
+    schedule_people, schedule, convert_user_data_to_people
 )
 
 # Course management
@@ -77,11 +79,13 @@ __all__ = [
     # Cohort names
     'CohortNameGenerator', 'COHORT_NAMES',
     # Scheduling
-    'Person', 'Group', 'DAY_MAP',
+    'Person', 'Group', 'CourseSchedulingResult', 'MultiCourseSchedulingResult', 'DAY_MAP',
+    'SchedulingError', 'NoUsersError', 'NoFacilitatorsError',
     'parse_interval_string', 'calculate_total_available_time',
     'is_group_valid', 'find_cohort_time_options', 'format_time_range',
+    'group_people_by_course', 'remove_blocked_intervals',
     'run_greedy_iteration', 'run_scheduling', 'balance_cohorts',
-    'convert_user_data_to_people',
+    'schedule_people', 'schedule', 'convert_user_data_to_people',
     # Course management
     'get_all_courses', 'create_course', 'update_course', 'delete_course',
     'add_course_week', 'update_course_week',
