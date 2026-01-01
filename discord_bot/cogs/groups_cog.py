@@ -122,10 +122,7 @@ class GroupsCog(commands.Cog):
                 reason=f"Voice channel for {group_data['group_name']}"
             )
 
-            # Set permissions - only group members can see
-            await text_channel.set_permissions(interaction.guild.default_role, view_channel=False)
-            await voice_channel.set_permissions(interaction.guild.default_role, view_channel=False)
-
+            # Set member permissions (channels inherit @everyone denial from category)
             for member_data in group_data["members"]:
                 discord_id = member_data.get("discord_id")
                 if discord_id:
