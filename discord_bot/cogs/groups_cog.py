@@ -1,9 +1,8 @@
 """
-Groups Cog - Discord adapter for group creation.
-Handles manual group creation with Discord channels and scheduled events.
+Groups Cog - Discord adapter for realizing groups from database.
+Creates Discord channels, scheduled events, and welcome messages.
 """
 
-import json
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -14,254 +13,310 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from core import (
-    get_user_profile, get_course, is_facilitator,
-    CohortNameGenerator,
-    find_availability_overlap, format_local_time
+from core.database import get_connection, get_transaction
+from core.queries.cohorts import get_realizable_cohorts, save_cohort_category_id
+from core.queries.groups import (
+    get_cohort_groups_for_realization,
+    save_discord_channel_ids,
+    get_group_welcome_data,
 )
+from core.cohorts import format_local_time
 
 
-# TODO: Refactor this cog.
-# We have switched to using the DB and the scheduler to initiate group creation.
-# But I can imagine a cog like this could then make the actual channels in Discord, for example.
-# Ask user for input on how to do this.
 class GroupsCog(commands.Cog):
-    """Cog for creating and managing groups."""
+    """Cog for realizing groups in Discord from database."""
 
     def __init__(self, bot):
         self.bot = bot
-        self.name_generator = CohortNameGenerator()
 
-    @app_commands.command(name="group", description="Create a group from selected members")
-    @app_commands.checks.has_permissions(administrator=True)
-    async def create_group(
+    async def cohort_autocomplete(
         self,
         interaction: discord.Interaction,
-        course: str,
-        member1: discord.Member,
-        member2: discord.Member = None,
-        member3: discord.Member = None,
-        member4: discord.Member = None,
-        member5: discord.Member = None,
-        member6: discord.Member = None,
-        member7: discord.Member = None,
-        member8: discord.Member = None,
-        member9: discord.Member = None,
-        member10: discord.Member = None,
+        current: str,
+    ) -> list[app_commands.Choice[int]]:
+        """Autocomplete for cohorts with unrealized groups."""
+        async with get_connection() as conn:
+            cohorts = await get_realizable_cohorts(conn)
+
+        choices = []
+        for cohort in cohorts[:25]:
+            display_name = f"{cohort['cohort_name']} - {cohort['course_name']}"
+            if current.lower() in display_name.lower():
+                choices.append(
+                    app_commands.Choice(name=display_name[:100], value=cohort["cohort_id"])
+                )
+
+        return choices[:25]
+
+    @app_commands.command(name="realize-groups", description="Create Discord channels for a cohort's groups")
+    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.describe(cohort="The cohort to create Discord channels for")
+    @app_commands.autocomplete(cohort=cohort_autocomplete)
+    async def realize_groups(
+        self,
+        interaction: discord.Interaction,
+        cohort: int,
     ):
-        """Create a group with the specified members."""
+        """Create Discord category, channels, events, and welcome messages for cohort groups."""
         await interaction.response.defer()
 
-        # Collect all members (filter None)
-        members = [m for m in [member1, member2, member3, member4, member5,
-                               member6, member7, member8, member9, member10] if m]
-
-        # Check all members have signed up and get their data
-        missing_signup = []
-        member_data = {}  # discord_id -> user profile
-        for member in members:
-            user_data = await get_user_profile(str(member.id))
-            if not user_data:
-                missing_signup.append(member.mention)
-            else:
-                # Parse availability to check if it exists
-                availability_str = user_data.get("availability_utc")
-                availability = json.loads(availability_str) if availability_str else {}
-                if not availability:
-                    missing_signup.append(member.mention)
-                else:
-                    member_data[str(member.id)] = user_data
-
-        if missing_signup:
-            await interaction.followup.send(
-                f"These members haven't completed signup:\n{', '.join(missing_signup)}\n\n"
-                f"They need to use `/signup` first."
-            )
-            return
-
-        # Validate course exists and has weeks (still uses JSON)
-        course_data = get_course(course)
-        if not course_data:
-            await interaction.followup.send(
-                f"Course `{course}` not found!\n"
-                f"Use `/list-courses` to see available courses."
-            )
-            return
-
-        num_weeks = len(course_data.get("weeks", []))
-        if num_weeks == 0:
-            await interaction.followup.send(
-                f"Course `{course}` has no weeks defined!\n"
-                f"Use `/add-week` to add weeks to the course first."
-            )
-            return
-
-        # Find overlapping availability using core function (now async)
-        member_ids = [str(m.id) for m in members]
-        overlap = await find_availability_overlap(member_ids)
-        if not overlap:
-            await interaction.followup.send(
-                f"No overlapping availability found for these {len(members)} members.\n"
-                f"Consider adjusting their availability with `/signup`."
-            )
-            return
-
-        utc_day, utc_hour = overlap
-
-        # Generate group name
-        group_word = self.name_generator.next_name()
-        group_name = f"{group_word} - {course}"
-
-        # Create category for group
-        category = await interaction.guild.create_category(
-            name=f"{group_name}",
-            reason=f"Group created by {interaction.user}"
+        progress_msg = await interaction.followup.send(
+            "Loading cohort data...",
+            ephemeral=False
         )
 
-        # Create text channel
-        text_channel = await interaction.guild.create_text_channel(
-            name=f"group-{group_word.lower()}-{course.lower()}",
-            category=category,
-            reason=f"{group_name} text channel"
-        )
+        # Get cohort groups data
+        async with get_connection() as conn:
+            cohort_data = await get_cohort_groups_for_realization(conn, cohort)
 
-        # Create voice channel
-        voice_channel = await interaction.guild.create_voice_channel(
-            name=f"Group {group_word} Voice",
-            category=category,
-            reason=f"{group_name} voice channel"
-        )
+        if not cohort_data:
+            await progress_msg.edit(content="Cohort not found!")
+            return
 
-        # Set permissions - only group members can see
-        try:
-            await category.set_permissions(
-                interaction.guild.default_role,
-                view_channel=False
+        if not cohort_data["groups"]:
+            await progress_msg.edit(content="No groups found for this cohort. Run /schedule first.")
+            return
+
+        # Create category if it doesn't exist
+        category = None
+        if cohort_data["discord_category_id"]:
+            try:
+                category = await interaction.guild.fetch_channel(int(cohort_data["discord_category_id"]))
+            except discord.NotFound:
+                category = None
+
+        if not category:
+            await progress_msg.edit(content="Creating category...")
+            category_name = f"{cohort_data['course_name']} - {cohort_data['cohort_name']}"[:100]
+            category = await interaction.guild.create_category(
+                name=category_name,
+                reason=f"Realizing cohort {cohort}"
+            )
+            # Hide from everyone by default
+            await category.set_permissions(interaction.guild.default_role, view_channel=False)
+
+            # Save category ID
+            async with get_transaction() as conn:
+                await save_cohort_category_id(conn, cohort, str(category.id))
+
+        # Create channels for each group
+        created_count = 0
+        for group_data in cohort_data["groups"]:
+            # Skip if already realized
+            if group_data["discord_text_channel_id"]:
+                continue
+
+            await progress_msg.edit(content=f"Creating channels for {group_data['group_name']}...")
+
+            # Create text channel
+            text_channel = await interaction.guild.create_text_channel(
+                name=group_data["group_name"].lower().replace(" ", "-"),
+                category=category,
+                reason=f"Group channel for {group_data['group_name']}"
             )
 
-            for member in members:
-                await category.set_permissions(
-                    member,
-                    view_channel=True,
-                    send_messages=True,
-                    connect=True,
-                    speak=True
+            # Create voice channel
+            voice_channel = await interaction.guild.create_voice_channel(
+                name=f"{group_data['group_name']} Voice",
+                category=category,
+                reason=f"Voice channel for {group_data['group_name']}"
+            )
+
+            # Set permissions - only group members can see
+            await text_channel.set_permissions(interaction.guild.default_role, view_channel=False)
+            await voice_channel.set_permissions(interaction.guild.default_role, view_channel=False)
+
+            for member_data in group_data["members"]:
+                discord_id = member_data.get("discord_id")
+                if discord_id:
+                    try:
+                        member = await interaction.guild.fetch_member(int(discord_id))
+                        await text_channel.set_permissions(
+                            member,
+                            view_channel=True,
+                            send_messages=True,
+                            read_message_history=True,
+                        )
+                        await voice_channel.set_permissions(
+                            member,
+                            view_channel=True,
+                            connect=True,
+                            speak=True,
+                        )
+                    except discord.NotFound:
+                        pass  # Member not in guild
+
+            # Create scheduled events
+            await progress_msg.edit(content=f"Creating events for {group_data['group_name']}...")
+
+            events = await self._create_scheduled_events(
+                interaction.guild,
+                voice_channel,
+                group_data,
+                cohort_data,
+            )
+
+            # Save channel IDs to database
+            async with get_transaction() as conn:
+                await save_discord_channel_ids(
+                    conn,
+                    group_data["group_id"],
+                    str(text_channel.id),
+                    str(voice_channel.id),
                 )
-        except discord.Forbidden:
-            await interaction.followup.send(
-                "Bot lacks permission to manage channel permissions.\n"
-                "Please ensure the bot has **Manage Channels** and **Manage Roles** permissions, "
-                "and that its role is above the members' roles in the hierarchy."
+
+            # Send welcome message
+            await self._send_welcome_message(
+                text_channel,
+                group_data,
+                cohort_data,
+                events[0].url if events else None,
             )
-            return
 
-        # Calculate first meeting date (next occurrence of the day)
-        day_to_weekday = {
-            "Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3,
-            "Friday": 4, "Saturday": 5, "Sunday": 6
-        }
+            created_count += 1
 
-        now = datetime.now(pytz.UTC)
-        target_weekday = day_to_weekday[utc_day]
-        days_ahead = target_weekday - now.weekday()
-        if days_ahead <= 0:
-            days_ahead += 7
+        # Summary
+        embed = discord.Embed(
+            title=f"Groups Realized: {cohort_data['cohort_name']}",
+            color=discord.Color.green()
+        )
+        embed.add_field(
+            name="Summary",
+            value=f"**Category:** {category.name}\n"
+                  f"**Groups created:** {created_count}\n"
+                  f"**Total groups:** {len(cohort_data['groups'])}",
+            inline=False
+        )
 
-        first_meeting = now + timedelta(days=days_ahead)
-        first_meeting = first_meeting.replace(hour=utc_hour, minute=0, second=0, microsecond=0)
+        await progress_msg.edit(content=None, embed=embed)
 
-        # Create Discord scheduled events (one per week of the course)
+    async def _create_scheduled_events(
+        self,
+        guild: discord.Guild,
+        voice_channel: discord.VoiceChannel,
+        group_data: dict,
+        cohort_data: dict,
+    ) -> list[discord.ScheduledEvent]:
+        """Create scheduled events for group meetings."""
         events = []
-        for week_num in range(num_weeks):
-            meeting_time = first_meeting + timedelta(weeks=week_num)
-            week_data = course_data["weeks"][week_num] if week_num < len(course_data["weeks"]) else None
-            week_title = week_data["title"] if week_data else f"Week {week_num + 1}"
 
-            event = await interaction.guild.create_scheduled_event(
-                name=f"{group_name} - Week {week_num + 1}: {week_title}",
-                start_time=meeting_time,
-                end_time=meeting_time + timedelta(hours=1),
-                channel=voice_channel,
-                description=f"Week {week_num + 1} meeting for {group_name}",
-                entity_type=discord.EntityType.voice,
-                privacy_level=discord.PrivacyLevel.guild_only
-            )
-            events.append(event)
+        # Parse meeting time (e.g., "Wednesday 15:00-16:00")
+        meeting_time_str = group_data.get("recurring_meeting_time_utc", "")
+        if not meeting_time_str or meeting_time_str == "TBD":
+            return events
 
-        # Build welcome message
-        # Find facilitator (if any)
-        facilitator = None
-        for member in members:
-            if await is_facilitator(str(member.id)):
-                facilitator = member
+        # Extract day and hour from format like "Wednesday 15:00-16:00"
+        day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        day_num = None
+        hour = None
+
+        for i, day in enumerate(day_names):
+            if day in meeting_time_str:
+                day_num = i
+                # Extract hour
+                parts = meeting_time_str.split()
+                for part in parts:
+                    if ":" in part:
+                        hour = int(part.split(":")[0])
+                        break
                 break
 
-        # Member list
-        member_list = []
-        for member in members:
-            if member == facilitator:
-                member_list.append(f"- {member.mention} (Facilitator)")
+        if day_num is None or hour is None:
+            return events
+
+        # Calculate first meeting date
+        start_date = cohort_data["cohort_start_date"]
+        if isinstance(start_date, str):
+            start_date = datetime.fromisoformat(start_date)
+
+        # Find first occurrence of the meeting day
+        first_meeting = datetime.combine(start_date, datetime.min.time())
+        first_meeting = first_meeting.replace(hour=hour, minute=0, tzinfo=pytz.UTC)
+
+        days_ahead = day_num - first_meeting.weekday()
+        if days_ahead < 0:
+            days_ahead += 7
+        first_meeting += timedelta(days=days_ahead)
+
+        # Create events for each meeting
+        num_meetings = cohort_data.get("number_of_group_meetings", 8)
+        for week in range(num_meetings):
+            meeting_time = first_meeting + timedelta(weeks=week)
+
+            # Skip if in the past
+            if meeting_time < datetime.now(pytz.UTC):
+                continue
+
+            try:
+                event = await guild.create_scheduled_event(
+                    name=f"{group_data['group_name']} - Week {week + 1}",
+                    start_time=meeting_time,
+                    end_time=meeting_time + timedelta(hours=1),
+                    channel=voice_channel,
+                    description=f"Weekly meeting for {group_data['group_name']}",
+                    entity_type=discord.EntityType.voice,
+                    privacy_level=discord.PrivacyLevel.guild_only,
+                )
+                events.append(event)
+            except discord.HTTPException:
+                pass  # Skip if event creation fails
+
+        return events
+
+    async def _send_welcome_message(
+        self,
+        channel: discord.TextChannel,
+        group_data: dict,
+        cohort_data: dict,
+        first_event_url: str | None,
+    ):
+        """Send welcome message to group channel."""
+        # Build member list
+        member_lines = []
+        for member in group_data["members"]:
+            discord_id = member.get("discord_id")
+            role = member.get("role", "participant")
+            role_badge = " (Facilitator)" if role == "facilitator" else ""
+
+            if discord_id:
+                member_lines.append(f"- <@{discord_id}>{role_badge}")
             else:
-                member_list.append(f"- {member.mention}")
+                member_lines.append(f"- {member.get('name', 'Unknown')}{role_badge}")
 
-        # Schedule with each member's timezone using core function
+        # Build schedule with local times
         schedule_lines = []
-        for member in members:
-            user_data = member_data.get(str(member.id), {})
-            tz_name = user_data.get("timezone") or "UTC"
+        meeting_time = group_data.get("recurring_meeting_time_utc", "TBD")
 
-            # Get city name from timezone (simplified)
-            city = tz_name.split("/")[-1].replace("_", " ")
+        for member in group_data["members"]:
+            tz = member.get("timezone") or "UTC"
+            discord_id = member.get("discord_id")
 
-            local_day, time_str = format_local_time(utc_day, utc_hour, tz_name)
-            schedule_lines.append(f"- {member.mention} ({city}): {time_str}")
+            # TODO: Convert UTC time to local for each member
+            # For now, just show UTC
+            if discord_id:
+                schedule_lines.append(f"- <@{discord_id}>: {meeting_time} (UTC)")
 
-        # UTC reference
-        utc_hour_12 = utc_hour if utc_hour <= 12 else utc_hour - 12
-        utc_ampm = "am" if utc_hour < 12 else "pm"
-        utc_end = utc_hour + 1
-        utc_end_12 = utc_end if utc_end <= 12 else utc_end - 12
-        utc_end_ampm = "am" if utc_end < 12 else "pm"
-        utc_reference = f"{utc_day}s {utc_hour_12}:00{utc_ampm}-{utc_end_12}:00{utc_end_ampm} UTC"
+        event_line = f"\n**First event:** {first_event_url}" if first_event_url else ""
 
-        # Format first meeting date
-        first_meeting_str = first_meeting.strftime("%B %d, %Y")
+        message = f"""**Welcome to {group_data['group_name']}!**
 
-        welcome_message = f"""**Welcome to {group_name}!**
+**Course:** {cohort_data['course_name']}
+**Cohort:** {cohort_data['cohort_name']}
 
 **Your group:**
-{chr(10).join(member_list)}
+{chr(10).join(member_lines)}
 
-**Meeting Schedule:**
-{chr(10).join(schedule_lines)}
+**Meeting time (UTC):** {meeting_time}
+**Number of meetings:** {cohort_data.get('number_of_group_meetings', 8)}{event_line}
 
-**UTC Reference:** {utc_reference}
+**Getting started:**
+1. Introduce yourself!
+2. Check your scheduled events
+3. Prepare for Week 1
 
-**First Meeting:** {first_meeting_str}
-
-**Action Items:**
-1. Introduce yourself below!
-2. Read Week 1 materials in the course library
-3. Check your scheduled events ({num_weeks} meetings): {events[0].url}
-4. Join {voice_channel.mention} when it's meeting time
-
-Questions? Just ask! We're here to help each other learn.
-
----
-**Code of Conduct:** Be respectful, assume good faith, welcome all questions.
+Questions? Ask in this channel. We're here to help each other learn!
 """
-
-        await text_channel.send(welcome_message)
-
-        # Notify admin
-        events_summary = "\n".join([f"- Week {i+1}: {event.url}" for i, event in enumerate(events)])
-        await interaction.followup.send(
-            f"**{group_name}** created!\n\n"
-            f"**Members:** {len(members)}\n"
-            f"**Meeting:** {utc_day}s at {utc_hour}:00 UTC\n"
-            f"**Channel:** {text_channel.mention}\n"
-            f"**Events ({num_weeks} meetings):**\n{events_summary}"
-        )
+        await channel.send(message)
 
 
 async def setup(bot):
