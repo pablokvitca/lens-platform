@@ -275,23 +275,26 @@ export default function UnifiedLesson() {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="mb-2">
-          <h1 className="text-lg font-semibold text-gray-900">{session.lesson_title}</h1>
-        </div>
-        {/* Progress bar row with skip button */}
-        <div className="flex items-center justify-between">
+      <header className="bg-white border-b border-gray-200 px-4 py-4 relative">
+        {/* Title - left aligned */}
+        <h1 className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-gray-900">
+          {session.lesson_title}
+        </h1>
+        {/* Progress bar - centered */}
+        <div className="flex items-center justify-center">
           <StageProgressBar
-          stages={session.stages}
-          currentStageIndex={session.current_stage_index}
-          viewingStageIndex={viewingStageIndex}
-          onStageClick={handleStageClick}
-          onPrevious={handleGoBack}
-          onNext={handleGoForward}
-          canGoPrevious={canGoBack}
-          canGoNext={canGoForward}
-        />
-          {/* Skip/return button */}
+            stages={session.stages}
+            currentStageIndex={session.current_stage_index}
+            viewingStageIndex={viewingStageIndex}
+            onStageClick={handleStageClick}
+            onPrevious={handleGoBack}
+            onNext={handleGoForward}
+            canGoPrevious={canGoBack}
+            canGoNext={canGoForward}
+          />
+        </div>
+        {/* Skip/return button - absolute right */}
+        <div className="absolute right-4 top-1/2 -translate-y-1/2">
           {isReviewing ? (
             <button
               onClick={handleReturnToCurrent}
