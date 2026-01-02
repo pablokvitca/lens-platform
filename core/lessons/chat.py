@@ -13,8 +13,11 @@ from .content import (
     load_article,
     extract_article_section,
     load_article_with_metadata,
+    load_video_transcript_with_metadata,
     ArticleContent,
+    ArticleMetadata,
 )
+from ..transcripts.tools import get_text_at_time
 
 
 # Tool for transitioning to next stage
@@ -101,8 +104,29 @@ def get_stage_content(stage: Stage) -> ArticleContent | None:
             return None
 
     elif isinstance(stage, VideoStage):
-        # TODO: Load video transcript
-        return None
+        try:
+            # Load video metadata to get video_id
+            transcript_data = load_video_transcript_with_metadata(stage.source_url)
+            video_id = transcript_data.metadata.video_id
+
+            if not video_id:
+                return None
+
+            # Get transcript text for the time range
+            end_seconds = stage.to_seconds if stage.to_seconds else 9999
+            transcript_text = get_text_at_time(video_id, stage.from_seconds, end_seconds)
+
+            # Return as ArticleContent for compatibility
+            return ArticleContent(
+                content=transcript_text,
+                metadata=ArticleMetadata(
+                    title=transcript_data.metadata.title,
+                    source_url=transcript_data.metadata.url,
+                ),
+                is_excerpt=stage.from_seconds > 0 or stage.to_seconds is not None,
+            )
+        except FileNotFoundError:
+            return None
 
     return None
 
