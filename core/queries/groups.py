@@ -174,6 +174,54 @@ async def save_discord_channel_ids(
     )
 
 
+async def get_realized_groups_for_discord_user(
+    conn: AsyncConnection,
+    discord_id: str,
+) -> list[dict[str, Any]]:
+    """
+    Get all realized groups (with Discord channels) for a user by their Discord ID.
+
+    Used by on_member_join to grant channel permissions when a user joins the guild.
+
+    Returns:
+        [
+            {
+                "group_id": 1,
+                "group_name": "Group 1",
+                "discord_text_channel_id": "123456789",
+                "discord_voice_channel_id": "987654321",
+            },
+            ...
+        ]
+    """
+    # Find user by discord_id
+    user_query = select(users.c.user_id).where(users.c.discord_id == discord_id)
+    user_result = await conn.execute(user_query)
+    user_row = user_result.first()
+
+    if not user_row:
+        return []
+
+    user_id = user_row[0]
+
+    # Get groups where user is a member AND group has been realized
+    query = (
+        select(
+            groups.c.group_id,
+            groups.c.group_name,
+            groups.c.discord_text_channel_id,
+            groups.c.discord_voice_channel_id,
+        )
+        .join(groups_users, groups.c.group_id == groups_users.c.group_id)
+        .where(groups_users.c.user_id == user_id)
+        .where(groups_users.c.status == "active")
+        .where(groups.c.discord_text_channel_id.isnot(None))  # Only realized groups
+    )
+    result = await conn.execute(query)
+
+    return [dict(row) for row in result.mappings()]
+
+
 async def get_group_welcome_data(
     conn: AsyncConnection,
     group_id: int,

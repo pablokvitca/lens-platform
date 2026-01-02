@@ -19,6 +19,7 @@ from core.queries.groups import (
     get_cohort_groups_for_realization,
     save_discord_channel_ids,
     get_group_welcome_data,
+    get_realized_groups_for_discord_user,
 )
 from core.cohorts import format_local_time
 
@@ -101,6 +102,7 @@ class GroupsCog(commands.Cog):
 
         # Create channels for each group
         created_count = 0
+        skipped_members = []  # Track members not in guild
         for group_data in cohort_data["groups"]:
             # Skip if already realized
             if group_data["discord_text_channel_id"]:
@@ -141,7 +143,11 @@ class GroupsCog(commands.Cog):
                             speak=True,
                         )
                     except discord.NotFound:
-                        pass  # Member not in guild
+                        # Member not in guild - track for reporting
+                        skipped_members.append({
+                            "discord_id": discord_id,
+                            "group_name": group_data["group_name"],
+                        })
 
             # Create scheduled events
             await progress_msg.edit(content=f"Creating events for {group_data['group_name']}...")
@@ -175,7 +181,7 @@ class GroupsCog(commands.Cog):
         # Summary
         embed = discord.Embed(
             title=f"Groups Realized: {cohort_data['cohort_name']}",
-            color=discord.Color.green()
+            color=discord.Color.green() if not skipped_members else discord.Color.yellow()
         )
         embed.add_field(
             name="Summary",
@@ -184,6 +190,26 @@ class GroupsCog(commands.Cog):
                   f"**Total groups:** {len(cohort_data['groups'])}",
             inline=False
         )
+
+        if skipped_members:
+            # Group skipped members by group
+            skipped_by_group = {}
+            for sm in skipped_members:
+                group_name = sm["group_name"]
+                if group_name not in skipped_by_group:
+                    skipped_by_group[group_name] = []
+                skipped_by_group[group_name].append(f"<@{sm['discord_id']}>")
+
+            skipped_lines = []
+            for group_name, members in skipped_by_group.items():
+                skipped_lines.append(f"**{group_name}:** {', '.join(members)}")
+
+            embed.add_field(
+                name=f"⚠️ Members Not in Guild ({len(skipped_members)})",
+                value="\n".join(skipped_lines)[:1024],  # Discord field limit
+                inline=False
+            )
+            embed.set_footer(text="These members will get access automatically when they join the server.")
 
         await progress_msg.edit(content=None, embed=embed)
 
@@ -314,6 +340,57 @@ class GroupsCog(commands.Cog):
 Questions? Ask in this channel. We're here to help each other learn!
 """
         await channel.send(message)
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member):
+        """
+        Grant channel permissions when a user joins the guild.
+
+        If the user is in any realized groups (groups with Discord channels),
+        automatically grant them access to those channels.
+        """
+        # Check if this user has any realized groups
+        async with get_connection() as conn:
+            user_groups = await get_realized_groups_for_discord_user(conn, str(member.id))
+
+        if not user_groups:
+            return
+
+        # Grant permissions to each group's channels
+        granted_groups = []
+        for group in user_groups:
+            try:
+                text_channel = member.guild.get_channel(int(group["discord_text_channel_id"]))
+                voice_channel = member.guild.get_channel(int(group["discord_voice_channel_id"]))
+
+                if text_channel:
+                    await text_channel.set_permissions(
+                        member,
+                        view_channel=True,
+                        send_messages=True,
+                        read_message_history=True,
+                    )
+                if voice_channel:
+                    await voice_channel.set_permissions(
+                        member,
+                        view_channel=True,
+                        connect=True,
+                        speak=True,
+                    )
+
+                granted_groups.append(group["group_name"])
+
+                # Send welcome message to the text channel
+                if text_channel:
+                    await text_channel.send(
+                        f"Welcome {member.mention}! You now have access to this group channel."
+                    )
+
+            except discord.HTTPException:
+                pass  # Channel may have been deleted
+
+        if granted_groups:
+            print(f"[GroupsCog] Granted {member} access to groups: {', '.join(granted_groups)}")
 
 
 async def setup(bot):
