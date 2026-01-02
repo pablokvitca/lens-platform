@@ -111,7 +111,7 @@ export default function ChatPanel({
         {isLoading && !streamingContent && (
           <div className="bg-blue-50 p-3 rounded-lg">
             <div className="text-xs text-gray-500 mb-1">Tutor</div>
-            <div className="text-gray-500">Thinking...</div>
+            <div className="text-gray-800">Thinking...</div>
           </div>
         )}
 

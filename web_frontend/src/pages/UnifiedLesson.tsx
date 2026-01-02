@@ -281,12 +281,12 @@ export default function UnifiedLesson() {
         {/* Chat panel - left */}
         <div className={`w-1/2 relative ${
           isChatStage && !isReviewing
-            ? "bg-white shadow-2xl z-10"
+            ? "bg-white z-30"
             : "bg-gray-50"
         }`}>
           {/* Dimming overlay when not focused */}
           {(!isChatStage || isReviewing) && (
-            <div className="absolute inset-0 bg-gray-200/25 pointer-events-none z-10 transition-opacity duration-200" />
+            <div className="absolute inset-0 bg-gray-50/25 pointer-events-none z-10" />
           )}
           <ChatPanel
             messages={messages}
@@ -307,12 +307,12 @@ export default function UnifiedLesson() {
         {/* Content panel - right */}
         <div className={`w-1/2 relative ${
           !isChatStage || isReviewing
-            ? "bg-white shadow-2xl z-10"
+            ? "bg-white z-30"
             : "bg-gray-50"
         }`}>
           {/* Dimming overlay when not focused */}
           {(isChatStage && !isReviewing) && (
-            <div className="absolute inset-0 bg-gray-200/25 pointer-events-none z-10 transition-opacity duration-200" />
+            <div className="absolute inset-0 bg-gray-50/25 pointer-events-none z-10" />
           )}
           <ContentPanel
             stage={displayedStage}
