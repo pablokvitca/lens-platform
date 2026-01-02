@@ -37,7 +37,7 @@ export default function ArticlePanel({
 
   return (
     <div ref={containerRef} className="h-full overflow-y-auto relative">
-      <article className={`prose prose-gray max-w-none p-6 ${blurred ? "blur-sm select-none" : ""}`}>
+      <article className={`prose prose-gray max-w-[620px] mx-auto p-6 ${blurred ? "blur-sm select-none" : ""}`}>
         {title && <h1 className="text-2xl font-bold mb-2">{title}</h1>}
         {isExcerpt && (
           <div className="text-sm text-gray-500 mb-1">

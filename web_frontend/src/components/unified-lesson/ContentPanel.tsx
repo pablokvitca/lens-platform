@@ -131,6 +131,7 @@ export default function ContentPanel({
         </div>
         {!isReviewing && (
           <div className="p-4 border-t bg-white">
+            <div className="max-w-[620px] mx-auto">
             <button
               ref={hasScrolledToBottom ? undefined : refs.setReference}
               onClick={handleReadButtonClick}
@@ -170,6 +171,7 @@ export default function ContentPanel({
                 </div>
               </FloatingPortal>
             )}
+            </div>
           </div>
         )}
       </div>
