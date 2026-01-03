@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core import update_user_profile
+from core import update_user_profile, enroll_in_cohort
 from core import become_facilitator as core_become_facilitator
 from core.database import get_connection
 from core.queries.users import get_user_by_discord_id, is_facilitator_by_user_id
@@ -33,6 +33,8 @@ class UserProfileUpdate(BaseModel):
     email: str | None = None
     timezone: str | None = None
     availability_local: str | None = None
+    cohort_id: int | None = None
+    role_in_cohort: str | None = None
 
 
 @router.patch("/me")
@@ -45,6 +47,7 @@ async def update_my_profile(
 
     Only allows updating specific fields: nickname, email, timezone, availability_local.
     If email is changed, clears email_verified_at (handled in core).
+    Optionally enroll in a cohort if cohort_id and role_in_cohort provided.
     """
     discord_id = user["sub"]
 
@@ -64,7 +67,16 @@ async def update_my_profile(
     if updates.nickname is not None:
         await update_nickname_in_discord(discord_id, updates.nickname)
 
-    return {"status": "updated", "user": updated_user}
+    # Enroll in cohort if both cohort_id and role_in_cohort are provided
+    enrollment = None
+    if updates.cohort_id is not None and updates.role_in_cohort is not None:
+        enrollment = await enroll_in_cohort(
+            discord_id,
+            updates.cohort_id,
+            updates.role_in_cohort,
+        )
+
+    return {"status": "updated", "user": updated_user, "enrollment": enrollment}
 
 
 @router.get("/me/facilitator-status")
