@@ -42,3 +42,26 @@ class Lesson:
     id: str
     title: str
     stages: list[Stage]
+
+
+@dataclass
+class Module:
+    """A module within a course."""
+    id: str
+    title: str
+    lessons: list[str]  # List of lesson IDs
+
+
+@dataclass
+class Course:
+    """A complete course definition."""
+    id: str
+    title: str
+    modules: list[Module]
+
+
+@dataclass
+class NextLesson:
+    """Information about the next lesson."""
+    lesson_id: str
+    lesson_title: str

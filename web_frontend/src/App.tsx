@@ -12,6 +12,7 @@ function App() {
     <Routes>
       {/* Full-screen pages (no Layout) */}
       <Route path="/lesson/:lessonId" element={<UnifiedLesson />} />
+      <Route path="/course/:courseId/lesson/:lessonId" element={<UnifiedLesson />} />
 
       {/* Standard pages with Layout */}
       <Route element={<Layout />}>

@@ -33,6 +33,12 @@ from .sessions import (
     SessionNotFoundError,
 )
 from .chat import send_message as send_lesson_message, get_stage_content
+from .course_loader import (
+    load_course,
+    get_next_lesson,
+    get_all_lesson_ids,
+    CourseNotFoundError,
+)
 
 __all__ = [
     "ArticleStage",
@@ -61,4 +67,8 @@ __all__ = [
     "SessionNotFoundError",
     "send_lesson_message",
     "get_stage_content",
+    "load_course",
+    "get_next_lesson",
+    "get_all_lesson_ids",
+    "CourseNotFoundError",
 ]

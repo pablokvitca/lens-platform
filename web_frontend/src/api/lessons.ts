@@ -101,6 +101,17 @@ export async function* sendMessage(
   }
 }
 
+export async function getNextLesson(
+  courseId: string,
+  currentLessonId: string
+): Promise<{ nextLessonId: string; nextLessonTitle: string } | null> {
+  const res = await fetch(
+    `${API_BASE}/api/courses/${courseId}/next-lesson?current=${currentLessonId}`
+  );
+  if (!res.ok) throw new Error("Failed to fetch next lesson");
+  return res.json();
+}
+
 export async function transcribeAudio(audioBlob: Blob): Promise<string> {
   const formData = new FormData();
   formData.append("audio", audioBlob, "recording.webm");

@@ -52,6 +52,7 @@ from web_api.routes.lesson import router as lesson_router
 from web_api.routes.lessons import router as lessons_router
 from web_api.routes.speech import router as speech_router
 from web_api.routes.cohorts import router as cohorts_router
+from web_api.routes.courses import router as courses_router
 
 # Track bot task for cleanup
 _bot_task: asyncio.Task | None = None
@@ -218,6 +219,7 @@ app.include_router(lesson_router)
 app.include_router(lessons_router)
 app.include_router(speech_router)
 app.include_router(cohorts_router)
+app.include_router(courses_router)
 
 
 # New paths for static files

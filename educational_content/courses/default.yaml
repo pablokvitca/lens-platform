@@ -1,0 +1,10 @@
+# educational_content/courses/default.yaml
+id: default
+title: AI Safety Fundamentals
+
+modules:
+  - id: foundations
+    title: Foundations
+    lessons:
+      - intro-to-ai-safety
+      - intelligence-feedback-loop

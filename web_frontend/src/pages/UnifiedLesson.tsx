@@ -6,9 +6,10 @@ import { createSession, getSession, advanceStage, sendMessage } from "../api/les
 import ChatPanel from "../components/unified-lesson/ChatPanel";
 import ContentPanel from "../components/unified-lesson/ContentPanel";
 import StageProgressBar from "../components/unified-lesson/StageProgressBar";
+import LessonCompleteModal from "../components/unified-lesson/LessonCompleteModal";
 
 export default function UnifiedLesson() {
-  const { lessonId } = useParams<{ lessonId: string }>();
+  const { courseId, lessonId } = useParams<{ courseId?: string; lessonId: string }>();
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [session, setSession] = useState<SessionState | null>(null);
   const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(null);
@@ -363,6 +364,12 @@ export default function UnifiedLesson() {
           />
         </div>
       </div>
+
+      <LessonCompleteModal
+        courseId={courseId}
+        lessonId={lessonId!}
+        isOpen={session.completed || !session.current_stage}
+      />
     </div>
   );
 }
