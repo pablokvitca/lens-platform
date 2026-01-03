@@ -842,115 +842,6 @@ class TestMoreEdgeCases:
 class TestMultipleCoursesScenario:
     """Tests simulating the course-based scheduling scenario."""
 
-    def test_people_grouped_by_attribute(self):
-        """Test that people can be grouped by course attribute."""
-        people = [
-            Person(id="1", name="P1", intervals=[(540, 720)], courses=["AGISF"]),
-            Person(id="2", name="P2", intervals=[(540, 720)], courses=["AGISF"]),
-            Person(id="3", name="P3", intervals=[(540, 720)], courses=["Technical"]),
-            Person(id="4", name="P4", intervals=[(540, 720)], courses=["Technical"]),
-        ]
-
-        # Group by course
-        by_course = {}
-        for p in people:
-            for course in p.courses:
-                if course not in by_course:
-                    by_course[course] = []
-                by_course[course].append(p)
-
-        assert len(by_course) == 2
-        assert len(by_course["AGISF"]) == 2
-        assert len(by_course["Technical"]) == 2
-
-    def test_person_with_multiple_courses(self):
-        """Test that person can have multiple courses."""
-        person = Person(
-            id="1",
-            name="P1",
-            intervals=[(540, 720)],
-            courses=["AGISF", "Technical", "Governance"]
-        )
-
-        assert len(person.courses) == 3
-        assert "AGISF" in person.courses
-        assert "Technical" in person.courses
-        assert "Governance" in person.courses
-
-    def test_multiple_courses_grouping(self):
-        """Test that people with multiple courses appear in all course groups."""
-        # Person enrolled in both AGISF and Technical
-        multi_course_person = Person(
-            id="1",
-            name="Multi",
-            intervals=[(540, 720)],
-            courses=["AGISF", "Technical"]
-        )
-        # Person only in AGISF
-        agisf_only = Person(
-            id="2",
-            name="AGISF-Only",
-            intervals=[(540, 720)],
-            courses=["AGISF"]
-        )
-        # Person only in Technical
-        tech_only = Person(
-            id="3",
-            name="Tech-Only",
-            intervals=[(540, 720)],
-            courses=["Technical"]
-        )
-
-        people = [multi_course_person, agisf_only, tech_only]
-
-        # Group people by course (people can appear in multiple courses)
-        people_by_course = {}
-        for person in people:
-            if person.courses:
-                for course in person.courses:
-                    if course not in people_by_course:
-                        people_by_course[course] = []
-                    people_by_course[course].append(person)
-            else:
-                if "Uncategorized" not in people_by_course:
-                    people_by_course["Uncategorized"] = []
-                people_by_course["Uncategorized"].append(person)
-
-        # Check groupings
-        assert len(people_by_course) == 2  # AGISF and Technical
-        assert len(people_by_course["AGISF"]) == 2  # Multi and AGISF-Only
-        assert len(people_by_course["Technical"]) == 2  # Multi and Tech-Only
-
-        # Verify multi-course person appears in both
-        agisf_ids = {p.id for p in people_by_course["AGISF"]}
-        tech_ids = {p.id for p in people_by_course["Technical"]}
-        assert "1" in agisf_ids
-        assert "1" in tech_ids
-
-    def test_empty_courses_uncategorized(self):
-        """Test that person with no courses goes to Uncategorized."""
-        person = Person(
-            id="1",
-            name="No Course",
-            intervals=[(540, 720)],
-            courses=[]
-        )
-
-        people_by_course = {}
-        for p in [person]:
-            if p.courses:
-                for course in p.courses:
-                    if course not in people_by_course:
-                        people_by_course[course] = []
-                    people_by_course[course].append(p)
-            else:
-                if "Uncategorized" not in people_by_course:
-                    people_by_course["Uncategorized"] = []
-                people_by_course["Uncategorized"].append(p)
-
-        assert "Uncategorized" in people_by_course
-        assert len(people_by_course["Uncategorized"]) == 1
-
     def test_schedule_each_course_separately(self):
         """Test scheduling runs independently per course."""
         agisf_people = [
@@ -1082,13 +973,11 @@ class TestIfNeededOnlyUsers:
                 "name": "Regular User",
                 "availability": {"Monday": ["09:00", "10:00"]},
                 "if_needed": {},
-                "courses": ["AGISF"]
             },
             "user2": {
                 "name": "If-Needed Only User",
                 "availability": {},
                 "if_needed": {"Monday": ["09:00", "10:00"]},
-                "courses": ["AGISF"]
             }
         }
 
@@ -1131,7 +1020,6 @@ class TestIfNeededOnlyUsers:
                 name=data.get("name", f"User {user_id}"),
                 intervals=parsed_intervals,
                 if_needed_intervals=parsed_if_needed,
-                courses=data.get("courses", [])
             )
             people.append(person)
 
@@ -1142,7 +1030,6 @@ class TestIfNeededOnlyUsers:
         if_needed_user = next(p for p in people if p.name == "If-Needed Only User")
         assert len(if_needed_user.intervals) == 0
         assert len(if_needed_user.if_needed_intervals) == 2  # Two 1-hour blocks
-        assert if_needed_user.courses == ["AGISF"]
 
     def test_balance_with_if_needed_users(self):
         """Balance cohorts should work with if-needed only users."""

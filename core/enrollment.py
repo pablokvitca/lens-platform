@@ -84,8 +84,6 @@ async def get_people_for_scheduling() -> tuple[list[Person], dict[str, dict]]:
             intervals=intervals,
             if_needed_intervals=if_needed_intervals,
             timezone=user.get("timezone", "UTC"),
-            courses=[],  # Course enrollment handled separately
-            experience=None
         )
         people.append(person)
 
