@@ -148,7 +148,6 @@ export default function ContentPanel({
   // Chat stage with video as previous content
   if (stage.type === "chat" && previousStage?.type === "video" && previousStage.videoId) {
     const blurred = !showUserPreviousContent;
-    console.log("[ContentPanel] Chat after video:", { showUserPreviousContent, blurred, previousStage });
 
     // When showing: display actual video player
     // When blurred: display thumbnail with blur overlay
@@ -160,6 +159,7 @@ export default function ContentPanel({
             start={previousStage.from ?? 0}
             end={previousStage.to ?? 9999}
             onEnded={() => {}}
+            hideControls
           />
         </div>
       );

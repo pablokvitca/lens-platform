@@ -6,6 +6,8 @@ type VideoPlayerProps = {
   start: number;
   end: number;
   onEnded: () => void;
+  /** Hide the continue button (for reviewing previous videos) */
+  hideControls?: boolean;
 };
 
 // Extend JSX to include the youtube-video custom element
@@ -30,6 +32,7 @@ export default function VideoPlayer({
   start,
   end,
   onEnded,
+  hideControls = false,
 }: VideoPlayerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -292,12 +295,14 @@ export default function VideoPlayer({
                 >
                   Replay
                 </button>
-                <button
-                  onClick={onEnded}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-                >
-                  Continue
-                </button>
+                {!hideControls && (
+                  <button
+                    onClick={onEnded}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                  >
+                    Continue
+                  </button>
+                )}
               </div>
             </div>
           )}
