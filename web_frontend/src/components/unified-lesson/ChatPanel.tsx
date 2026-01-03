@@ -485,7 +485,7 @@ export default function ChatPanel({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={recordingState === "transcribing" ? "Transcribing..." : "Type a message..."}
-          disabled={isLoading || recordingState === "transcribing"}
+          disabled={recordingState === "transcribing"}
           rows={1}
           className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none resize-none leading-normal disabled:bg-gray-100"
         />
@@ -511,7 +511,7 @@ export default function ChatPanel({
               <button
                 type="button"
                 onClick={handleMicClick}
-                disabled={isLoading || recordingState === "transcribing"}
+                disabled={recordingState === "transcribing"}
                 className="p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-gray-100 text-gray-600 hover:bg-gray-200"
               >
                 {recordingState === "transcribing" ? (
