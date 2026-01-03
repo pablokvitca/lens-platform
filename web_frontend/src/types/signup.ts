@@ -11,6 +11,14 @@ export type TimeSlot = string; // "09:00", "14:00", etc.
 
 export type AvailabilityData = Record<DayName, TimeSlot[]>;
 
+export interface Cohort {
+  cohort_id: number;
+  cohort_name: string;
+  cohort_start_date: string;
+  course_name: string;
+  role?: string;
+}
+
 export interface SignupFormData {
   displayName: string;
   email: string;
@@ -18,6 +26,8 @@ export interface SignupFormData {
   discordUsername?: string;
   availability: AvailabilityData;
   timezone: string;
+  selectedCohortId: number | null;
+  selectedRole: string | null;
 }
 
 export const DAY_NAMES: DayName[] = [

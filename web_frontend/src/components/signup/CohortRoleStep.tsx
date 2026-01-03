@@ -1,12 +1,5 @@
 import { useState } from "react";
-
-interface Cohort {
-  cohort_id: number;
-  cohort_name: string;
-  cohort_start_date: string;
-  course_name: string;
-  role?: string;
-}
+import type { Cohort } from "../../types/signup";
 
 interface CohortRoleStepProps {
   enrolledCohorts: Cohort[];

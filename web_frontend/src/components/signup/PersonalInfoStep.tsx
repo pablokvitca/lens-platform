@@ -110,7 +110,7 @@ export default function PersonalInfoStep({
               : "bg-gray-200 text-gray-400 cursor-not-allowed"
           }`}
         >
-          Continue to Availability
+          Continue to Cohort Selection
         </button>
       </div>
     </div>

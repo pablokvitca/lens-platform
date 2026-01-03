@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import type { SignupFormData } from "../../types/signup";
+import type { SignupFormData, Cohort } from "../../types/signup";
 import { EMPTY_AVAILABILITY, getBrowserTimezone } from "../../types/signup";
 import PersonalInfoStep from "./PersonalInfoStep";
+import CohortRoleStep from "./CohortRoleStep";
 import AvailabilityStep from "./AvailabilityStep";
 import SuccessMessage from "./SuccessMessage";
 import { useAuth } from "../../hooks/useAuth";
 
-type Step = 1 | 2 | "complete";
+type Step = 1 | 2 | 3 | "complete";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -22,14 +23,20 @@ export default function SignupWizard() {
     discordUsername: undefined,
     availability: { ...EMPTY_AVAILABILITY },
     timezone: getBrowserTimezone(),
+    selectedCohortId: null,
+    selectedRole: null,
   });
   const [_isSubmitting, setIsSubmitting] = useState(false);
+
+  // Cohort data
+  const [enrolledCohorts, setEnrolledCohorts] = useState<Cohort[]>([]);
+  const [availableCohorts, setAvailableCohorts] = useState<Cohort[]>([]);
+  const [isFacilitator, setIsFacilitator] = useState(false);
 
   // Sync auth state with form data
   useEffect(() => {
     if (isAuthenticated && discordUsername) {
       setFormData((prev) => {
-        // Load existing availability from database
         let availability = prev.availability;
         let timezone = prev.timezone;
 
@@ -48,18 +55,60 @@ export default function SignupWizard() {
           ...prev,
           discordConnected: true,
           discordUsername: discordUsername,
-          // Pre-fill: database nickname > Discord username > existing value
           displayName: user?.nickname || discordUsername || prev.displayName,
           email: user?.email || prev.email,
           availability,
           timezone,
         };
       });
+
+      // Fetch cohorts and facilitator status
+      fetchCohortData();
+      fetchFacilitatorStatus();
     }
   }, [isAuthenticated, discordUsername, user]);
 
+  const fetchCohortData = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/cohorts/available`, {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setEnrolledCohorts(data.enrolled);
+        setAvailableCohorts(data.available);
+      }
+    } catch (error) {
+      console.error("Failed to fetch cohorts:", error);
+    }
+  };
+
+  const fetchFacilitatorStatus = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/users/me/facilitator-status`, {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setIsFacilitator(data.is_facilitator);
+      }
+    } catch (error) {
+      console.error("Failed to fetch facilitator status:", error);
+    }
+  };
+
+  const handleBecomeFacilitator = async () => {
+    const response = await fetch(`${API_URL}/api/users/me/become-facilitator`, {
+      method: "POST",
+      credentials: "include",
+    });
+    if (response.ok) {
+      setIsFacilitator(true);
+      setFormData((prev) => ({ ...prev, selectedRole: "facilitator" }));
+    }
+  };
+
   const handleDiscordConnect = () => {
-    // Redirect to Discord OAuth
     login();
   };
 
@@ -72,7 +121,6 @@ export default function SignupWizard() {
     setIsSubmitting(true);
 
     try {
-      // Update user profile in the database
       const response = await fetch(`${API_URL}/api/users/me`, {
         method: "PATCH",
         credentials: "include",
@@ -84,6 +132,8 @@ export default function SignupWizard() {
           email: formData.email || null,
           timezone: formData.timezone,
           availability_local: JSON.stringify(formData.availability),
+          cohort_id: formData.selectedCohortId,
+          role_in_cohort: formData.selectedRole,
         }),
       });
 
@@ -100,7 +150,6 @@ export default function SignupWizard() {
     }
   };
 
-  // Show loading while checking auth
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -133,6 +182,29 @@ export default function SignupWizard() {
       )}
 
       {currentStep === 2 && (
+        <CohortRoleStep
+          enrolledCohorts={enrolledCohorts}
+          availableCohorts={availableCohorts}
+          selectedCohortId={formData.selectedCohortId}
+          selectedRole={formData.selectedRole ?? (isFacilitator ? null : "participant")}
+          isFacilitator={isFacilitator}
+          onCohortSelect={(id) =>
+            setFormData((prev) => ({
+              ...prev,
+              selectedCohortId: id,
+              selectedRole: isFacilitator ? null : "participant",
+            }))
+          }
+          onRoleSelect={(role) =>
+            setFormData((prev) => ({ ...prev, selectedRole: role }))
+          }
+          onBecomeFacilitator={handleBecomeFacilitator}
+          onNext={() => setCurrentStep(3)}
+          onBack={() => setCurrentStep(1)}
+        />
+      )}
+
+      {currentStep === 3 && (
         <AvailabilityStep
           availability={formData.availability}
           onAvailabilityChange={(data) =>
@@ -142,7 +214,7 @@ export default function SignupWizard() {
           onTimezoneChange={(tz) =>
             setFormData((prev) => ({ ...prev, timezone: tz }))
           }
-          onBack={() => setCurrentStep(1)}
+          onBack={() => setCurrentStep(2)}
           onSubmit={handleSubmit}
         />
       )}
