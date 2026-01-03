@@ -17,15 +17,13 @@ stages:
 
   - type: article
     source: articles/christiano-takeoff-speeds.md
-    from: "### Recursive self-improvement"
-    to: "corresponds to a further increase in rate but not a discontinuity (or even a discontinuity in rate)."
 
   - type: chat
     instructions: >
       The user has now read Paul Christiano's perspective on recursive self-improvement
       and takeoff speeds. Compare this "slow takeoff" view with the previous readings.
       Help them understand the key disagreements about how quickly AI capabilities might advance.
-    showUserPreviousContent: true
+    showUserPreviousContent: false
     showTutorPreviousContent: true
 
   - type: video
@@ -38,5 +36,20 @@ stages:
       The user just watched a Kurzgesagt video about AI and intelligence explosion.
       Quiz them on the key concepts without providing hints.
       Test their understanding of the feedback loop dynamics.
+    showUserPreviousContent: false
+    showTutorPreviousContent: true
+
+  - type: article
+    source: articles/yudkowsky-recursive-self-improvement.md
+
+  - type: article
+    source: articles/urban-ai-revolution-superintelligence.md
+
+  - type: chat
+    instructions: >
+      The user has now read Yudkowsky's analysis of recursive self-improvement and
+      Tim Urban's exploration of accelerating progress and the road to superintelligence.
+      Discuss how these perspectives relate to the earlier readings on takeoff speeds
+      and the intelligence feedback loop.
     showUserPreviousContent: true
     showTutorPreviousContent: true
