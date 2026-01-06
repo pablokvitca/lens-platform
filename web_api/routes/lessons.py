@@ -218,7 +218,10 @@ async def get_session_state(
     except SessionNotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if session["user_id"] != user_id:
+    # Allow access if:
+    # 1. Session is anonymous (user_id is None) - anyone with session_id can access
+    # 2. Session belongs to the requesting user
+    if session["user_id"] is not None and session["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Not your session")
 
     # Load lesson to include stage info
@@ -358,7 +361,10 @@ async def send_message_endpoint(
     except SessionNotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if session["user_id"] != user_id:
+    # Allow access if:
+    # 1. Session is anonymous (user_id is None) - anyone with session_id can access
+    # 2. Session belongs to the requesting user
+    if session["user_id"] is not None and session["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Not your session")
 
     # Load lesson and current stage
@@ -430,7 +436,10 @@ async def advance_session(session_id: int, request: Request):
     except SessionNotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if session["user_id"] != user_id:
+    # Allow access if:
+    # 1. Session is anonymous (user_id is None) - anyone with session_id can access
+    # 2. Session belongs to the requesting user
+    if session["user_id"] is not None and session["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Not your session")
 
     lesson = load_lesson(session["lesson_id"])

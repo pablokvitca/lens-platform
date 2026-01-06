@@ -92,3 +92,67 @@ def test_claim_nonexistent_session():
                 response = client.post("/api/lesson-sessions/1/claim")
 
                 assert response.status_code == 404
+
+
+# --- Task 5: Anonymous Session Access Tests ---
+
+
+def test_get_anonymous_session_by_id():
+    """Can access an anonymous session without auth if you have the session_id."""
+    with patch("web_api.routes.lessons.get_optional_user") as mock_auth:
+        mock_auth.return_value = None  # Not authenticated
+
+        with patch("web_api.routes.lessons.get_session") as mock_get:
+            mock_get.return_value = {
+                "session_id": 1,
+                "user_id": None,  # Anonymous
+                "lesson_id": "intro-to-ai-safety",
+                "current_stage_index": 0,
+                "messages": [],
+                "completed_at": None,
+            }
+
+            with patch("web_api.routes.lessons.load_lesson") as mock_lesson:
+                from unittest.mock import MagicMock
+                mock_stage = MagicMock()
+                mock_stage.type = "chat"
+                mock_stage.instructions = "hi"
+                mock_stage.show_user_previous_content = True
+                mock_stage.show_tutor_previous_content = True
+
+                mock_lesson_obj = MagicMock()
+                mock_lesson_obj.title = "Test Lesson"
+                mock_lesson_obj.stages = [mock_stage]
+                mock_lesson.return_value = mock_lesson_obj
+
+                with patch("web_api.routes.lessons.get_stage_content") as mock_content:
+                    mock_content.return_value = None
+
+                    response = client.get("/api/lesson-sessions/1")
+
+                    # Should succeed for anonymous session
+                    assert response.status_code == 200
+
+
+def test_get_session_forbidden_for_wrong_user():
+    """Cannot access another user's session."""
+    with patch("web_api.routes.lessons.get_optional_user") as mock_auth:
+        mock_auth.return_value = {"sub": "test_discord_123", "username": "testuser"}
+
+        with patch("web_api.routes.lessons.get_or_create_user") as mock_get_user:
+            mock_get_user.return_value = {"user_id": 42, "discord_id": "test_discord_123"}
+
+            with patch("web_api.routes.lessons.get_session") as mock_get:
+                mock_get.return_value = {
+                    "session_id": 1,
+                    "user_id": 999,  # Different user
+                    "lesson_id": "test",
+                    "current_stage_index": 0,
+                    "messages": [],
+                    "completed_at": None,
+                }
+
+                response = client.get("/api/lesson-sessions/1")
+
+                # Should fail - not owner's session
+                assert response.status_code == 403
