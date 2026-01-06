@@ -29,7 +29,9 @@ from core.lessons import (
     add_message,
     advance_stage,
     complete_session,
+    claim_session,
     SessionNotFoundError,
+    SessionAlreadyClaimedError,
     send_lesson_message,
     get_stage_content,
     ArticleStage,
@@ -37,7 +39,7 @@ from core.lessons import (
     load_video_transcript_with_metadata,
 )
 from core import get_or_create_user
-from web_api.auth import get_optional_user
+from web_api.auth import get_optional_user, get_current_user
 
 
 def get_video_info(stage: VideoStage) -> dict:
@@ -457,3 +459,24 @@ async def advance_session(session_id: int, request: Request):
         await add_message(session_id, "system", started_msg)
 
     return {"completed": False, "new_stage_index": current_stage_index + 1}
+
+
+@router.post("/lesson-sessions/{session_id}/claim")
+async def claim_session_endpoint(session_id: int, request: Request):
+    """Claim an anonymous session for the authenticated user."""
+    # Require authentication
+    user_jwt = await get_current_user(request)
+    discord_id = user_jwt["sub"]
+
+    # Get or create user record
+    user = await get_or_create_user(discord_id)
+    user_id = user["user_id"]
+
+    try:
+        await claim_session(session_id, user_id)
+    except SessionNotFoundError:
+        raise HTTPException(status_code=404, detail="Session not found")
+    except SessionAlreadyClaimedError:
+        raise HTTPException(status_code=403, detail="Session already claimed")
+
+    return {"claimed": True}
