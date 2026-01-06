@@ -461,9 +461,8 @@ export default function UnifiedLesson() {
       </div>
 
       <LessonCompleteModal
-        courseId={courseId}
-        lessonId={lessonId!}
         isOpen={session.completed || !session.current_stage}
+        lessonTitle={session.lesson_title}
       />
 
       <AuthPromptModal
