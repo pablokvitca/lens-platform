@@ -59,6 +59,14 @@ export default function ArticlePanel({
     return () => resizeObserver.disconnect();
   }, [onContentFitsChange, content]);
 
+  // Reset scroll position when content changes
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      container.scrollTop = 0;
+    }
+  }, [content]);
+
   return (
     <div className="h-full relative">
       <div ref={containerRef} className="h-full overflow-y-auto">

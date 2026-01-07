@@ -108,6 +108,7 @@ export default function ContentPanel({
           onClick={handleReadButtonClick}
           {...(hasScrolledToBottom ? {} : getReferenceProps())}
           className="w-full py-2 rounded-lg bg-gray-300 text-black hover:bg-gray-400 cursor-pointer"
+          data-testid="done-reading-button"
         >
           Done reading
         </button>
@@ -146,15 +147,18 @@ export default function ContentPanel({
     );
 
     // Short article: button inline after content
-    // Long article: button in sticky footer
+    // Long article (or unknown): button in sticky footer
     const useInlineButton = contentFits === true;
-    const useStickyFooter = contentFits === false;
+    const useStickyFooter = contentFits !== true;  // Show sticky for false or null (unknown)
 
     const afterContent = showButton && useInlineButton ? (
       <div className="max-w-[620px] mx-auto px-6 pb-6">
         {buttonElement}
       </div>
     ) : undefined;
+
+    // Should we show the button in the sticky footer (vs inline after content)?
+    const showButtonInFooter = showButton && useStickyFooter;
 
     return (
       <div className="h-full flex flex-col">
@@ -172,14 +176,17 @@ export default function ContentPanel({
             afterContent={afterContent}
           />
         </div>
-        {/* Sticky footer for long articles */}
-        {showButton && useStickyFooter && (
-          <div className="p-4 border-t border-gray-200 bg-white">
-            <div className="max-w-[620px] mx-auto">
-              {buttonElement}
-            </div>
+        {/* Always reserve footer space to prevent layout shift between article and chat stages */}
+        <div className="p-4 border-t border-gray-200 bg-white">
+          <div className="max-w-[620px] mx-auto">
+            {showButtonInFooter ? (
+              buttonElement
+            ) : (
+              /* Invisible placeholder to maintain layout */
+              <div className="py-2 invisible">Placeholder</div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     );
   }
