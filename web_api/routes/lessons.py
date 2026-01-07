@@ -29,7 +29,9 @@ from core.lessons import (
     add_message,
     advance_stage,
     complete_session,
+    claim_session,
     SessionNotFoundError,
+    SessionAlreadyClaimedError,
     send_lesson_message,
     get_stage_content,
     ArticleStage,
@@ -37,7 +39,7 @@ from core.lessons import (
     load_video_transcript_with_metadata,
 )
 from core import get_or_create_user
-from web_api.auth import get_optional_user
+from web_api.auth import get_optional_user, get_current_user
 
 
 def get_video_info(stage: VideoStage) -> dict:
@@ -184,8 +186,15 @@ class CreateSessionRequest(BaseModel):
 async def start_session(
     request_body: CreateSessionRequest, request: Request
 ):
-    """Start a new lesson session."""
-    user_id = await get_user_id_for_lesson(request)
+    """Start a new lesson session. Can be anonymous (no auth required)."""
+    user_jwt = await get_optional_user(request)
+
+    if user_jwt:
+        discord_id = user_jwt["sub"]
+        user = await get_or_create_user(discord_id)
+        user_id = user["user_id"]
+    else:
+        user_id = None  # Anonymous session
 
     try:
         lesson = load_lesson(request_body.lesson_id)
@@ -218,7 +227,10 @@ async def get_session_state(
     except SessionNotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if session["user_id"] != user_id:
+    # Allow access if:
+    # 1. Session is anonymous (user_id is None) - anyone with session_id can access
+    # 2. Session belongs to the requesting user
+    if session["user_id"] is not None and session["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Not your session")
 
     # Load lesson to include stage info
@@ -357,7 +369,10 @@ async def send_message_endpoint(
     except SessionNotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if session["user_id"] != user_id:
+    # Allow access if:
+    # 1. Session is anonymous (user_id is None) - anyone with session_id can access
+    # 2. Session belongs to the requesting user
+    if session["user_id"] is not None and session["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Not your session")
 
     # Load lesson and current stage
@@ -429,7 +444,10 @@ async def advance_session(session_id: int, request: Request):
     except SessionNotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if session["user_id"] != user_id:
+    # Allow access if:
+    # 1. Session is anonymous (user_id is None) - anyone with session_id can access
+    # 2. Session belongs to the requesting user
+    if session["user_id"] is not None and session["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Not your session")
 
     lesson = load_lesson(session["lesson_id"])
@@ -458,3 +476,24 @@ async def advance_session(session_id: int, request: Request):
         await add_message(session_id, "system", started_msg)
 
     return {"completed": False, "new_stage_index": current_stage_index + 1}
+
+
+@router.post("/lesson-sessions/{session_id}/claim")
+async def claim_session_endpoint(session_id: int, request: Request):
+    """Claim an anonymous session for the authenticated user."""
+    # Require authentication
+    user_jwt = await get_current_user(request)
+    discord_id = user_jwt["sub"]
+
+    # Get or create user record
+    user = await get_or_create_user(discord_id)
+    user_id = user["user_id"]
+
+    try:
+        await claim_session(session_id, user_id)
+    except SessionNotFoundError:
+        raise HTTPException(status_code=404, detail="Session not found")
+    except SessionAlreadyClaimedError:
+        raise HTTPException(status_code=403, detail="Session already claimed")
+
+    return {"claimed": True}
