@@ -7,6 +7,8 @@ for AI safety education courses.
 """
 
 import os
+import traceback
+
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -72,7 +74,6 @@ async def on_ready():
             else:
                 print(f"  - {cog} already loaded")
         except Exception as e:
-            import traceback
             print(f"  ✗ Error loading {cog}: {e}")
             traceback.print_exc()
 

@@ -4,8 +4,6 @@ Can be used by Discord bot, web API, or any other interface.
 """
 
 # Database (SQLAlchemy) - user data migrated to database, courses removed
-
-# Database (SQLAlchemy)
 from .database import get_connection, get_transaction, get_engine, close_engine, is_configured
 
 # Constants
@@ -56,8 +54,8 @@ from .availability import (
 from .auth import create_auth_code, get_or_create_user, validate_and_use_auth_code
 
 # Stampy chatbot
-from core import stampy
-from core import lesson_chat
+from . import stampy
+from . import lesson_chat
 
 __all__ = [
     # Database (SQLAlchemy)

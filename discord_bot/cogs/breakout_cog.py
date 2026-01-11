@@ -186,8 +186,8 @@ class BreakoutCog(commands.Cog):
             for channel in breakout_channels:
                 try:
                     await channel.delete()
-                except:
-                    pass
+                except discord.HTTPException:
+                    pass  # Channel may already be deleted
             await interaction.followup.send(
                 "I don't have permission to create channels or move members.",
                 ephemeral=True

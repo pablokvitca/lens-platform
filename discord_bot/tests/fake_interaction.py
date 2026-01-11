@@ -6,7 +6,6 @@ Wraps a real guild but captures/redirects response messages.
 
 import discord
 from typing import Optional, Any
-from unittest.mock import MagicMock
 
 
 class FakeInteraction:

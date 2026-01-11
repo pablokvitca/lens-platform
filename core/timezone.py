@@ -20,10 +20,7 @@ def local_to_utc_time(day_name: str, hour: int, user_tz_str: str) -> tuple:
     Returns:
         Tuple of (utc_day_name, utc_hour)
     """
-    try:
-        tz = pytz.timezone(user_tz_str)
-    except:
-        tz = pytz.UTC
+    tz = pytz.timezone(user_tz_str)
 
     # Map day to date (Jan 1, 2024 is Monday)
     day_index = DAY_NAMES.index(day_name)
@@ -49,10 +46,7 @@ def utc_to_local_time(day_name: str, hour: int, user_tz_str: str) -> tuple:
     Returns:
         Tuple of (local_day_name, local_hour)
     """
-    try:
-        tz = pytz.timezone(user_tz_str)
-    except:
-        tz = pytz.UTC
+    tz = pytz.timezone(user_tz_str)
 
     # Map day to date (Jan 1, 2024 is Monday)
     day_index = DAY_NAMES.index(day_name)

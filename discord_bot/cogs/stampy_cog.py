@@ -260,8 +260,8 @@ class StampyCog(commands.Cog):
             # Fallback to regular message if webhook fails
             try:
                 await message.reply(f"Error: {e}")
-            except:
-                pass
+            except discord.HTTPException:
+                pass  # Channel may be deleted or permissions changed
 
     async def _stream_response(self, message: discord.Message):
         """Stream Stampy response via webhook with scrolling thinking + answer messages."""

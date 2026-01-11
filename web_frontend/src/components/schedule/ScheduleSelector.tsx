@@ -134,10 +134,9 @@ export default function ScheduleSelector({
 
         {/* Time rows */}
         {slots.map((slot) => (
-          <>
+          <div key={`row-${slot}`} className="contents">
             {/* Time label - only show on full hours, positioned at top edge */}
             <div
-              key={`label-${slot}`}
               className="sticky left-0 text-right pr-2 text-xs text-gray-500 flex items-start justify-end relative"
             >
               {slot % 1 === 0 && (
@@ -161,7 +160,7 @@ export default function ScheduleSelector({
                 onTouchStart={() => handlers.onTouchStart(day, slot)}
               />
             ))}
-          </>
+          </div>
         ))}
 
         {/* Final time label row */}

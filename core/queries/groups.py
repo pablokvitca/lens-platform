@@ -7,7 +7,6 @@ from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from ..tables import cohorts, courses, groups, groups_users, users
-from ..enums import GroupUserRole
 
 
 async def create_group(

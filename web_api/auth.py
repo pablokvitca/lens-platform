@@ -11,7 +11,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import HTTPException, Request, Response
+from fastapi import HTTPException, Response
 
 JWT_SECRET = os.environ.get("JWT_SECRET")
 JWT_ALGORITHM = "HS256"

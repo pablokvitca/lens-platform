@@ -125,7 +125,7 @@ def format_local_time(day: str, hour: int, tz_name: str) -> tuple[str, str]:
         tz = pytz.timezone(tz_name)
         now = datetime.now(pytz.UTC)
         abbrev = now.astimezone(tz).strftime('%Z')
-    except:
+    except pytz.UnknownTimeZoneError:
         abbrev = tz_name
 
     return (local_day, f"{local_day}s {time_str} {abbrev}")
@@ -145,5 +145,5 @@ def get_timezone_abbrev(tz_name: str) -> str:
         tz = pytz.timezone(tz_name)
         now = datetime.now(pytz.UTC)
         return now.astimezone(tz).strftime('%Z')
-    except:
+    except pytz.UnknownTimeZoneError:
         return tz_name
