@@ -1,0 +1,120 @@
+# All user-facing messages sent by the notification system.
+# Edit this file to change any communication.
+#
+# Template variables use {variable_name} syntax.
+# Common variables: {name}, {email}, {group_name}, {meeting_time},
+#   {lesson_url}, {discord_channel_url}, {profile_url}
+
+welcome:
+  email_subject: Welcome to the AI Safety Course
+  email_body: |
+    Hi {name},
+
+    Thanks for signing up! We're excited to have you.
+
+    Next steps:
+    - Complete your availability form: {profile_url}
+    - We'll match you with a study group
+
+    Questions? Reply to this email.
+
+    Best,
+    The AI Safety Course Team
+  discord: |
+    Welcome {name}! Thanks for signing up.
+    Complete your availability form to get matched with a group: {profile_url}
+
+group_assigned:
+  email_subject: "You've been assigned to a group: {group_name}"
+  email_body: |
+    Hi {name},
+
+    Great news! You've been matched with a study group.
+
+    Group: {group_name}
+    Meeting time: {meeting_time}
+    Your groupmates: {member_names}
+
+    Chat with your group on Discord: {discord_channel_url}
+
+    A calendar invite is attached.
+
+    Best,
+    The AI Safety Course Team
+  discord: |
+    You've been assigned to **{group_name}**!
+    Meeting time: {meeting_time}
+    Check your email for the calendar invite.
+  calendar_title: "AI Safety Study Group: {group_name}"
+  calendar_description: |
+    Weekly study group meeting.
+    Group members: {member_names}
+
+meeting_reminder_24h:
+  email_subject: "Reminder: {group_name} meeting tomorrow"
+  email_body: |
+    Hi {name},
+
+    Your study group meets tomorrow at {meeting_time}.
+
+    Lessons to complete before the meeting:
+    {lesson_list}
+
+    Continue here: {lesson_url}
+
+    Questions? Chat with your group: {discord_channel_url}
+
+    Best,
+    The AI Safety Course Team
+  discord_channel: |
+    Reminder: Meeting tomorrow at {meeting_time}!
+
+meeting_reminder_1h:
+  email_subject: "Reminder: {group_name} meeting in 1 hour"
+  email_body: |
+    Hi {name},
+
+    Your study group meets in 1 hour at {meeting_time}.
+
+    Join your group channel: {discord_channel_url}
+
+    See you there!
+
+    Best,
+    The AI Safety Course Team
+  discord_channel: |
+    Meeting starting in 1 hour!
+
+lesson_nudge:
+  email_subject: "Don't forget: {lessons_remaining} lessons before your meeting"
+  email_body: |
+    Hi {name},
+
+    Your next meeting is on {meeting_date}. You have {lessons_remaining}
+    lessons left to complete:
+
+    {lesson_list}
+
+    Continue here: {lesson_url}
+
+    Questions for your group? {discord_channel_url}
+
+    Best,
+    The AI Safety Course Team
+  discord: |
+    Heads up! You have {lessons_remaining} lessons to finish before
+    your meeting on {meeting_date}. Continue here: {lesson_url}
+
+trial_nudge:
+  email_subject: Finish your trial lesson?
+  email_body: |
+    Hi {name},
+
+    You started the trial lesson but didn't finish.
+    Pick up where you left off: {lesson_url}
+
+    Best,
+    The AI Safety Course Team
+  discord: |
+    Hey {name}! You started the trial lesson yesterday.
+    Want to finish it? {lesson_url}
