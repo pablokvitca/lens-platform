@@ -56,6 +56,8 @@ from fastapi import FastAPI
 
 from core.database import close_engine, check_connection
 from core import get_allowed_origins, is_dev_mode
+from core.notifications import init_scheduler, shutdown_scheduler
+from core.notifications.channels.discord import set_bot as set_notification_bot
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -187,9 +189,21 @@ async def lifespan(app: FastAPI):
         print(f"✗ Database: {db_msg}")
         print("  └─ API will fail on database operations until this is fixed")
 
+    # Initialize notification scheduler
+    print("Starting notification scheduler...")
+    init_scheduler()
+
     # Start peer services as background tasks
     print("Starting Discord bot...")
     _bot_task = asyncio.create_task(start_bot())
+
+    # Set bot reference for notifications once bot is ready
+    async def on_bot_ready():
+        await asyncio.sleep(2)  # Wait for bot to be ready
+        if bot.is_ready():
+            set_notification_bot(bot)
+            print("Notification system connected to Discord bot")
+    asyncio.create_task(on_bot_ready())
 
     # Start Vite dev server if in dev mode
     await start_vite_dev()
@@ -199,6 +213,7 @@ async def lifespan(app: FastAPI):
     # Graceful shutdown of all peer services
     print("Shutting down peer services...")
     await stop_vite_dev()
+    shutdown_scheduler()
     await stop_bot()
     await close_engine()  # Close database connections
     if _bot_task:
