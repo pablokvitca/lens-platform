@@ -5,6 +5,7 @@ title: AI Safety Fundamentals
 modules:
   - id: foundations
     title: Foundations
+    due_by_meeting: 1
     lessons:
       - intro-to-ai-safety
       - intelligence-feedback-loop

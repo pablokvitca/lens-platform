@@ -31,6 +31,7 @@ def load_course(course_id: str) -> Course:
             id=m["id"],
             title=m["title"],
             lessons=m["lessons"],
+            due_by_meeting=m.get("due_by_meeting"),
         )
         for m in data["modules"]
     ]

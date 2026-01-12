@@ -53,6 +53,7 @@ class Module:
     id: str
     title: str
     lessons: list[str]  # List of lesson IDs
+    due_by_meeting: int | None = None  # Which meeting this module should be completed by
 
 
 @dataclass
