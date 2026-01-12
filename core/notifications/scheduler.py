@@ -21,15 +21,26 @@ def _get_database_url() -> str:
     database_url = os.environ.get("DATABASE_URL", "")
     # APScheduler needs sync URL (not asyncpg)
     if "postgresql+asyncpg://" in database_url:
-        return database_url.replace("postgresql+asyncpg://", "postgresql://")
+        database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+
+    # Add connection timeout to prevent hanging when DB is unavailable
+    if database_url and "?" not in database_url:
+        database_url += "?connect_timeout=5"
+    elif database_url and "connect_timeout" not in database_url:
+        database_url += "&connect_timeout=5"
+
     return database_url
 
 
-def init_scheduler() -> AsyncIOScheduler:
+def init_scheduler(skip_if_db_unavailable: bool = True) -> AsyncIOScheduler | None:
     """
     Initialize and start the APScheduler.
 
     Call this during app startup (in FastAPI lifespan).
+
+    Args:
+        skip_if_db_unavailable: If True, gracefully skip scheduler when DB is unreachable
+                                instead of blocking. Defaults to True.
     """
     global _scheduler
 
@@ -38,6 +49,7 @@ def init_scheduler() -> AsyncIOScheduler:
 
     database_url = _get_database_url()
 
+    # Try to initialize with database persistence
     jobstores = {}
     if database_url:
         jobstores["default"] = SQLAlchemyJobStore(
@@ -53,8 +65,27 @@ def init_scheduler() -> AsyncIOScheduler:
             "misfire_grace_time": 3600,  # Allow 1 hour late execution
         },
     )
-    _scheduler.start()
-    print("Notification scheduler started")
+
+    try:
+        _scheduler.start()
+        print("Notification scheduler started")
+    except Exception as e:
+        if skip_if_db_unavailable and "timeout" in str(e).lower():
+            # Database unavailable - fall back to in-memory scheduler
+            print(f"Warning: Could not connect to database for scheduler: timeout expired")
+            print("  └─ Scheduler running in memory-only mode (jobs won't persist)")
+            _scheduler = AsyncIOScheduler(
+                jobstores={},  # No persistence
+                job_defaults={
+                    "coalesce": True,
+                    "max_instances": 1,
+                    "misfire_grace_time": 3600,
+                },
+            )
+            _scheduler.start()
+            print("Notification scheduler started (memory-only)")
+        else:
+            raise
 
     return _scheduler
 

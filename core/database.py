@@ -53,6 +53,7 @@ def get_engine() -> AsyncEngine:
             max_overflow=10,
             pool_timeout=30,
             pool_recycle=1800,  # Recycle connections every 30 minutes
+            pool_pre_ping=True,  # Test connections before use
             # Disable prepared statement cache for Supabase pooler compatibility
             # (pgbouncer in transaction mode doesn't support prepared statements)
             connect_args={"statement_cache_size": 0},
@@ -104,20 +105,38 @@ def is_configured() -> bool:
     return bool(os.environ.get("DATABASE_URL"))
 
 
-async def check_connection() -> tuple[bool, str]:
+async def check_connection(timeout_seconds: float = 5.0) -> tuple[bool, str]:
     """
     Test database connectivity. Returns (success, message).
 
     Call this at startup to warn developers if the database is unreachable.
+    Uses a short timeout to fail fast during development.
     """
+    import asyncio
+
     if not is_configured():
         return False, "DATABASE_URL not set"
 
     try:
         from sqlalchemy import text
-        async with get_connection() as conn:
-            await conn.execute(text("SELECT 1"))
+
+        async def _test_connection():
+            async with get_connection() as conn:
+                await conn.execute(text("SELECT 1"))
+
+        await asyncio.wait_for(_test_connection(), timeout=timeout_seconds)
         return True, "Connected"
+    except asyncio.TimeoutError:
+        # Extract host from DATABASE_URL for helpful message
+        db_url = os.environ.get("DATABASE_URL", "")
+        host_hint = ""
+        if "@" in db_url and "/" in db_url:
+            try:
+                host_part = db_url.split("@")[1].split("/")[0]
+                host_hint = f" (host: {host_part})"
+            except IndexError:
+                pass
+        return False, f"Connection timeout after {timeout_seconds}s{host_hint} - is the database running?"
     except Exception as e:
         error_msg = str(e)
         # Simplify common error messages

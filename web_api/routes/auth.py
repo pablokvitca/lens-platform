@@ -42,7 +42,7 @@ if is_dev_mode():
 elif is_production():
     # Production: use explicit env vars
     DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI", f"http://localhost:{_api_port}/auth/discord/callback")
-    FRONTEND_URL = os.environ.get("FRONTEND_URL", f"http://localhost:{_api_port}")
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", f"http://localhost:{_api_port}").rstrip("/")
 else:
     # Local production mode (single-service): calculate from API_PORT
     DISCORD_REDIRECT_URI = f"http://localhost:{_api_port}/auth/discord/callback"
@@ -55,7 +55,7 @@ ALLOWED_ORIGINS = get_allowed_origins()
 def _validate_origin(origin: str | None) -> str:
     """Validate and return origin, or fallback to FRONTEND_URL."""
     if origin and origin in ALLOWED_ORIGINS:
-        return origin
+        return origin.rstrip("/")
     return FRONTEND_URL
 
 

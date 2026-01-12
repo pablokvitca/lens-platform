@@ -20,7 +20,7 @@ export default function Home() {
 
       <a
         href="/"
-        className="text-indigo-600 underline"
+        className="text-emerald-600 underline"
       >
         Hard refresh to see the real landing page
       </a>

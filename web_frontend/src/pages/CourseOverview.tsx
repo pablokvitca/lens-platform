@@ -4,13 +4,14 @@
  */
 
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { getCourseProgress } from "../api/lessons";
 import type { CourseProgress, LessonInfo } from "../types/course";
 import ModuleSidebar from "../components/course/ModuleSidebar";
 import LessonOverview from "../components/course/LessonOverview";
 import ContentPreviewModal from "../components/course/ContentPreviewModal";
+import { DISCORD_INVITE_URL } from "../config";
 
 export default function CourseOverview() {
   const { courseId = "default" } = useParams();
@@ -97,6 +98,29 @@ export default function CourseOverview() {
 
   return (
     <div className="h-screen flex flex-col bg-white">
+      {/* Nav Header */}
+      <nav className="border-b border-slate-200/50 bg-stone-50">
+        <div className="px-6 flex items-center justify-between h-14">
+          <a href="/" className="text-xl font-bold text-emerald-600">
+            Lens Academy
+          </a>
+          <div className="flex items-center gap-4">
+            <Link
+              to="/course"
+              className="text-slate-600 font-medium text-sm hover:text-slate-900 transition-colors duration-200"
+            >
+              Course
+            </Link>
+            <a
+              href={DISCORD_INVITE_URL}
+              className="px-5 py-2 rounded-full border-2 border-slate-200 text-slate-700 font-medium text-sm hover:border-slate-300 hover:bg-slate-50 transition-all duration-200"
+            >
+              Join Our Discord Server
+            </a>
+          </div>
+        </div>
+      </nav>
+
       {/* Breadcrumb */}
       <div className="border-b border-slate-200 px-6 py-3 flex items-center gap-2 text-sm">
         <a href="/" className="text-slate-500 hover:text-slate-700">

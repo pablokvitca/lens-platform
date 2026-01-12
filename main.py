@@ -54,6 +54,7 @@ if __name__ == "__main__":
     import argparse
     _early_parser = argparse.ArgumentParser(add_help=False)
     _early_parser.add_argument("--dev", action="store_true")
+    _early_parser.add_argument("--no-db", action="store_true")
     _early_parser.add_argument("--port", type=int, default=int(os.getenv("API_PORT", "8000")))
     _early_parser.add_argument("--vite-port", type=int, default=int(os.getenv("VITE_PORT", "5173")))
     _early_args, _ = _early_parser.parse_known_args()
@@ -64,6 +65,8 @@ if __name__ == "__main__":
     else:
         # Production single-service mode: frontend served from same port as API
         os.environ["API_PORT"] = str(_early_args.port)
+    if _early_args.no_db:
+        os.environ["SKIP_DB_CHECK"] = "true"
 
 from fastapi import FastAPI
 
@@ -195,17 +198,15 @@ async def lifespan(app: FastAPI):
     """
     global _bot_task
 
-    # Check database connection
-    db_ok, db_msg = await check_connection()
-    if db_ok:
-        print(f"✓ Database: {db_msg}")
-    else:
-        print(f"✗ Database: {db_msg}")
-        print("  └─ API will fail on database operations until this is fixed")
+    # Database was already checked before uvicorn started (unless --no-db)
+    skip_db = os.getenv("SKIP_DB_CHECK", "").lower() in ("true", "1", "yes")
 
-    # Initialize notification scheduler
-    print("Starting notification scheduler...")
-    init_scheduler()
+    # Initialize notification scheduler (skip if no database)
+    if not skip_db:
+        print("Starting notification scheduler...")
+        init_scheduler()
+    else:
+        print("Running in --no-db mode (database operations will fail)")
 
     # Start peer services as background tasks
     print("Starting Discord bot...")
@@ -354,6 +355,11 @@ if __name__ == "__main__":
         default=int(os.getenv("VITE_PORT", "5173")),
         help="Port for Vite dev server (default: from VITE_PORT env or 5173)",
     )
+    parser.add_argument(
+        "--no-db",
+        action="store_true",
+        help="Skip database connection check (for frontend-only development)",
+    )
     args = parser.parse_args()
 
     # Log when using default ports (helps Claude understand port configuration)
@@ -396,6 +402,17 @@ if __name__ == "__main__":
         os.environ["API_PORT"] = str(args.port)  # For Vite proxy
         print(f"Dev mode enabled - Vite will run on port {args.vite_port}")
         print(f"Access frontend at: http://localhost:{args.vite_port}")
+
+    # Check database before starting (unless --no-db)
+    if not args.no_db:
+        print("Checking database connection...")
+        db_ok, db_msg = asyncio.run(check_connection())
+        if db_ok:
+            print(f"✓ Database: {db_msg}")
+        else:
+            print(f"✗ Database: {db_msg}")
+            print("  └─ Server cannot start without database. Use --no-db to skip.")
+            sys.exit(1)
 
     # Run with uvicorn
     # Pass app object directly (not string) to avoid module reimport issues

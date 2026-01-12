@@ -435,10 +435,10 @@ export default function UnifiedLesson() {
 
   if (error) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
+      <div className="h-screen flex items-center justify-center bg-stone-50">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
-          <a href="/" className="text-blue-600 hover:underline">Go home</a>
+          <a href="/" className="text-emerald-600 hover:underline">Go home</a>
         </div>
       </div>
     );
@@ -446,20 +446,26 @@ export default function UnifiedLesson() {
 
   if (!session) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
+      <div className="h-screen flex items-center justify-center bg-stone-50">
         <p className="text-gray-500">Loading lesson...</p>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-stone-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-4 relative z-40">
-        {/* Title - left aligned */}
-        <h1 className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-semibold text-gray-900">
-          {session.lesson_title}
-        </h1>
+        {/* Home + Title - left aligned */}
+        <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-4">
+          <a href="/" className="text-lg font-bold text-emerald-600 hover:text-emerald-700 transition-colors">
+            Lens Academy
+          </a>
+          <span className="text-slate-300">|</span>
+          <h1 className="text-lg font-semibold text-gray-900">
+            {session.lesson_title}
+          </h1>
+        </div>
         {/* Progress bar - centered */}
         <div className="flex items-center justify-center">
           <StageProgressBar
@@ -478,7 +484,7 @@ export default function UnifiedLesson() {
           {isViewingOther ? (
             <button
               onClick={handleReturnToCurrent}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              className="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
             >
               Return to current section →
             </button>

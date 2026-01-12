@@ -9,6 +9,7 @@ Run the server: `python main.py --dev`. This is a unified backend (FastAPI + Dis
 Options:
 --dev (runs Vite dev server. Without --dev, FastAPI serves the compiled frontend.)
 --no-bot (without Discord bot)
+--no-db (skip database check - for frontend-only development)
 --port (defaults to API_PORT env var, or 8000)
 --vite-port (defaults to VITE_PORT env var, or 5173)
 
