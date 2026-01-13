@@ -23,9 +23,11 @@ from core.queries.groups import (
     get_realized_groups_for_discord_user,
 )
 from core.cohorts import format_local_time
-from core.notifications import (
-    notify_group_assigned,
-    schedule_meeting_reminders,
+from core.notifications import notify_group_assigned
+from core.meetings import (
+    create_meetings_for_group,
+    send_calendar_invites_for_group,
+    schedule_reminders_for_group,
 )
 
 
@@ -168,12 +170,42 @@ class GroupsCog(commands.Cog):
             # Create scheduled events
             await progress_msg.edit(content=f"Creating events for {group_data['group_name']}...")
 
-            events = await self._create_scheduled_events(
+            events, first_meeting = await self._create_scheduled_events(
                 interaction.guild,
                 voice_channel,
                 group_data,
                 cohort_data,
             )
+
+            # Create meeting records in database
+            num_meetings = cohort_data.get("number_of_group_meetings", 8)
+            meeting_ids = []
+            if first_meeting:
+                meeting_ids = await create_meetings_for_group(
+                    group_id=group_data["group_id"],
+                    cohort_id=cohort_data["cohort_id"],
+                    group_name=group_data["group_name"],
+                    first_meeting=first_meeting,
+                    num_meetings=num_meetings,
+                    discord_voice_channel_id=str(voice_channel.id),
+                    discord_events=events,
+                    discord_text_channel_id=str(text_channel.id),
+                )
+
+                # Send Google Calendar invites
+                await send_calendar_invites_for_group(
+                    group_id=group_data["group_id"],
+                    group_name=group_data["group_name"],
+                    meeting_ids=meeting_ids,
+                )
+
+                # Schedule APScheduler reminders
+                await schedule_reminders_for_group(
+                    group_id=group_data["group_id"],
+                    group_name=group_data["group_name"],
+                    meeting_ids=meeting_ids,
+                    discord_channel_id=str(text_channel.id),
+                )
 
             # Save channel IDs to database
             async with get_transaction() as conn:
@@ -245,14 +277,18 @@ class GroupsCog(commands.Cog):
         voice_channel: discord.VoiceChannel,
         group_data: dict,
         cohort_data: dict,
-    ) -> list[discord.ScheduledEvent]:
-        """Create scheduled events for group meetings."""
+    ) -> tuple[list[discord.ScheduledEvent], datetime | None]:
+        """Create scheduled events for group meetings.
+
+        Returns:
+            Tuple of (list of Discord scheduled events, first meeting datetime)
+        """
         events = []
 
         # Parse meeting time (e.g., "Wednesday 15:00-16:00")
         meeting_time_str = group_data.get("recurring_meeting_time_utc", "")
         if not meeting_time_str or meeting_time_str == "TBD":
-            return events
+            return events, None
 
         # Extract day and hour from format like "Wednesday 15:00-16:00"
         day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -271,7 +307,7 @@ class GroupsCog(commands.Cog):
                 break
 
         if day_num is None or hour is None:
-            return events
+            return events, None
 
         # Calculate first meeting date
         start_date = cohort_data["cohort_start_date"]
@@ -310,7 +346,7 @@ class GroupsCog(commands.Cog):
             except discord.HTTPException:
                 pass  # Skip if event creation fails
 
-        return events
+        return events, first_meeting
 
     async def _send_welcome_message(
         self,
@@ -375,9 +411,10 @@ Questions? Ask in this channel. We're here to help each other learn!
         events: list[discord.ScheduledEvent],
     ) -> None:
         """
-        Send group assignment notifications and schedule meeting reminders.
+        Send group assignment notifications to each member.
 
-        Sends email/DM to each member and schedules reminders for all meetings.
+        Sends email/DM to each member about their group assignment.
+        Note: Meeting reminders are now scheduled by schedule_reminders_for_group().
         """
         try:
             # Build member names list
@@ -415,22 +452,6 @@ Questions? Ask in this channel. We're here to help each other learn!
                     )
                 except Exception as e:
                     print(f"[Notifications] Failed to notify user {user_id} of group assignment: {e}")
-
-            # Schedule reminders for each meeting (event)
-            user_ids = [m["user_id"] for m in group_data["members"] if m.get("user_id")]
-
-            for i, event in enumerate(events):
-                try:
-                    # Use event ID as meeting ID for uniqueness
-                    schedule_meeting_reminders(
-                        meeting_id=int(f"{group_data['group_id']}{i+1:02d}"),  # e.g., 101, 102, etc.
-                        meeting_time=event.start_time,
-                        user_ids=user_ids,
-                        group_name=group_data["group_name"],
-                        discord_channel_id=discord_channel_id,
-                    )
-                except Exception as e:
-                    print(f"[Notifications] Failed to schedule reminders for meeting {i+1}: {e}")
 
         except Exception as e:
             print(f"[Notifications] Error in _send_group_notifications: {e}")
