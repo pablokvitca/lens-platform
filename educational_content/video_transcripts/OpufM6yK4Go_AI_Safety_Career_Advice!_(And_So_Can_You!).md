@@ -1,5 +1,6 @@
 ---
 title: "AI Safety Career Advice! (And So Can You!)"
+channel: "Robert Miles AI Safety"
 url: "https://www.youtube.com/watch?v=OpufM6yK4Go"
 ---
 
@@ -160,4 +161,3 @@ I didn't take any money from 80,000 Hours for this video to make sure I would be
 Also, I don't know if you noticed, but I don't run any YouTube ads on any of my videos because I think your time is worth more than that. But I think YouTube might prefer to promote videos that have ads since that's how they make money. So, I'm considering turning them on just to reach more people. I don't know. If I do that, obviously, you should feel free to use an ad blocker. But, what do you think? I'm obviously especially interested to hear from patrons, but let me know in the comments.
 
 [Music]
-

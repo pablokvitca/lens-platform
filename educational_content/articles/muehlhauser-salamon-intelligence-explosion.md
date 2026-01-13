@@ -1,7 +1,29 @@
 ---
 title: "Intelligence Explosion: Evidence and Import"
-author: Luke Muehlhauser & Anna Salamon
+author: Luke Muehlhauser, Anna Salamon
 source_url: https://intelligence.org/files/IE-EI.pdf
+---
+
+MIRI
+MACHINE INTELLIGENCE
+RESEARCH INSTITUTE
+Intelligence Explosion:
+Evidence and Import
+Luke Muehlhauser, Anna Salamon
+Machine Intelligence Research Institute
+Abstract
+In this chapter we review the evidence for and against three claims: that (1) there is a
+substantial chance we will create human-level AI before 2100, that (2) if human-level AI
+is created, there is a good chance vastly superhuman AI will follow via an “intelligence
+explosion,” and that (3) an uncontrolled intelligence explosion could destroy everything
+we value, but a controlled intelligence explosion would benefit humanity enormously
+if we can achieve it. We conclude with recommendations for increasing the odds of a
+controlled intelligence explosion relative to an uncontrolled intelligence explosion.
+Muehlhauser, Luke, and Anna Salamon. 2012. “Intelligence Explosion: Evidence and Import.”
+In Singularity Hypotheses: A Scientific and Philosophical Assessment, edited by Amnon Eden, Johnny
+Søraker, James H. Moor, and Eric Steinhart. Berlin: Springer.
+This version contains changes.
+
 ---
 
 The best answer to the question, “Will computers ever be as smart as
@@ -38,7 +60,6 @@ that faster computer speeds necessarily imply faster “thought” (Proudfoot an
 2012), nor that technological trends will be exponential (Kurzweil 2005) rather than “S-
 curved” or otherwise (Modis 2012), nor indeed that AI progress will accelerate rather
 1. We will define “human-level AI” more precisely later in the chapter.
-
 
 ---
 
@@ -83,7 +104,6 @@ that due to a miscommunication between McDermott and the editors, a faulty draft
 [2012a] was published in Journal of Consciousness Studies. We recommend reading the corrected version
 at http://cs-www.cs.yale.edu/homes/dvm/papers/chalmers-singularity-response.pdf.)
 
-
 ---
 
 have the same optimization power, but one seems to be optimizing more intelligently.
@@ -122,7 +142,6 @@ particular we are overconfident of our predictions (Lichtenstein, Fischhoﬀ, an
 a definition of intelligence as optimization power over a canonical distribution of environments, with a
 penalty for resource use—e.g. the “speed prior” described by Schmidhuber (2002). Also see Goertzel
 (2006, 48; 2010) and Hibbard (2011).
-
 
 ---
 
@@ -164,7 +183,6 @@ then when AI is created there may be a “computing overhang”: large amounts o
 power which could be used to run thousands of AIs or give a few AIs vast computational resources. This
 may not be the case if early AIs require quantum computing hardware, which is less likely to be plentiful
 and inexpensive than classical computing hardware at any given time.
-
 
 ---
 
@@ -208,7 +226,6 @@ one takes a limit as the time interval goes to zero.) Of course, one gets a di�
 inaugural conference on artificial general intelligence (Wang, Goertzel, and Franklin 2008). For more
 on this approach and Laplace’s rule of succession, see Jaynes (2003, chap. 18). We suggest this approach
 
-
 ---
 
 By tracking progress in machine intelligence. Some people intuitively estimate the time
@@ -248,7 +265,6 @@ only as a way of generating a prior probability distribution over AI timelines, 
 update upon encountering additional evidence.
 9. Relatedly, Good (1970) tried to predict the first creation of AI by surveying past conceptual break-
 throughs in AI and extrapolating into the future.
-
 
 ---
 
@@ -290,7 +306,6 @@ tribute significantly to the development of machine intelligence because progres
 depends heavily on relatively unpredictable insights in quantum algorithms and hardware (Rieﬀel and
 Polak 2011).
 
-
 ---
 
 the production and processing of enormous datasets to improve AI perfor-
@@ -329,7 +344,6 @@ neural access to large databases (Groß 2009). Finally, new collaborative tools 
 13. On the other hand, some worry (Pan et al. 2005), that the rates of scientific fraud and publication
 bias may currently be higher in China and India than in the developed world.
 
-
 ---
 
 and Google Scholar are already yielding results such as the Polymath Project, which is
@@ -365,7 +379,6 @@ even greater.
 an entire generation of scientists with the cognitive capabilities of Albert Einstein or John von Neumann,
 thus accelerating scientific progress and giving a competitive advantage to nations which choose to make
 use of this possibility.
-
 
 ---
 
@@ -407,7 +420,6 @@ brain size and cognitive ability in rats and mice (Anderson 1993).15
 15. Note that given the definition of intelligence we are using, greater computational resources would
 not give a machine more “intelligence” but instead more “optimization power.”
 
-
 ---
 
 Communication speed. Axons carry spike signals at 75 meters per second or less (Kan-
@@ -448,7 +460,6 @@ these AIs might not be directly copyable due to the no-cloning theorem (Wootters
 macy chain CVS improves its prescription-ordering system, it can copy these improvements to more than
 4,000 of its stores, for immediate productivity gains (McAfee and Brynjolfsson 2008).
 
-
 ---
 
 the prefrontal cortex can improve working memory (Fregni et al. 2005). Since TMS
@@ -487,7 +498,6 @@ make some predictions about convergent instrumental goals—instrumental goals u
 for the satisfaction of almost any final goals.
 19. Many suspect that the slowness of cross-brain connections has been a major factor limiting the
 usefulness of large brains (Fox 2011).
-
 
 ---
 
@@ -528,7 +538,6 @@ ments allowed the AI to perform 51% of AI design tasks rather than 50% (Hanson 1
 AI can perform 100% of AI design tasks rather than 99% of them, this removes altogether the bottleneck
 of tasks done at slow human speeds.
 
-
 ---
 
 a rapid transition to machine superintelligence. Chalmers (2010) discusses this process
@@ -567,7 +576,6 @@ This brings us to the central feature of AI risk: Unless an AI is specifically p
 grammed to preserve what humans value, it may destroy those valued structures (in-
 22. This may be less true for early-generation WBEs, but Omohundro (2007) argues that AIs will
 converge upon being optimizing agents, which exhibit a strict division between goals and cognitive ability.
-
 
 ---
 
@@ -611,7 +619,6 @@ are always preferred to outcomes with lower utilities (Mehta 1998).
 25. It may also be an option to constrain the first self-improving AIs just long enough to develop a
 Friendly AI before they cause much damage.
 
-
 ---
 
 Thinking that FAI may be too diﬃcult, Goertzel (2012) proposes a global “Nanny
@@ -652,7 +659,6 @@ lems in decision theory and value theory before the first creation of AI (Muehlh
 2011). Thus, we recommend a course of diﬀerential intellectual progress, which includes
 diﬀerential technological development as a special case.
 
-
 ---
 
 Diﬀerential intellectual progress consists in prioritizing risk-reducing intellectual
@@ -679,7 +685,6 @@ opportunity.26
 Brian Rabkin, William Naaktgeboren, Michael Anissimov, Carl Shulman, Eliezer Yudkowsky, Louie
 Helm, Jesse Liptrap, Nisan Stiennon, Will Newsome, Kaj Sotala, Julia Galef, and anonymous reviewers
 for their helpful comments.
-
 
 ---
 
@@ -723,7 +728,6 @@ Bostrom, Nick, and Milan M. Ćirković, eds. 2008. Global Catastrophic Risks. Ne
 Press.
 Bostrom, Nick, and Anders Sandberg. 2009. “Cognitive Enhancement: Methods, Ethics, Regulatory
 Challenges.” Science and Engineering Ethics 15 (3): 311–341. doi:10.1007/s11948-009-9142-5.
-
 
 ---
 
@@ -769,7 +773,6 @@ Enhances Working Memory.” Experimental Brain Research 166 (1): 23–30. doi:10
 Friedman, James W., ed. 1994. Problems of Coordination in Economic Activity. Recent Economic
 Thought 35. Boston: Kluwer Academic.
 
-
 ---
 
 Friedman, Milton. 1953. “The Methodology of Positive Economics.” In Essays in Positive Economics, 3–
@@ -813,7 +816,6 @@ Hanson, Robin. 1998. “Economic Growth Given Machine Intelligence.” Unpublish
 cessed May 15, 2013. http://hanson.gmu.edu/aigrow.pdf.
 . 2008. “Economics of the Singularity.” IEEE Spectrum 45 (6): 45–50. doi:10.1109/MSPEC.
 2008.4531461.
-
 
 ---
 
@@ -859,7 +861,6 @@ Lichtenstein, Sarah, Baruch Fischhoﬀ, and Lawrence D. Phillips. 1982. “Calib
 State of the Art to 1980.” In Judgement Under Uncertainty: Heuristics and Biases, edited by Daniel
 Kahneman, Paul Slovic, and Amos Tversky, 306–334. New York: Cambridge University Press.
 
-
 ---
 
 Loosemore, Richard, and Ben Goertzel. 2011. “Why an Intelligence Explosion is Probable.” H+ Mag-
@@ -904,7 +905,6 @@ Technology 1. http://www.transhumanist.com/volume1/moravec.htm.
 Muehlhauser, Luke. 2011. “So You Want to Save the World.” Last revised March 2, 2012. http://
 lukeprog.com/SaveTheWorld.html.
 
-
 ---
 
 Muehlhauser, Luke, and Louie Helm. 2012. “The Singularity and Machine Ethics.” In Eden, Søraker,
@@ -948,7 +948,6 @@ Posner, Richard A. 2004. Catastrophe: Risk and Response. New York: Oxford Univer
 Proudfoot, Diane, and B. Jack Copeland. 2012. “Artificial Intelligence.” In The Oxford Handbook of Phi-
 losophy of Cognitive Science, edited by Eric Margolis, Richard Samuels, and Stephen P. Stich. New
 York: Oxford University Press.
-
 
 ---
 
@@ -995,7 +994,6 @@ Schmidhuber, Jürgen, Kristinn R. Thórisson, and Moshe Looks, eds. 2011. Artifi
 4th International Conference, AGI 2011, Mountain View, CA, USA, August 3–6, 2011. Proceedings.
 Lecture Notes in Computer Science 6830. Berlin: Springer. doi:10.1007/978-3-642-22887-2.
 
-
 ---
 
 Schneider, Stefan. 2010. Homo Economicus—or More like Homer Simpson? Current Issues. Deutsche Bank
@@ -1040,7 +1038,6 @@ Van Gelder, Timothy, and Robert F. Port. 1995. “It’s About Time: An Overview
 proach to Cognition.” In Mind as Motion: Explorations in the Dynamics of Cognition, edited by Robert
 F. Port and Timothy van Gelder. Bradford Books. Cambridge, MA: MIT Press.
 
-
 ---
 
 Vinge, Vernor. 1993. “The Coming Technological Singularity: How to Survive in the Post-Human Era.”
@@ -1075,7 +1072,3 @@ pdf.
 lesswrong.com/lw/vb/efficient_crossdomain_optimization/.
 . 2011. “Complex Value Systems in Friendly AI.” In Schmidhuber, Thórisson, and Looks 2011,
 388–393.
-
-
----
-

@@ -1,0 +1,742 @@
+#!/usr/bin/env python3
+"""
+Article extraction pipeline with skill-based LLM selection and cleanup.
+
+This pipeline extracts articles using local tools (trafilatura, readability, pymupdf)
+and optionally saves intermediate files for LLM-based selection via Claude Code skills.
+
+Modes:
+1. Simple mode (default): trafilatura + light cleanup
+2. Dual mode (--dual): Save both extractions for skill-based selection
+
+Usage:
+    # Simple extraction (no LLM needed)
+    python extract_pipeline.py "URL" output.md
+
+    # Dual extraction (for skill-based selection)
+    python extract_pipeline.py --dual "URL" --work-dir /tmp/extractions/
+
+    # Batch processing
+    python extract_pipeline.py --batch urls.txt --output-dir ./articles/
+"""
+
+import argparse
+import asyncio
+import re
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+from urllib.parse import urlparse
+
+import httpx
+
+# Local extractors
+try:
+    import trafilatura
+    from trafilatura import bare_extraction
+    HAS_TRAFILATURA = True
+except ImportError:
+    HAS_TRAFILATURA = False
+
+try:
+    from readability import Document
+    HAS_READABILITY = True
+except ImportError:
+    HAS_READABILITY = False
+
+try:
+    import pymupdf
+    HAS_PYMUPDF = True
+except ImportError:
+    HAS_PYMUPDF = False
+
+
+# === Data Classes ===
+
+@dataclass
+class Metadata:
+    """Article metadata."""
+    title: Optional[str] = None
+    author: Optional[str] = None
+    date: Optional[str] = None
+    url: str = ""
+
+
+@dataclass
+class ExtractionResult:
+    """Result from the extraction pipeline."""
+    url: str
+    success: bool = False
+    content: str = ""
+    metadata: Metadata = field(default_factory=Metadata)
+    method: str = ""
+    error: Optional[str] = None
+    # Paths to intermediate files (for dual mode)
+    traf_path: Optional[Path] = None
+    read_path: Optional[Path] = None
+
+
+# === Fetching ===
+
+async def fetch_html(url: str, timeout: int = 30) -> tuple[str, Optional[str]]:
+    """Fetch HTML from URL. Returns (html, error)."""
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            r = await client.get(url, timeout=timeout, headers=headers)
+            r.raise_for_status()
+            return r.text, None
+    except httpx.TimeoutException:
+        return "", "timeout"
+    except httpx.HTTPStatusError as e:
+        return "", f"http_{e.response.status_code}"
+    except Exception as e:
+        return "", str(e)[:50]
+
+
+async def fetch_pdf_bytes(url: str, timeout: int = 60) -> tuple[bytes, Optional[str]]:
+    """Fetch PDF bytes from URL. Returns (bytes, error)."""
+    try:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            r = await client.get(url, timeout=timeout)
+            r.raise_for_status()
+            return r.content, None
+    except Exception as e:
+        return b"", str(e)[:50]
+
+
+# === Local Extractors ===
+
+def extract_trafilatura(html: str) -> tuple[str | None, Metadata]:
+    """Extract using trafilatura. Returns (content, metadata)."""
+    if not HAS_TRAFILATURA:
+        return None, Metadata()
+
+    # Extract metadata using bare_extraction with metadata flag
+    doc = bare_extraction(html, with_metadata=True)
+    if doc:
+        # Convert to dict to reliably access all metadata fields
+        doc_dict = doc if isinstance(doc, dict) else (doc.as_dict() if hasattr(doc, 'as_dict') else {})
+        metadata = Metadata(
+            title=doc_dict.get('title'),
+            author=doc_dict.get('author'),
+            date=doc_dict.get('date'),
+        )
+    else:
+        metadata = Metadata()
+
+    content = trafilatura.extract(
+        html,
+        output_format='markdown',
+        include_formatting=True,
+        include_links=True,  # Preserve hyperlinks
+        include_images=True,
+    )
+
+    # Fix trafilatura's link formatting issues (line breaks around links)
+    if content:
+        content = fix_trafilatura_links(content)
+
+    return content, metadata
+
+
+def fix_trafilatura_links(content: str) -> str:
+    """Fix trafilatura's line break issues around markdown links."""
+    result = content
+
+    # Fix: newline before link -> space before link
+    result = re.sub(r'\n+(\[[^\]]+\]\([^)]+\))', r' \1', result)
+
+    # Fix: link followed by text without space
+    result = re.sub(r'(\]\([^)]+\))([a-zA-Z])', r'\1 \2', result)
+
+    # Fix: text followed by link without space
+    result = re.sub(r'([a-zA-Z])(\[[^\]]+\]\()', r'\1 \2', result)
+
+    return result
+
+
+def extract_readability(html: str) -> tuple[str | None, Metadata]:
+    """Extract using readability-lxml. Returns (content, metadata)."""
+    if not HAS_READABILITY:
+        return None, Metadata()
+
+    try:
+        doc = Document(html)
+        title = doc.title()
+        html_content = doc.summary()
+        content = html_to_markdown(html_content)
+        metadata = Metadata(title=title)
+        return content, metadata
+    except Exception:
+        return None, Metadata()
+
+
+def html_to_markdown(html: str) -> str:
+    """Convert HTML to markdown (simple conversion)."""
+    content = html
+
+    # Headers
+    content = re.sub(r'<h1[^>]*>(.*?)</h1>', r'# \1\n\n', content, flags=re.DOTALL)
+    content = re.sub(r'<h2[^>]*>(.*?)</h2>', r'## \1\n\n', content, flags=re.DOTALL)
+    content = re.sub(r'<h3[^>]*>(.*?)</h3>', r'### \1\n\n', content, flags=re.DOTALL)
+    content = re.sub(r'<h4[^>]*>(.*?)</h4>', r'#### \1\n\n', content, flags=re.DOTALL)
+
+    # Paragraphs and breaks
+    content = re.sub(r'<p[^>]*>(.*?)</p>', r'\1\n\n', content, flags=re.DOTALL)
+    content = re.sub(r'<br\s*/?>', '\n', content)
+
+    # Formatting
+    content = re.sub(r'<strong>(.*?)</strong>', r'**\1**', content, flags=re.DOTALL)
+    content = re.sub(r'<b>(.*?)</b>', r'**\1**', content, flags=re.DOTALL)
+    content = re.sub(r'<em>(.*?)</em>', r'*\1*', content, flags=re.DOTALL)
+    content = re.sub(r'<i>(.*?)</i>', r'*\1*', content, flags=re.DOTALL)
+
+    # Links and images
+    content = re.sub(r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', r'[\2](\1)', content, flags=re.DOTALL)
+    content = re.sub(r'<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*/?\s*>', r'![\2](\1)\n\n', content)
+    content = re.sub(r'<img[^>]*alt="([^"]*)"[^>]*src="([^"]*)"[^>]*/?\s*>', r'![\1](\2)\n\n', content)
+    content = re.sub(r'<img[^>]*src="([^"]*)"[^>]*/?\s*>', r'![](\1)\n\n', content)
+
+    # Lists
+    content = re.sub(r'<li[^>]*>(.*?)</li>', r'- \1\n', content, flags=re.DOTALL)
+    content = re.sub(r'</?[uo]l[^>]*>', '', content)
+
+    # Blockquotes
+    content = re.sub(r'<blockquote[^>]*>(.*?)</blockquote>',
+                     lambda m: '\n'.join('> ' + line for line in m.group(1).strip().split('\n')) + '\n\n',
+                     content, flags=re.DOTALL)
+
+    # Strip remaining tags
+    content = re.sub(r'<[^>]+>', '', content)
+
+    # Clean up whitespace
+    content = re.sub(r'\n{3,}', '\n\n', content)
+    content = '\n'.join(line.rstrip() for line in content.split('\n'))
+
+    return content.strip()
+
+
+def extract_pdf(pdf_bytes: bytes) -> tuple[str | None, Metadata]:
+    """Extract text from PDF using PyMuPDF. Returns (content, metadata)."""
+    if not HAS_PYMUPDF:
+        return None, Metadata()
+
+    try:
+        doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+        pages = []
+        for page in doc:
+            text = page.get_text()
+            if text.strip():
+                pages.append(text.strip())
+
+        content = "\n\n---\n\n".join(pages)
+
+        meta = doc.metadata or {}
+        metadata = Metadata(
+            title=meta.get("title"),
+            author=meta.get("author"),
+        )
+
+        doc.close()
+        return content, metadata
+    except Exception:
+        return None, Metadata()
+
+
+# === API Extractors (Fallback) ===
+
+async def extract_jina(url: str) -> tuple[str | None, Metadata]:
+    """Extract using Jina Reader API (free tier)."""
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            r = await client.get(f"https://r.jina.ai/{url}")
+            if r.status_code != 200 or len(r.text) < 200:
+                return None, Metadata()
+
+            content = r.text
+            title = None
+            for line in content.split('\n')[:10]:
+                if line.startswith('Title:'):
+                    title = line[6:].strip()
+                    break
+
+            return content, Metadata(title=title)
+    except Exception:
+        return None, Metadata()
+
+
+async def extract_api_fallback(url: str) -> tuple[str | None, Metadata]:
+    """Try API extractors as fallback."""
+    content, metadata = await extract_jina(url)
+    if content:
+        return content, metadata
+    return None, Metadata()
+
+
+# === Cleanup ===
+
+def light_cleanup(content: str) -> str:
+    """Non-LLM cleanup for basic formatting issues."""
+    result = content
+
+    # Fix spacing around asterisks
+    result = re.sub(r'\*\s+([^*]+)\s+\*', r'*\1*', result)
+    result = re.sub(r'\*\*\s+([^*]+)\s+\*\*', r'**\1**', result)
+
+    # Collapse excessive blank lines
+    result = re.sub(r'\n{3,}', '\n\n', result)
+
+    # Strip trailing whitespace
+    result = '\n'.join(line.rstrip() for line in result.split('\n'))
+
+    return result
+
+
+# === Frontmatter ===
+
+def build_frontmatter(metadata: Metadata) -> str:
+    """Build YAML frontmatter."""
+    lines = ['---']
+    lines.append(f'title: "{metadata.title or "Untitled"}"')
+    lines.append(f'author: {metadata.author or "Unknown"}')
+    if metadata.date:
+        lines.append(f'date: {metadata.date}')
+    lines.append(f'source_url: {metadata.url}')
+    lines.append('---')
+    lines.append('')
+    return '\n'.join(lines) + '\n'
+
+
+def author_slug(author: str | None) -> str:
+    """Convert author name to slug (lastname or org name)."""
+    if not author:
+        return "unknown"
+
+    # Clean up author string
+    author = author.strip()
+
+    # Handle organization names (no spaces or already short)
+    if ' ' not in author or len(author) <= 15:
+        return re.sub(r'[^a-zA-Z0-9]', '-', author.lower()).strip('-')
+
+    # Extract last name (last word)
+    parts = author.split()
+    lastname = parts[-1]
+
+    # Clean and return
+    return re.sub(r'[^a-zA-Z0-9]', '-', lastname.lower()).strip('-')
+
+
+# === Main Pipeline ===
+
+def url_to_slug(url: str) -> str:
+    """Convert URL to a filename-safe slug."""
+    parsed = urlparse(url)
+    path_parts = parsed.path.strip('/').split('/')
+    if path_parts and path_parts[-1]:
+        name = path_parts[-1]
+        name = re.sub(r'\.(html?|php|aspx?|pdf)$', '', name, flags=re.IGNORECASE)
+    else:
+        name = parsed.netloc.replace('.', '-')
+
+    name = re.sub(r'[^a-zA-Z0-9-]', '-', name)
+    name = re.sub(r'-+', '-', name).strip('-')[:50]
+    return name
+
+
+def generate_filename(metadata: Metadata, url: str) -> str:
+    """Generate filename as {author}-{slug}.md"""
+    author_part = author_slug(metadata.author)
+    url_part = url_to_slug(url)
+
+    # Avoid duplication if author is already in URL slug
+    if author_part and author_part in url_part.lower():
+        return f"{url_part}.md"
+
+    return f"{author_part}-{url_part}.md"
+
+
+async def process_url(
+    url: str,
+    output_path: Optional[Path] = None,
+    dual_mode: bool = False,
+    work_dir: Optional[Path] = None,
+    verbose: bool = False,
+) -> ExtractionResult:
+    """
+    Extract article from URL.
+
+    Args:
+        url: URL to extract
+        output_path: Path to save final output (simple mode)
+        dual_mode: If True, save both extractions for skill-based selection
+        work_dir: Directory for intermediate files (dual mode)
+        verbose: Print progress
+
+    Returns:
+        ExtractionResult with content and metadata
+    """
+    result = ExtractionResult(url=url)
+    result.metadata.url = url
+
+    is_pdf = url.lower().endswith('.pdf')
+    slug = url_to_slug(url)
+
+    if verbose:
+        print(f"  Fetching...", end=" ", flush=True)
+
+    # === PDF Handling ===
+    if is_pdf:
+        pdf_bytes, error = await fetch_pdf_bytes(url)
+        if error:
+            result.error = f"fetch_error: {error}"
+            if verbose:
+                print(f"FAILED ({error})")
+            return result
+
+        content, metadata = extract_pdf(pdf_bytes)
+        result.method = "pymupdf"
+        result.metadata = metadata
+        result.metadata.url = url
+
+        if verbose:
+            print(f"PDF extracted ({len(content.split()) if content else 0} words)")
+
+        if content:
+            result.success = True
+            result.content = content
+
+            if output_path:
+                frontmatter = build_frontmatter(result.metadata)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(frontmatter + content, encoding='utf-8')
+                if verbose:
+                    print(f"  Saved to {output_path}")
+
+        return result
+
+    # === HTML Handling ===
+    html, error = await fetch_html(url)
+
+    if error:
+        if verbose:
+            print(f"fetch failed ({error}), trying API fallback...", end=" ", flush=True)
+
+        content, metadata = await extract_api_fallback(url)
+        if content:
+            result.method = "api_fallback"
+            result.metadata = metadata
+            result.metadata.url = url
+            result.success = True
+            result.content = content
+            if verbose:
+                print(f"OK ({len(content.split())} words)")
+
+            if output_path:
+                frontmatter = build_frontmatter(result.metadata)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(frontmatter + content, encoding='utf-8')
+        else:
+            result.error = f"all_methods_failed (fetch: {error})"
+            if verbose:
+                print("FAILED")
+
+        return result
+
+    # === Dual Extraction ===
+    if verbose:
+        print("extracting...", end=" ", flush=True)
+
+    traf_content, traf_meta = extract_trafilatura(html)
+    read_content, read_meta = extract_readability(html)
+
+    # Merge metadata
+    result.metadata = Metadata(
+        title=traf_meta.title or read_meta.title,
+        author=traf_meta.author or read_meta.author,
+        date=traf_meta.date or read_meta.date,
+        url=url,
+    )
+
+    if verbose:
+        traf_words = len(traf_content.split()) if traf_content else 0
+        read_words = len(read_content.split()) if read_content else 0
+        print(f"trafilatura={traf_words}w, readability={read_words}w")
+
+    # === Dual Mode: Save both for skill-based selection ===
+    if dual_mode:
+        if not work_dir:
+            work_dir = Path("/tmp/article_extractions")
+
+        work_dir.mkdir(parents=True, exist_ok=True)
+        frontmatter = build_frontmatter(result.metadata)
+
+        # Generate base filename from author + slug
+        base_name = generate_filename(result.metadata, url).replace('.md', '')
+
+        if traf_content:
+            traf_path = work_dir / f"{base_name}_trafilatura.md"
+            traf_path.write_text(frontmatter + traf_content, encoding='utf-8')
+            result.traf_path = traf_path
+
+        if read_content:
+            read_path = work_dir / f"{base_name}_readability.md"
+            read_path.write_text(frontmatter + read_content, encoding='utf-8')
+            result.read_path = read_path
+
+        result.success = True
+        result.method = "dual"
+        result.content = traf_content or read_content or ""
+
+        if verbose:
+            print(f"  Saved extractions to {work_dir}/")
+            if result.traf_path:
+                print(f"    - {result.traf_path.name}")
+            if result.read_path:
+                print(f"    - {result.read_path.name}")
+
+        return result
+
+    # === Simple Mode: Use trafilatura + light cleanup ===
+    if traf_content:
+        content = light_cleanup(traf_content)
+        result.method = "trafilatura"
+    elif read_content:
+        content = light_cleanup(read_content)
+        result.method = "readability"
+    else:
+        # Both failed, try API
+        if verbose:
+            print("  Local extraction failed, trying API...", end=" ", flush=True)
+        content, metadata = await extract_api_fallback(url)
+        if content:
+            result.method = "api_fallback"
+            result.metadata = metadata
+            result.metadata.url = url
+        else:
+            result.error = "all_methods_failed"
+            if verbose:
+                print("FAILED")
+            return result
+
+    result.success = True
+    result.content = content
+
+    if output_path:
+        frontmatter = build_frontmatter(result.metadata)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(frontmatter + content, encoding='utf-8')
+        if verbose:
+            print(f"  Saved to {output_path}")
+
+    return result
+
+
+# === Batch Processing ===
+
+def parse_urls_file(filepath: Path) -> list[str]:
+    """Parse URLs file. Returns list of URLs."""
+    urls = []
+    with open(filepath) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+
+            parts = [p.strip() for p in line.split('|')]
+            url = parts[0]
+
+            if not url.startswith('http'):
+                continue
+
+            urls.append(url)
+
+    return urls
+
+
+async def process_batch(
+    urls: list[str],
+    output_dir: Path,
+    dual_mode: bool = False,
+    work_dir: Optional[Path] = None,
+    verbose: bool = False,
+) -> list[ExtractionResult]:
+    """Process multiple URLs."""
+    results = []
+
+    for i, url in enumerate(urls, 1):
+        print(f"[{i}/{len(urls)}] {url[:60]}...")
+
+        # First extract to get metadata
+        result = await process_url(
+            url,
+            output_path=None,  # Don't save yet
+            dual_mode=dual_mode,
+            work_dir=work_dir,
+            verbose=verbose,
+        )
+
+        # Save with proper filename if not dual mode
+        if result.success and not dual_mode:
+            filename = generate_filename(result.metadata, url)
+            output_path = output_dir / filename
+            frontmatter = build_frontmatter(result.metadata)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(frontmatter + result.content, encoding='utf-8')
+            if verbose:
+                print(f"  Saved to {output_path}")
+
+        results.append(result)
+
+        if not result.success:
+            print(f"  ERROR: {result.error}")
+
+    return results
+
+
+def print_summary(results: list[ExtractionResult], dual_mode: bool = False):
+    """Print batch processing summary."""
+    print("\n" + "=" * 60)
+    print("SUMMARY")
+    print("=" * 60)
+
+    success = sum(1 for r in results if r.success)
+    failed = len(results) - success
+
+    print(f"Total: {len(results)}")
+    print(f"Success: {success}")
+    print(f"Failed: {failed}")
+
+    if failed:
+        print("\nFailed URLs:")
+        for r in results:
+            if not r.success:
+                print(f"  - {r.url}: {r.error}")
+
+    # Method breakdown
+    methods = {}
+    for r in results:
+        if r.success:
+            methods[r.method] = methods.get(r.method, 0) + 1
+
+    if methods:
+        print("\nExtraction methods used:")
+        for method, count in sorted(methods.items(), key=lambda x: -x[1]):
+            print(f"  {method}: {count}")
+
+    if dual_mode:
+        print("\n" + "=" * 60)
+        print("NEXT STEPS (for LLM-based selection)")
+        print("=" * 60)
+        print("""
+For each article, ask Claude to:
+
+1. SELECT the better extraction:
+   "Compare extractions at {traf_path} and {read_path}
+    using the select-extraction skill"
+
+2. CLEANUP the selected extraction:
+   "Clean up the article at {selected_path}
+    using the cleanup-extraction skill,
+    save to articles/{filename}.md"
+
+Or if MERGE is needed:
+   "Merge extractions at {traf_path} and {read_path}
+    using the merge-extractions skill,
+    save to articles/{filename}.md"
+""")
+
+
+# === CLI ===
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Extract articles with optional skill-based LLM selection",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__
+    )
+
+    # Positional args for single URL mode
+    parser.add_argument("url", nargs="?", help="URL to extract")
+    parser.add_argument("output", nargs="?", help="Output file path (simple mode)")
+
+    # Batch mode
+    parser.add_argument("--batch", "-b", type=Path, help="File with URLs to process")
+    parser.add_argument("--output-dir", "-o", type=Path, default=Path("."),
+                        help="Output directory for batch mode")
+
+    # Dual mode
+    parser.add_argument("--dual", "-d", action="store_true",
+                        help="Save both extractions for skill-based selection")
+    parser.add_argument("--work-dir", "-w", type=Path,
+                        help="Directory for intermediate files (default: /tmp/article_extractions)")
+
+    # Options
+    parser.add_argument("--verbose", "-v", action="store_true",
+                        help="Show detailed progress")
+
+    args = parser.parse_args()
+
+    # Check dependencies
+    if args.verbose:
+        print("Dependencies:")
+        print(f"  trafilatura: {'OK' if HAS_TRAFILATURA else 'MISSING'}")
+        print(f"  readability: {'OK' if HAS_READABILITY else 'MISSING'}")
+        print(f"  pymupdf: {'OK' if HAS_PYMUPDF else 'MISSING'}")
+        print()
+
+    if args.batch:
+        # Batch mode
+        urls = parse_urls_file(args.batch)
+        print(f"Processing {len(urls)} URLs...")
+
+        results = asyncio.run(process_batch(
+            urls,
+            args.output_dir,
+            dual_mode=args.dual,
+            work_dir=args.work_dir,
+            verbose=args.verbose,
+        ))
+        print_summary(results, dual_mode=args.dual)
+
+    elif args.url:
+        # Single URL mode
+        output_path = Path(args.output) if args.output and not args.dual else None
+
+        result = asyncio.run(process_url(
+            args.url,
+            output_path,
+            dual_mode=args.dual,
+            work_dir=args.work_dir,
+            verbose=args.verbose,
+        ))
+
+        if result.success:
+            if args.dual:
+                print("\nExtractions saved. Next steps:")
+                print(f"  1. Compare: select-extraction skill on:")
+                if result.traf_path:
+                    print(f"       - {result.traf_path}")
+                if result.read_path:
+                    print(f"       - {result.read_path}")
+                print(f"  2. Cleanup: cleanup-extraction skill on selected file")
+            elif output_path:
+                print(f"Saved to {output_path}")
+            else:
+                frontmatter = build_frontmatter(result.metadata)
+                print(frontmatter + result.content)
+        else:
+            print(f"Error: {result.error}", file=sys.stderr)
+            sys.exit(1)
+
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

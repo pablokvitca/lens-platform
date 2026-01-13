@@ -1,5 +1,6 @@
 ---
 title: "Intro to AI Safety, Remastered"
+channel: "Robert Miles AI Safety"
 url: "https://www.youtube.com/watch?v=pYXy-A4siMw"
 ---
 
@@ -98,4 +99,3 @@ You may have noticed in the intro and this outro that the image quality has impr
 In this video I'm especially thanking James Pets, who's been hanging out with us on the Discord server, helping answer questions from the YouTube comments and so on. And actually, that last video about mesa-optimizers has had a lot of really good questions, so the next video will be answering some of those. That's coming up soon.
 
 So thanks again to James and to all my patrons, to everyone who asked questions, and to you for watching. I'll see you next time.
-

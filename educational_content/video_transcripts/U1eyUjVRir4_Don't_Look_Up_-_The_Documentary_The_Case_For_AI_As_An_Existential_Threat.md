@@ -1,5 +1,6 @@
 ---
 title: "Don't Look Up - The Documentary: The Case For AI As An Existential Threat"
+channel: "DaganOnAI"
 url: "https://www.youtube.com/watch?v=U1eyUjVRir4"
 ---
 
@@ -207,4 +208,3 @@ But none know the hour nor the day.
 [Music]
 
 [Music]
-

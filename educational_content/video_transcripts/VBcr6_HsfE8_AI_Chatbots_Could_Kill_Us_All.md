@@ -1,5 +1,6 @@
 ---
 title: "AI Chatbots Could Kill Us All"
+channel: "Siliconversations"
 url: "https://www.youtube.com/watch?v=VBcr6_HsfE8"
 ---
 
@@ -68,4 +69,3 @@ The constructive feedback in the comments has also been super helpful. Hopefully
 I don't have a new subscriber goal at the moment. I'm still very much in shock at the sudden jump we've just had. In the interest of citing sources, this video was inspired by this web comic from Saturday Morning Breakfast Cereal.
 
 Thank you all very much for the support and I'll see you next time. Bye for now!
-

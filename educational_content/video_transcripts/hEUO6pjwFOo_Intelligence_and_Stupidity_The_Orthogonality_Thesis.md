@@ -1,5 +1,6 @@
 ---
 title: "Intelligence and Stupidity: The Orthogonality Thesis"
+channel: "Robert Miles AI Safety"
 url: "https://www.youtube.com/watch?v=hEUO6pjwFOo"
 ---
 
@@ -115,4 +116,3 @@ In this video I'm especially thanking Katie Beirne, who's supported the channel 
 Thanks again and I'll see you next time!
 
 "I don't speak cat. What does that mean?"
-

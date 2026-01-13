@@ -1,5 +1,6 @@
 ---
 title: "A.I. ‐ Humanity's Final Invention?"
+channel: "Kurzgesagt – In a Nutshell"
 url: "https://www.youtube.com/watch?v=fa8k8IQ1_X0"
 ---
 
@@ -102,4 +103,3 @@ Each lesson on Brilliant is interactive, like a one-on-one version of a Kurzgesa
 There's even an extra perk for Kurzgesagt viewers: anyone signing up through our link will get 20% off an annual membership once their trial ends.
 
 [Music]
-

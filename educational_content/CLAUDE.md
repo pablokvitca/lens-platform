@@ -7,6 +7,7 @@ This folder contains all educational materials: articles, video transcripts, les
 ```
 educational_content/
 ├── articles/           # Markdown articles (local copies)
+├── article_scraper/    # Tools for extracting articles from web
 ├── video_transcripts/  # Video transcripts with timestamps
 ├── lessons/            # Lesson definitions (YAML)
 └── courses/            # Course manifests (YAML)
@@ -20,7 +21,7 @@ educational_content/
 
 **Step 1: Extract with images**
 ```bash
-python educational_content/articles/extract_article.py "URL" educational_content/articles/{author}-{short-title}.md
+python educational_content/article_scraper/extract_article.py "URL" educational_content/articles/{author}-{short-title}.md
 ```
 
 This script uses trafilatura for text + custom HTML parsing for images.
@@ -29,7 +30,7 @@ This script uses trafilatura for text + custom HTML parsing for images.
 
 Spawn a subagent to clean formatting issues:
 ```
-Task: "Clean the article at educational_content/articles/{filename}.md using the clean-article.skill.md skill"
+Task: "Clean the article at educational_content/articles/{filename}.md using the article_scraper/clean-article.skill.md skill"
 ```
 
 The subagent fixes `*text *` → `*text*`, converts bold lines to headers, removes boilerplate.
@@ -62,4 +63,4 @@ If content isn't in storage yet, ask the user:
 
 ## Skills
 
-- `articles/clean-article.skill.md` - Clean scraped article formatting
+- `article_scraper/clean-article.skill.md` - Clean scraped article formatting

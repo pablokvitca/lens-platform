@@ -2,15 +2,31 @@
 """Tests for content extraction."""
 
 import pytest
-from core.lessons.content import extract_article_section, load_article
+from pathlib import Path
+from core.lessons.content import extract_article_section, parse_frontmatter
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
-def test_load_full_article():
-    """Should load entire article content (without frontmatter)."""
-    content = load_article("articles/four-background-claims.md")
-    # Title is in frontmatter, not body - check for actual body content
-    assert "MIRI's mission is to ensure" in content
-    assert len(content) > 100
+def test_parse_frontmatter_strips_metadata():
+    """Should strip YAML frontmatter and return only body content."""
+    fixture_path = FIXTURES_DIR / "test-article.md"
+    raw_text = fixture_path.read_text()
+
+    metadata, content = parse_frontmatter(raw_text)
+
+    # Frontmatter should be parsed into metadata
+    assert metadata.title == "Test Article"
+    assert metadata.author == "Test Author"
+
+    # Content should not contain frontmatter delimiters
+    assert "---" not in content
+    assert "title:" not in content
+    assert "author:" not in content
+
+    # Content should have the body text
+    assert "This is the body content" in content
+    assert len(content) > 50
 
 
 def test_extract_section_with_anchors():

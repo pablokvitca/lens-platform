@@ -1,5 +1,6 @@
 ---
 title: "Deadly Truth of General AI? - Computerphile"
+channel: "Computerphile"
 url: "https://www.youtube.com/watch?v=tcdVC4e6EV4"
 ---
 
@@ -44,4 +45,3 @@ The highest-rated outcomes for this machine are not good for people. There comes
 There comes a point where the stamp collecting device becomes extremely dangerous. And that point is as soon as you switch it on.
 
 So this is just a thought experiment example where we take a sort of maximally powerful intelligence and see how it behaves, so that we can think about how powerful intelligences behave, and most importantly, how they are not like people.
-

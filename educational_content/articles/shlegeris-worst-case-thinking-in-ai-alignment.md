@@ -1,14 +1,15 @@
 ---
 title: "Worst-case thinking in AI alignment"
 author: Buck Shlegeris
+date: 2021-12-23
 source_url: https://www.lesswrong.com/posts/yTvBSFrXhZfL8vr5a/worst-case-thinking-in-ai-alignment
 ---
 
-# Worst-case thinking in AI alignment
+Alternative title: "When should you assume that what could go wrong, will go wrong?"
 
-*Alternative title: "When should you assume that what could go wrong, will go wrong?"*
+Thanks to Mary Phuong and Ryan Greenblatt for helpful suggestions and discussion, and Akash Wasil for some edits.
 
-In discussions of AI safety, people often propose the assumption that something goes as badly as possible. Eliezer Yudkowsky in particular has argued for the importance of security mindset when thinking about AI alignment.
+In discussions of AI safety, people often propose the assumption that something goes as badly as possible. Eliezer Yudkowsky in particular has [argued for the importance of security mindset](https://intelligence.org/2017/11/26/security-mindset-and-the-logistic-success-curve/) when thinking about AI alignment.
 
 I think there are several distinct reasons that this might be the right assumption to make in a particular situation. But I think people often conflate these reasons, and I think that this causes confusion and mistaken thinking. So I want to spell out some distinctions.
 
@@ -28,9 +29,11 @@ One minor disagreement: I'm less into hard takeoffs than he is, so I place less 
 
 But I fundamentally agree with his rejection of arguments of the form "only a small part of the space of possible AI actions would be devastatingly bad, so things will probably be fine".
 
+Scott Garrabrant writes about an argument like this [here](/posts/zEvqFtT4AtTztfYC4/optimization-amplifies).
+
 ### The space you're selecting over happens to mostly contain bad things
 
-When Hubinger et al argue in section 4.4 of Risks from Learned Optimization that "there are more paths to deceptive alignment than to robust alignment," they aren't saying that you get a misaligned mesa-optimizer because the base optimizer is trying to produce an agent that is as misaligned as possible, they're saying that even though the base optimizer isn't trying to find a misaligned policy, most policies that it can find are misaligned and so you'll probably get one. But unlike the previous situation, if instead it was the case that 50% of the policies that SGD might find were aligned, then we'd have a 50% chance of surviving, because SGD isn't optimizing against us.
+When Hubinger et al argue in [section 4.4 of Risks from Learned Optimization](/s/r9tYkB2a8Fp4DN8yB/p/zthDPAjh9w6Ytbeks#4_4__Internalization_or_deception_after_extensive_training#4_4__Internalization_or_deception_after_extensive_training) that "there are more paths to deceptive alignment than to robust alignment," they aren't saying that you get a misaligned mesa-optimizer because the base optimizer is trying to produce an agent that is as misaligned as possible, they're saying that even though the base optimizer isn't trying to find a misaligned policy, most policies that it can find are misaligned and so you'll probably get one. But unlike the previous situation, if instead it was the case that 50% of the policies that SGD might find were aligned, then we'd have a 50% chance of surviving, because SGD isn't optimizing against us.
 
 I think that AI alignment researchers often conflate these two classes of arguments. IMO, when you're training an AGI:
 
@@ -49,23 +52,23 @@ The cryptographer's response would be to say "Sure, it's probably not usually th
 
 Similarly, in the alignment case, sometimes we make pessimistic empirical assumptions when trying to specify settings for our problems, because solutions developed for pessimistic assumptions generalize to easier situations but the converse isn't true.
 
-As a large-scale example, when we talk about trying to come up with competitive solutions to AI alignment, a lot of the motivation isn't the belief that there will be literally no useful global coordination around AI.
+As a large-scale example, when we talk about trying to come up with [competitive](https://ai-alignment.com/directions-and-desiderata-for-ai-control-b60fca0da8f4#25b0) solutions to AI alignment, a lot of the motivation isn't the belief that there will be literally no useful global coordination around AI.
 
-A smaller-scale example: When trying to develop schemes for relaxed adversarial training, we assume that we have no access to any interpretability tools for our models. This isn't because we actually believe that we'll have no interpretability tools, it's because we're trying to develop an alternative to relying on interpretability.
+A smaller-scale example: When trying to develop schemes for [relaxed adversarial training](https://ai-alignment.com/training-robust-corrigibility-ce0e0a3b9b4d), we assume that we have no access to any interpretability tools for our models. This isn't because we actually believe that we'll have no interpretability tools, it's because we're trying to develop an alternative to relying on interpretability.
 
 This is kind of similar to the attitude that cryptographers have.
 
 ### Aiming your efforts at worlds where you have the biggest marginal impact
 
-Suppose you are unsure how hard the alignment problem is. Maybe you think that humanity's odds of success are given by a logistic function of the difference between how much alignment progress was made and how hard the problem is. When you're considering between a project that gives us a boost in worlds where P(doom) was 50% and projects that help out in worlds where P(doom) was 1% or 99%, you should probably pick the first project, because the derivative of P(doom) with respect to alignment progress is maximized at 50%.
+Suppose you are unsure how hard the alignment problem is. Maybe you think that humanity's odd's of success are given by [a logistic function](https://en.wikipedia.org/wiki/Logistic_function) of the difference between how much alignment progress was made and how hard the problem is. When you're considering between a project that gives us a boost in worlds where P(doom) was 50% and projects that help out in worlds where P(doom) was 1% or 99%, you should probably pick the first project, because the derivative of P(doom) with respect to alignment progress is maximized at 50%.
 
 Many prominent alignment researchers estimate P(doom) as substantially less than 50%. Those people often focus on scenarios which are surprisingly bad from their perspective basically for this reason.
 
-And conversely, people who think P(doom) > 50% should aim their efforts at worlds that are better than they expected. This is the point that Eliezer makes in Security Mindset and the Logistic Success Curve: the security-minded character thinks that it's so unlikely that a particular security-lax project will succeed at building a secure system that she doesn't think it's worth her time to try to help them make marginal improvements to their security.
+And conversely, people who think P(doom) > 50% should aim their efforts at worlds that are better than they expected. This is the point that Eliezer makes in [Security Mindset and the Logistic Success Curve](https://intelligence.org/2017/11/26/security-mindset-and-the-logistic-success-curve/): the security-minded character thinks that it's so unlikely that a particular security-lax project will succeed at building a secure system that she doesn't think it's worth her time to try to help them make marginal improvements to their security.
 
 And so, this kind of thinking only pushes you to aim your efforts at surprisingly bad worlds if you're already P(doom) < 50%.
 
-This type of thinking is common among people who are thinking about global catastrophic biological risks.
+This type of thinking is common among people who are thinking about global catastrophic biological risks. I don't know of any public documents that are specifically about this point, but you can see an example of this kind of reasoning in Andrew Snyder-Beattie's [Peak defence vs trough defence in biosecurity](https://forum.effectivealtruism.org/posts/w4LRTGCJFFQn6mYKS/peak-defense-vs-trough-defense-in-biosecurity).
 
 ### Murphyjitsu
 
@@ -80,13 +83,9 @@ Ryan Greenblatt notes that you can also make a general reference class claim tha
 Depending on which of these arguments you're making, you should respond very differently when someone says "the thing you're proposing is quite far fetched".
 
 - If the situation involves being optimized against, you say "I agree that that action would be quite a weird action among actions. But there's a powerful optimization process selecting for actions like that action. So I expect it to happen anyway. To persuade me otherwise, you need to either claim that there isn't adversarial selection, or that bad actions either don't exist or are so hard to find that an adversary won't possibly be able to find them."
-
 - If you think that the situation involves a random process selecting over a space that is almost all bad, then you should say "Actually I disagree, I think that in fact the situation we're talking about is probably about as bad as I'm saying; we should argue about what the distribution actually looks like."
-
 - If you are making worst-case assumptions as part of your problem-solving process, then you should say "I agree that this situation seems sort of surprisingly bad. But I think we should try to solve it anyway, because solving it gives us a solution that is likely to work no matter what the empirical situation turns out to be, and I haven't yet been convinced that my pessimistic assumptions make my problem impossible."
-
 - If you're making worst-case assumptions because you think that P(doom) is low and you are focusing on scenarios you agree are worse than expected, you should say "I agree that this situation seems sort of surprisingly bad. But I want to work on the situations where I can make the biggest difference, and I think that these surprisingly bad situations are the highest-leverage ones to work on."
-
 - If you're engaging in Murphyjitsu, you should say "Yeah this probably won't come up, but it still seems like a good idea to try and crush all these low-probability mechanisms by which something bad might happen."
 
 Mary Phuong proposes breaking this down into two questions:
