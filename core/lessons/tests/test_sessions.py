@@ -1,14 +1,4 @@
-"""Tests for lesson session management.
-
-NOTE: Some legacy tests are skipped - they require a proper async test infrastructure with:
-1. A dedicated test database engine per test session
-2. Proper event loop scoping (the connection pool and pytest-asyncio use different loops)
-
-The session logic is tested via the API endpoints when running the full application.
-
-TODO: Set up proper async test infrastructure with pytest-asyncio fixtures
-that create a fresh engine per test module with matching event loops.
-"""
+"""Tests for lesson session management."""
 
 import pytest
 from core.lessons.sessions import (
@@ -22,13 +12,6 @@ from core.lessons.sessions import (
 )
 
 
-# Legacy tests - skip until async test infrastructure is set up
-_legacy_skip = pytest.mark.skip(
-    reason="Needs async test infrastructure (event loop scoping for connection pool)"
-)
-
-
-@_legacy_skip
 @pytest.mark.asyncio
 async def test_create_session(test_user_id):
     """Should create a new lesson session."""
@@ -38,7 +21,6 @@ async def test_create_session(test_user_id):
     assert session["messages"] == []
 
 
-@_legacy_skip
 @pytest.mark.asyncio
 async def test_get_session(test_user_id):
     """Should retrieve an existing session."""
@@ -47,7 +29,6 @@ async def test_get_session(test_user_id):
     assert session["lesson_slug"] == "intro-to-ai-safety"
 
 
-@_legacy_skip
 @pytest.mark.asyncio
 async def test_add_message(test_user_id):
     """Should add a message to session history."""
@@ -61,7 +42,6 @@ async def test_add_message(test_user_id):
     assert updated["messages"][0]["role"] == "user"
 
 
-@_legacy_skip
 @pytest.mark.asyncio
 async def test_advance_stage(test_user_id):
     """Should increment stage index."""
