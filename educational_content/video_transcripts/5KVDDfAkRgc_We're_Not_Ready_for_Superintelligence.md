@@ -1,6 +1,6 @@
 ---
-video_id: "5KVDDfAkRgc"
 title: "We're Not Ready for Superintelligence"
+channel: "AI In Context"
 url: "https://www.youtube.com/watch?v=5KVDDfAkRgc"
 ---
 
@@ -163,4 +163,3 @@ You can make yourself more capable, more knowledgeable, more engaged with this c
 If you are hearing that and thinking, "Yeah, I can see how I fit into that." Great. We have thoughts on that. We would love to help. But even if you're not sure what to make of all this yet, my hopes for this video will be realized if we can start a conversation that feels alive here in the comments and offline about what this actually means for people, people talking to their friends and family because this is really going to affect everyone.
 
 Thank you so much for watching. There are links for more things to read, for courses you can take, job and volunteer opportunities, all in the description. And I'll be there in the comments. I would genuinely love to hear your thoughts on AI 2027. Do you find it plausible? What do you think was most implausible? And if you found this valuable, please do like and subscribe and maybe spend a second thinking about a person or two that you know who might find it valuable too. Maybe your AI progress skeptical friend or your ChatGPT curious uncle or maybe your local member of Congress.
-

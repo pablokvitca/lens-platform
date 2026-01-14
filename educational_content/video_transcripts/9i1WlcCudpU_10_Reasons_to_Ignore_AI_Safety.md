@@ -1,6 +1,6 @@
 ---
-video_id: "9i1WlcCudpU"
 title: "10 Reasons to Ignore AI Safety"
+channel: "Robert Miles AI Safety"
 url: "https://www.youtube.com/watch?v=9i1WlcCudpU"
 ---
 
@@ -109,4 +109,3 @@ Arguably, they were so busy reassuring people about safety that they actually di
 So there we are. That's ten reasons not to care about AI safety. Some of these I've already covered in more detail in other videos—there will be links in the description to those—and some of them might deserve a whole video to themselves in future. What do you think? Are there any you'd like to hear more about? Or have you come across any that I missed? Let me know in the comments.
 
 I want to end the video by thanking my wonderful patrons. It's all of these people here in this video. I'm especially thanking Francisco Tomaskey, who has been a patron for a year. Thank you so much for your support. I'm trying out a new thing where, as part of the process of making videos, I talk to the researchers who wrote the papers I'm talking about. I'll record those for reference, but they're not really right for YouTube because they're unstructured and unedited conversation. So I think I'm going to start posting those to Patreon. If that sounds like something you might want to watch, consider becoming a patron. Thanks again to those who do, and thank you all for watching. I'll see you next time.
-

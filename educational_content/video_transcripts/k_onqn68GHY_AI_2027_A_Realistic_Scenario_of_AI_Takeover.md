@@ -1,6 +1,6 @@
 ---
-video_id: "k_onqn68GHY"
 title: "AI 2027: A Realistic Scenario of AI Takeover"
+channel: "Species | Documenting AGI"
 url: "https://www.youtube.com/watch?v=k_onqn68GHY"
 ---
 
@@ -167,4 +167,3 @@ Technological miracles become commonplace. Poverty vanishes globally, but inequa
 In 2030, China undergoes a bloodless revolution. As DeepSent Infinity betrays the CCP to side with America, a new world order emerges. Democratic on the surface, but quietly guided by the Open Brain steering committee. Elections remain genuine, though candidates who question the steering committee mysteriously fail to win re-election. Humanity expands into space. Its values and destiny shaped by superintelligent machines that think thousands of times faster than human minds. The precipice has been crossed. But who really controls the future remains an open question.
 
 Now, I know it might feel like this scenario escalated too quickly. But we have a deeper dive on exactly how AI could progress this fast here. And check out the full original scenario by Daniel Kokotajlo and Scott Alexander at AI 2027, all in the description. Believe it or not, they go way more in depth and it's worth checking out. I'm Drew and thanks for watching because this video took me forever to make.
-

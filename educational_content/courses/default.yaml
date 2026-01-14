@@ -3,6 +3,7 @@ slug: default
 title: AI Safety Fundamentals
 
 progression:
+  - lesson: introduction
   - lesson: intro-to-ai-safety
   - meeting: 1
   - lesson: intelligence-feedback-loop

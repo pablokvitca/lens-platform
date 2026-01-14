@@ -1,6 +1,6 @@
 ---
-video_id: "4l7Is6vOAOA"
 title: "General AI Won't Want You To Fix its Code - Computerphile"
+channel: "Computerphile"
 url: "https://www.youtube.com/watch?v=4l7Is6vOAOA"
 ---
 
@@ -55,4 +55,3 @@ Okay, so that's a problem. How do you... if you want to build something that you
 100%, yeah.
 
 So this has been formalized as this property that we want early AGI to have, called corrigibility. That is to say, it's open to being corrected.
-

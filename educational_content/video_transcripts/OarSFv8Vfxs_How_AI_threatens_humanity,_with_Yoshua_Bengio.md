@@ -1,6 +1,6 @@
 ---
-video_id: "OarSFv8Vfxs"
 title: "How AI threatens humanity, with Yoshua Bengio"
+channel: "Dr Waku"
 url: "https://www.youtube.com/watch?v=OarSFv8Vfxs"
 ---
 
@@ -211,4 +211,3 @@ Don't forget to like and subscribe, and because of the nature of this video, ple
 And if you liked this video, check out this previous one I made, which is about how to prepare as an individual for a post-AGI world.
 
 Well, that's all I have for today. Thank you very much for watching. Bye.
-

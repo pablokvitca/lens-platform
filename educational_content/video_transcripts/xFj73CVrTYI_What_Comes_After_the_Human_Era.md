@@ -1,6 +1,6 @@
 ---
-video_id: "xFj73CVrTYI"
 title: "What Comes After the Human Era?"
+channel: "WhatsItLike"
 url: "https://www.youtube.com/watch?v=xFj73CVrTYI"
 ---
 
@@ -157,4 +157,3 @@ If our species is facing something like an extinction, maybe it would be useful 
 All right, that's the end. Thank you for watching my video. If you want to support me, I have a Patreon. Ideally someday I'd be able to do this kind of thing full-time, but until then I'll still need to pay rent, so that's where you come in. You can hire me to make videos, graphics, media, animations. Lastly, there's this animation I'm almost finished, and I'll upload it to my channel once it's done.
 
 [Music]
-

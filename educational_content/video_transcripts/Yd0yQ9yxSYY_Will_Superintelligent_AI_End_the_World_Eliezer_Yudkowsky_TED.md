@@ -1,6 +1,6 @@
 ---
-video_id: "Yd0yQ9yxSYY"
 title: "Will Superintelligent AI End the World? | Eliezer Yudkowsky | TED"
+channel: "TED"
 url: "https://www.youtube.com/watch?v=Yd0yQ9yxSYY"
 ---
 
@@ -65,4 +65,3 @@ Eliezer Yudkowsky: I don't think that "anything" works. I think that this takes 
 Chris Anderson: Well, you are definitely not the only person to propose that what we need is some kind of international reckoning here on how to manage this going forward. Thank you so much for coming here to TED, Eliezer.
 
 [Applause]
-

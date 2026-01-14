@@ -1,6 +1,6 @@
 ---
-video_id: "2ziuPUeewK0"
 title: "AI Ruined My Year"
+channel: "Robert Miles AI Safety"
 url: "https://www.youtube.com/watch?v=2ziuPUeewK0"
 ---
 
@@ -497,4 +497,3 @@ And thanks for watching. I'll see you soon.
 [Music]
 
 This is probably the single dumbest thing I've ever done on camera in my life. But deliberate.
-

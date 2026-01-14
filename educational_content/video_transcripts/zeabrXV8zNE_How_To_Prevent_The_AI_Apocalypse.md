@@ -1,6 +1,6 @@
 ---
-video_id: "zeabrXV8zNE"
 title: "How To Prevent The AI Apocalypse"
+channel: "Siliconversations"
 url: "https://www.youtube.com/watch?v=zeabrXV8zNE"
 ---
 
@@ -131,4 +131,3 @@ Don't forget, you can find the full policy proposal at keepthefuturehuman.org. A
 And finally, a very special thank you to Ultra Black, Henrik Toborg 4390, Draco91, Phillips7996, and YOLO YOLO 5183 for financially supporting Silly Conversations.
 
 All righty, that's it! See you all next time. Bye for now!
-
