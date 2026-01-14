@@ -6,7 +6,7 @@ Lesson chat - Claude SDK integration with stage-aware prompting.
 import os
 from typing import AsyncIterator
 
-from anthropic import AsyncAnthropic
+from .llm import stream_chat
 
 from .types import Stage, ArticleStage, VideoStage, ChatStage
 from .content import (
@@ -20,18 +20,21 @@ from .content import (
 from ..transcripts.tools import get_text_at_time
 
 
-# Tool for transitioning to next stage
+# Tool for transitioning to next stage (OpenAI function calling format)
 TRANSITION_TOOL = {
-    "name": "transition_to_next",
-    "description": (
-        "Call this when the conversation has reached a good stopping point "
-        "and the user is ready to move to the next stage. "
-        "Use this after 2-4 meaningful exchanges, or when the user indicates readiness."
-    ),
-    "input_schema": {
-        "type": "object",
-        "properties": {},
-        "required": [],
+    "type": "function",
+    "function": {
+        "name": "transition_to_next",
+        "description": (
+            "Call this when the conversation has reached a good stopping point "
+            "and the user is ready to move to the next stage. "
+            "Use this after 2-4 meaningful exchanges, or when the user indicates readiness."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
     },
 }
 
@@ -148,15 +151,18 @@ async def send_message(
     current_stage: Stage,
     current_content: str | None = None,
     previous_content: str | None = None,
+    provider: str | None = None,
 ) -> AsyncIterator[dict]:
     """
-    Send messages to Claude and stream the response.
+    Send messages to an LLM and stream the response.
 
     Args:
         messages: List of {"role": "user"|"assistant"|"system", "content": str}
         current_stage: The current lesson stage
         current_content: Content of current stage (for article/video stages)
         previous_content: Content from previous stage (for chat stages)
+        provider: LLM provider string (e.g., "anthropic/claude-sonnet-4-20250514")
+                  If None, uses DEFAULT_PROVIDER from environment.
 
     Yields:
         Dicts with either:
@@ -164,8 +170,6 @@ async def send_message(
         - {"type": "tool_use", "name": str} for tool calls
         - {"type": "done"} when complete
     """
-    client = AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-
     system = _build_system_prompt(current_stage, current_content, previous_content)
 
     # Debug mode: show system prompt in chat
@@ -173,28 +177,17 @@ async def send_message(
         debug_text = f"**[DEBUG - System Prompt]**\n\n```\n{system}\n```\n\n**[DEBUG - Messages]**\n\n```\n{messages}\n```\n\n---\n\n"
         yield {"type": "text", "content": debug_text}
 
-    # Filter out system messages (stage transition markers) - Claude API doesn't accept them
+    # Filter out system messages (stage transition markers) - LLM APIs don't accept them in messages
     api_messages = [m for m in messages if m["role"] != "system"]
 
     # Only include transition tool for chat stages
-    tools = [TRANSITION_TOOL] if isinstance(current_stage, ChatStage) else []
-    # Build kwargs - only include tools if we have them (API rejects tools=None)
-    stream_kwargs = {
-        "model": "claude-sonnet-4-20250514",
-        "max_tokens": 1024,
-        "system": system,
-        "messages": api_messages,
-    }
-    if tools:
-        stream_kwargs["tools"] = tools
+    tools = [TRANSITION_TOOL] if isinstance(current_stage, ChatStage) else None
 
-    async with client.messages.stream(**stream_kwargs) as stream:
-        async for event in stream:
-            if event.type == "content_block_start":
-                if event.content_block.type == "tool_use":
-                    yield {"type": "tool_use", "name": event.content_block.name}
-            elif event.type == "content_block_delta":
-                if event.delta.type == "text_delta":
-                    yield {"type": "text", "content": event.delta.text}
-
-        yield {"type": "done"}
+    async for event in stream_chat(
+        messages=api_messages,
+        system=system,
+        tools=tools,
+        provider=provider,
+        max_tokens=1024,
+    ):
+        yield event

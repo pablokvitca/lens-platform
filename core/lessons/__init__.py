@@ -38,6 +38,7 @@ from .sessions import (
     SessionAlreadyClaimedError,
 )
 from .chat import send_message as send_lesson_message, get_stage_content
+from .llm import DEFAULT_PROVIDER
 from .course_loader import (
     load_course,
     get_next_lesson,
@@ -80,6 +81,7 @@ __all__ = [
     "SessionAlreadyClaimedError",
     "send_lesson_message",
     "get_stage_content",
+    "DEFAULT_PROVIDER",
     "load_course",
     "get_next_lesson",
     "get_all_lesson_slugs",
