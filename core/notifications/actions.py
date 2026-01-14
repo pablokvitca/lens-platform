@@ -63,7 +63,9 @@ async def notify_group_assigned(
             "group_name": group_name,
             "meeting_time": meeting_time_utc,
             "member_names": ", ".join(member_names),
-            "discord_channel_url": build_discord_channel_url(channel_id=discord_channel_id),
+            "discord_channel_url": build_discord_channel_url(
+                channel_id=discord_channel_id
+            ),
         },
     )
 
@@ -122,7 +124,11 @@ def schedule_meeting_reminders(
         message_type="lesson_nudge",
         user_ids=user_ids,
         context=context,
-        condition={"type": "lesson_progress", "meeting_id": meeting_id, "threshold": 0.5},
+        condition={
+            "type": "lesson_progress",
+            "meeting_id": meeting_id,
+            "threshold": 0.5,
+        },
     )
 
     # 1d lesson nudge (conditional: <100% complete)
@@ -132,7 +138,11 @@ def schedule_meeting_reminders(
         message_type="lesson_nudge",
         user_ids=user_ids,
         context=context,
-        condition={"type": "lesson_progress", "meeting_id": meeting_id, "threshold": 1.0},
+        condition={
+            "type": "lesson_progress",
+            "meeting_id": meeting_id,
+            "threshold": 1.0,
+        },
     )
 
 

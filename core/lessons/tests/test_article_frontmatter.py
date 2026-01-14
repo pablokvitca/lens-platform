@@ -6,7 +6,9 @@ from pathlib import Path
 import yaml
 
 
-ARTICLES_DIR = Path(__file__).parent.parent.parent.parent / "educational_content" / "articles"
+ARTICLES_DIR = (
+    Path(__file__).parent.parent.parent.parent / "educational_content" / "articles"
+)
 
 REQUIRED_FIELDS = ["title", "author"]
 
@@ -56,7 +58,9 @@ def test_article_has_valid_frontmatter(article_path: Path):
 
     # Check required fields
     for field in REQUIRED_FIELDS:
-        assert field in frontmatter, f"{article_path.name} is missing required field: {field}"
+        assert field in frontmatter, (
+            f"{article_path.name} is missing required field: {field}"
+        )
         assert frontmatter[field], f"{article_path.name} has empty {field} field"
 
 

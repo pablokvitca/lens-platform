@@ -229,7 +229,9 @@ export default function Facilitator() {
                 }`}
               >
                 <td className="px-4 py-3">{member.name}</td>
-                <td className="px-4 py-3">{member.lessons_completed} lessons</td>
+                <td className="px-4 py-3">
+                  {member.lessons_completed} lessons
+                </td>
                 <td className="px-4 py-3">
                   {formatDuration(member.total_time_seconds)}
                 </td>
@@ -264,10 +266,15 @@ export default function Facilitator() {
                     (chat) => chat.lesson_slug === lesson.lesson_slug
                   );
                   return (
-                    <details key={lesson.lesson_slug} className="border rounded">
+                    <details
+                      key={lesson.lesson_slug}
+                      className="border rounded"
+                    >
                       <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50">
                         <div className="inline-flex justify-between items-center w-[calc(100%-1rem)]">
-                          <span className="font-medium">{lesson.lesson_slug}</span>
+                          <span className="font-medium">
+                            {lesson.lesson_slug}
+                          </span>
                           <span className="text-sm text-gray-600">
                             {lesson.completed ? "Completed" : "In Progress"} |{" "}
                             {formatDuration(lesson.time_spent_seconds)}
@@ -279,7 +286,8 @@ export default function Facilitator() {
                         <div className="flex gap-4 text-sm text-gray-600 mb-4">
                           {lesson.stages.map((stage) => (
                             <span key={stage.stage_index}>
-                              {stage.stage_type}: {formatDuration(stage.time_spent_seconds)}
+                              {stage.stage_type}:{" "}
+                              {formatDuration(stage.time_spent_seconds)}
                             </span>
                           ))}
                         </div>
@@ -288,14 +296,17 @@ export default function Facilitator() {
                         {chatForLesson && chatForLesson.messages.length > 0 ? (
                           <div>
                             <div className="text-sm font-medium text-gray-700 mb-2">
-                              Chat History ({chatForLesson.messages.length} messages)
+                              Chat History ({chatForLesson.messages.length}{" "}
+                              messages)
                             </div>
                             <div className="max-h-64 overflow-y-auto bg-white rounded border p-3">
                               {chatForLesson.messages.map((msg, idx) => (
                                 <div
                                   key={idx}
                                   className={`mb-3 last:mb-0 ${
-                                    msg.role === "user" ? "text-blue-800" : "text-gray-700"
+                                    msg.role === "user"
+                                      ? "text-blue-800"
+                                      : "text-gray-700"
                                   }`}
                                 >
                                   <span className="font-medium capitalize">
@@ -307,7 +318,9 @@ export default function Facilitator() {
                             </div>
                           </div>
                         ) : (
-                          <p className="text-sm text-gray-500">No chat messages</p>
+                          <p className="text-sm text-gray-500">
+                            No chat messages
+                          </p>
                         )}
                       </div>
                     </details>

@@ -72,7 +72,7 @@ async def find_availability_overlap(
             return (day, hour)
 
     # Second pass: look for slots where everyone is available or if-needed
-    for (day, hour) in all_available.keys() | all_if_needed.keys():
+    for day, hour in all_available.keys() | all_if_needed.keys():
         available_ids = set(all_available.get((day, hour), []))
         if_needed_ids = set(all_if_needed.get((day, hour), []))
         combined = available_ids | if_needed_ids
@@ -124,7 +124,7 @@ def format_local_time(day: str, hour: int, tz_name: str) -> tuple[str, str]:
     try:
         tz = pytz.timezone(tz_name)
         now = datetime.now(pytz.UTC)
-        abbrev = now.astimezone(tz).strftime('%Z')
+        abbrev = now.astimezone(tz).strftime("%Z")
     except pytz.UnknownTimeZoneError:
         abbrev = tz_name
 
@@ -144,6 +144,6 @@ def get_timezone_abbrev(tz_name: str) -> str:
     try:
         tz = pytz.timezone(tz_name)
         now = datetime.now(pytz.UTC)
-        return now.astimezone(tz).strftime('%Z')
+        return now.astimezone(tz).strftime("%Z")
     except pytz.UnknownTimeZoneError:
         return tz_name

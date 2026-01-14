@@ -96,9 +96,12 @@ export default function SignupWizard() {
 
   const fetchFacilitatorStatus = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/users/me/facilitator-status`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${API_URL}/api/users/me/facilitator-status`,
+        {
+          credentials: "include",
+        }
+      );
       if (response.ok) {
         const data = await response.json();
         setIsFacilitator(data.is_facilitator);
@@ -206,7 +209,9 @@ export default function SignupWizard() {
           enrolledCohorts={enrolledCohorts}
           availableCohorts={availableCohorts}
           selectedCohortId={formData.selectedCohortId}
-          selectedRole={formData.selectedRole ?? (isFacilitator ? null : "participant")}
+          selectedRole={
+            formData.selectedRole ?? (isFacilitator ? null : "participant")
+          }
           isFacilitator={isFacilitator}
           onCohortSelect={(id) =>
             setFormData((prev) => ({

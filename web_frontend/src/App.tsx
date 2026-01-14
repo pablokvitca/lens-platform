@@ -40,24 +40,27 @@ function App() {
     <>
       {showMobileWarning && <MobileWarning onContinue={handleContinueAnyway} />}
       <Routes>
-      {/* Full-screen pages (no Layout) */}
-      <Route path="/lesson/:lessonId" element={<UnifiedLesson />} />
-      <Route path="/course/:courseId/lesson/:lessonId" element={<UnifiedLesson />} />
-      <Route path="/course/:courseId" element={<CourseOverview />} />
-      <Route path="/course" element={<CourseOverview />} />
+        {/* Full-screen pages (no Layout) */}
+        <Route path="/lesson/:lessonId" element={<UnifiedLesson />} />
+        <Route
+          path="/course/:courseId/lesson/:lessonId"
+          element={<UnifiedLesson />}
+        />
+        <Route path="/course/:courseId" element={<CourseOverview />} />
+        <Route path="/course" element={<CourseOverview />} />
 
-      {/* Standard pages with Layout */}
-      <Route element={<Layout />}>
-        <Route path="/" element={<Home />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/availability" element={<Availability />} />
-        <Route path="/auth/code" element={<Auth />} />
-        <Route path="/facilitator" element={<Facilitator />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/terms" element={<Terms />} />
-        <Route path="*" element={<NotFound />} />
-      </Route>
-    </Routes>
+        {/* Standard pages with Layout */}
+        <Route element={<Layout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/availability" element={<Availability />} />
+          <Route path="/auth/code" element={<Auth />} />
+          <Route path="/facilitator" element={<Facilitator />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
       <CookieBanner />
       <FeedbackButton />
     </>

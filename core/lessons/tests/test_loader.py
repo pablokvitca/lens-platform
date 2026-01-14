@@ -5,7 +5,12 @@ import yaml
 from pathlib import Path
 
 import pytest
-from core.lessons.loader import load_lesson, get_available_lessons, LessonNotFoundError, LESSONS_DIR
+from core.lessons.loader import (
+    load_lesson,
+    get_available_lessons,
+    LessonNotFoundError,
+    LESSONS_DIR,
+)
 
 
 def test_load_existing_lesson():
@@ -37,7 +42,12 @@ def test_lessons_only_use_allowed_fields():
     ALLOWED_STAGE_BY_TYPE = {
         "article": {"type", "source", "from", "to", "optional"},
         "video": {"type", "source", "from", "to", "optional"},
-        "chat": {"type", "instructions", "showUserPreviousContent", "showTutorPreviousContent"},
+        "chat": {
+            "type",
+            "instructions",
+            "showUserPreviousContent",
+            "showTutorPreviousContent",
+        },
     }
 
     ALLOWED_OPTIONAL_RESOURCE = {"type", "title", "source", "description"}
@@ -92,7 +102,7 @@ def test_parse_optional_stages(tmp_path, monkeypatch):
             {"type": "article", "source": "articles/optional.md", "optional": True},
             {"type": "video", "source": "videos/test.md", "optional": True},
             {"type": "chat", "instructions": "Discuss"},
-        ]
+        ],
     }
 
     # Write test lesson file
@@ -106,12 +116,13 @@ def test_parse_optional_stages(tmp_path, monkeypatch):
 
     # Load and verify
     from core.lessons.loader import load_lesson
+
     lesson = load_lesson("test-optional")
 
     assert lesson.stages[0].optional is False  # default
-    assert lesson.stages[1].optional is True   # explicit
-    assert lesson.stages[2].optional is True   # video
-    assert not hasattr(lesson.stages[3], 'optional')  # chat has no optional
+    assert lesson.stages[1].optional is True  # explicit
+    assert lesson.stages[2].optional is True  # video
+    assert not hasattr(lesson.stages[3], "optional")  # chat has no optional
 
 
 def test_optional_not_allowed_on_chat(tmp_path, monkeypatch):

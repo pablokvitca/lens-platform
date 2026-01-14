@@ -17,6 +17,7 @@ from test_bot_manager import test_bot_manager
 @dataclass
 class BreakoutSession:
     """Tracks an active breakout session for a guild."""
+
     source_channel_id: int
     breakout_channel_ids: list[int] = field(default_factory=list)
     facilitator_id: int = 0
@@ -30,11 +31,19 @@ class BreakoutView(discord.ui.View):
         self.cog = cog
         self.include_bots = False
 
-    @discord.ui.button(label="Include Bots: Off", style=discord.ButtonStyle.secondary, row=0)
-    async def toggle_bots(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(
+        label="Include Bots: Off", style=discord.ButtonStyle.secondary, row=0
+    )
+    async def toggle_bots(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         self.include_bots = not self.include_bots
         button.label = f"Include Bots: {'On' if self.include_bots else 'Off'}"
-        button.style = discord.ButtonStyle.success if self.include_bots else discord.ButtonStyle.secondary
+        button.style = (
+            discord.ButtonStyle.success
+            if self.include_bots
+            else discord.ButtonStyle.secondary
+        )
         await interaction.response.edit_message(view=self)
 
     async def do_breakout(self, interaction: discord.Interaction, group_size: int):
@@ -66,8 +75,12 @@ class CollectView(discord.ui.View):
         super().__init__(timeout=None)  # No timeout - button stays active
         self.cog = cog
 
-    @discord.ui.button(label="Collect Everyone", style=discord.ButtonStyle.danger, emoji="📢")
-    async def collect_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(
+        label="Collect Everyone", style=discord.ButtonStyle.danger, emoji="📢"
+    )
+    async def collect_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         await self.cog.run_collect(interaction)
         button.disabled = True
         button.label = "Collected"
@@ -93,7 +106,12 @@ class BreakoutCog(commands.Cog):
         else:
             await interaction.response.send_message(content, ephemeral=ephemeral)
 
-    async def run_breakout(self, interaction: discord.Interaction, group_size: int, include_bots: bool = False):
+    async def run_breakout(
+        self,
+        interaction: discord.Interaction,
+        group_size: int,
+        include_bots: bool = False,
+    ):
         """Core breakout logic - can be called from command or GUI."""
         guild = interaction.guild
         member = interaction.user
@@ -109,20 +127,20 @@ class BreakoutCog(commands.Cog):
         if guild.id in self._active_sessions:
             await self._send_response(
                 interaction,
-                "A breakout session is already active. Use `/collect` first."
+                "A breakout session is already active. Use `/collect` first.",
             )
             return
 
         # Get other users in the channel (exclude facilitator, optionally include bots)
         other_members = [
-            m for m in source_channel.members
+            m
+            for m in source_channel.members
             if m.id != member.id and (include_bots or not m.bot)
         ]
 
         if not other_members:
             await self._send_response(
-                interaction,
-                "There are no other users in the voice channel to split."
+                interaction, "There are no other users in the voice channel to split."
             )
             return
 
@@ -134,7 +152,7 @@ class BreakoutCog(commands.Cog):
         random.shuffle(other_members)
         groups = []
         for i in range(0, len(other_members), group_size):
-            groups.append(other_members[i:i + group_size])
+            groups.append(other_members[i : i + group_size])
 
         # Merge last group if it has only 1 person (no solo breakouts)
         if len(groups) > 1 and len(groups[-1]) == 1:
@@ -151,7 +169,7 @@ class BreakoutCog(commands.Cog):
                 channel = await guild.create_voice_channel(
                     name=f"Breakout {i}",
                     category=category,
-                    reason=f"Breakout room created by {member.display_name}"
+                    reason=f"Breakout room created by {member.display_name}",
                 )
                 breakout_channels.append(channel)
 
@@ -166,25 +184,29 @@ class BreakoutCog(commands.Cog):
                         pass
 
                 if member_names:
-                    room_assignments.append(f"**Breakout {i}:** {', '.join(member_names)}")
+                    room_assignments.append(
+                        f"**Breakout {i}:** {', '.join(member_names)}"
+                    )
 
             # Store session
             self._active_sessions[guild.id] = BreakoutSession(
                 source_channel_id=source_channel.id,
                 breakout_channel_ids=[c.id for c in breakout_channels],
-                facilitator_id=member.id
+                facilitator_id=member.id,
             )
 
             # Build response
             embed = discord.Embed(
                 title="Breakout Rooms Created",
                 description=f"Split {len(other_members)} users into {len(groups)} rooms.",
-                color=discord.Color.green()
+                color=discord.Color.green(),
             )
             embed.add_field(
                 name="Room Assignments",
-                value="\n".join(room_assignments) if room_assignments else "No assignments",
-                inline=False
+                value="\n".join(room_assignments)
+                if room_assignments
+                else "No assignments",
+                inline=False,
             )
             embed.set_footer(text="Click the button below to collect everyone")
 
@@ -199,43 +221,53 @@ class BreakoutCog(commands.Cog):
                     pass  # Channel may already be deleted
             await interaction.followup.send(
                 "I don't have permission to create channels or move members.",
-                ephemeral=True
+                ephemeral=True,
             )
 
-    @app_commands.command(name="breakout", description="Split voice channel users into breakout rooms")
+    @app_commands.command(
+        name="breakout", description="Split voice channel users into breakout rooms"
+    )
     @app_commands.describe(
         group_size="Target number of people per breakout room",
-        include_bots="Include bots in breakout (for testing)"
+        include_bots="Include bots in breakout (for testing)",
     )
-    async def breakout(self, interaction: discord.Interaction, group_size: int, include_bots: bool = False):
+    async def breakout(
+        self,
+        interaction: discord.Interaction,
+        group_size: int,
+        include_bots: bool = False,
+    ):
         """Split users in the caller's voice channel into breakout rooms."""
         await self.run_breakout(interaction, group_size, include_bots)
 
-    @app_commands.command(name="breakout-gui", description="Show breakout room controls")
+    @app_commands.command(
+        name="breakout-gui", description="Show breakout room controls"
+    )
     async def breakout_gui(self, interaction: discord.Interaction):
         """Show a GUI for configuring and starting breakout rooms."""
         member = interaction.user
 
         if not member.voice or not member.voice.channel:
             await interaction.response.send_message(
-                "You must be in a voice channel to use this command.",
-                ephemeral=True
+                "You must be in a voice channel to use this command.", ephemeral=True
             )
             return
 
         channel = member.voice.channel
-        member_count = len([m for m in channel.members if m.id != member.id and not m.bot])
+        member_count = len(
+            [m for m in channel.members if m.id != member.id and not m.bot]
+        )
         bot_count = len([m for m in channel.members if m.bot])
 
         embed = discord.Embed(
             title="Breakout Room Controls",
             description=f"**Channel:** {channel.name}\n**Members:** {member_count} users, {bot_count} bots",
-            color=discord.Color.blue()
+            color=discord.Color.blue(),
         )
         embed.add_field(
             name="Instructions",
             value="Toggle 'Include Bots' if testing, then select group size.",
-            inline=False
+            inline=False,
         )
 
         view = BreakoutView(self)
@@ -249,8 +281,7 @@ class BreakoutCog(commands.Cog):
         # Check for active session
         if guild.id not in self._active_sessions:
             await self._send_response(
-                interaction,
-                "No active breakout session to collect."
+                interaction, "No active breakout session to collect."
             )
             return
 
@@ -311,12 +342,16 @@ class BreakoutCog(commands.Cog):
                 f"Breakout rooms deleted. Could not move users (original channel not found)."
             )
 
-    @app_commands.command(name="collect", description="Bring everyone back from breakout rooms")
+    @app_commands.command(
+        name="collect", description="Bring everyone back from breakout rooms"
+    )
     async def collect(self, interaction: discord.Interaction):
         """Move all users from breakout channels back and clean up."""
         await self.run_collect(interaction)
 
-    @app_commands.command(name="joinvc", description="Have the bot join your voice channel")
+    @app_commands.command(
+        name="joinvc", description="Have the bot join your voice channel"
+    )
     async def joinvc(self, interaction: discord.Interaction):
         """Have the bot join the caller's voice channel (for testing)."""
         member = interaction.user
@@ -343,20 +378,30 @@ class BreakoutCog(commands.Cog):
         """Have the bot leave voice channel."""
         if interaction.guild.voice_client:
             await interaction.guild.voice_client.disconnect()
-            await interaction.response.send_message("Left voice channel.", ephemeral=True)
+            await interaction.response.send_message(
+                "Left voice channel.", ephemeral=True
+            )
         else:
-            await interaction.response.send_message("Not in a voice channel.", ephemeral=True)
+            await interaction.response.send_message(
+                "Not in a voice channel.", ephemeral=True
+            )
 
-    @app_commands.command(name="voicebots", description="Control voice bots for breakout testing")
+    @app_commands.command(
+        name="voicebots", description="Control voice bots for breakout testing"
+    )
     @app_commands.describe(
         action="join or leave voice channel",
-        count="Number of bots to join (for join action)"
+        count="Number of bots to join (for join action)",
     )
-    @app_commands.choices(action=[
-        app_commands.Choice(name="join", value="join"),
-        app_commands.Choice(name="leave", value="leave"),
-    ])
-    async def voicebots(self, interaction: discord.Interaction, action: str, count: int = 1):
+    @app_commands.choices(
+        action=[
+            app_commands.Choice(name="join", value="join"),
+            app_commands.Choice(name="leave", value="leave"),
+        ]
+    )
+    async def voicebots(
+        self, interaction: discord.Interaction, action: str, count: int = 1
+    ):
         """Control voice bots for breakout room testing."""
         if action == "join":
             if not interaction.user.voice or not interaction.user.voice.channel:
@@ -371,7 +416,7 @@ class BreakoutCog(commands.Cog):
             if available == 0:
                 await interaction.response.send_message(
                     "No test bots configured. Add TEST_BOT_TOKENS to .env",
-                    ephemeral=True
+                    ephemeral=True,
                 )
                 return
 

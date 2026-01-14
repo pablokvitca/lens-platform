@@ -28,18 +28,21 @@ import httpx
 try:
     import trafilatura
     from trafilatura import bare_extraction
+
     HAS_TRAFILATURA = True
 except ImportError:
     HAS_TRAFILATURA = False
 
 try:
     from readability import Document
+
     HAS_READABILITY = True
 except ImportError:
     HAS_READABILITY = False
 
 try:
     import pymupdf
+
     HAS_PYMUPDF = True
 except ImportError:
     HAS_PYMUPDF = False
@@ -48,6 +51,7 @@ except ImportError:
 @dataclass
 class ExtractionResult:
     """Result from a single extraction attempt."""
+
     success: bool
     content: str = ""
     title: Optional[str] = None
@@ -63,6 +67,7 @@ class ExtractionResult:
 @dataclass
 class TestURL:
     """A URL to test with metadata."""
+
     url: str
     category: str = "unknown"
     difficulty: str = "unknown"
@@ -76,21 +81,23 @@ def parse_test_urls(filepath: Path) -> list[TestURL]:
         for line in f:
             line = line.strip()
             # Skip comments and empty lines
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
 
             # Parse: URL | category | difficulty | notes
-            parts = [p.strip() for p in line.split('|')]
+            parts = [p.strip() for p in line.split("|")]
             url = parts[0]
 
-            if not url.startswith('http'):
+            if not url.startswith("http"):
                 continue
 
             category = parts[1] if len(parts) > 1 else "unknown"
             difficulty = parts[2] if len(parts) > 2 else "unknown"
             notes = parts[3] if len(parts) > 3 else ""
 
-            urls.append(TestURL(url=url, category=category, difficulty=difficulty, notes=notes))
+            urls.append(
+                TestURL(url=url, category=category, difficulty=difficulty, notes=notes)
+            )
 
     return urls
 
@@ -126,7 +133,7 @@ async def fetch_pdf(url: str, timeout: int = 30) -> tuple[bytes, Optional[str]]:
 
 def count_images(content: str) -> int:
     """Count markdown images in content."""
-    return len(re.findall(r'!\[.*?\]\(.*?\)', content))
+    return len(re.findall(r"!\[.*?\]\(.*?\)", content))
 
 
 def count_words(content: str) -> int:
@@ -135,6 +142,7 @@ def count_words(content: str) -> int:
 
 
 # === Extractors ===
+
 
 def extract_trafilatura(html: str) -> ExtractionResult:
     """Extract using trafilatura."""
@@ -151,17 +159,14 @@ def extract_trafilatura(html: str) -> ExtractionResult:
 
         # Get content as markdown
         content = trafilatura.extract(
-            html,
-            output_format='markdown',
-            include_formatting=True,
-            include_images=True
+            html, output_format="markdown", include_formatting=True, include_images=True
         )
 
         if not content:
             return ExtractionResult(
                 success=False,
                 error="no_content",
-                time_ms=int((time.time() - start) * 1000)
+                time_ms=int((time.time() - start) * 1000),
             )
 
         return ExtractionResult(
@@ -173,13 +178,11 @@ def extract_trafilatura(html: str) -> ExtractionResult:
             word_count=count_words(content),
             char_count=len(content),
             image_count=count_images(content),
-            time_ms=int((time.time() - start) * 1000)
+            time_ms=int((time.time() - start) * 1000),
         )
     except Exception as e:
         return ExtractionResult(
-            success=False,
-            error=str(e)[:50],
-            time_ms=int((time.time() - start) * 1000)
+            success=False, error=str(e)[:50], time_ms=int((time.time() - start) * 1000)
         )
 
 
@@ -197,25 +200,32 @@ def extract_readability(html: str) -> ExtractionResult:
 
         # Simple HTML to markdown conversion (no dependencies)
         content = html_content
-        content = re.sub(r'<h1[^>]*>(.*?)</h1>', r'# \1\n', content, flags=re.DOTALL)
-        content = re.sub(r'<h2[^>]*>(.*?)</h2>', r'## \1\n', content, flags=re.DOTALL)
-        content = re.sub(r'<h3[^>]*>(.*?)</h3>', r'### \1\n', content, flags=re.DOTALL)
-        content = re.sub(r'<p[^>]*>(.*?)</p>', r'\1\n\n', content, flags=re.DOTALL)
-        content = re.sub(r'<br\s*/?>', '\n', content)
-        content = re.sub(r'<strong>(.*?)</strong>', r'**\1**', content, flags=re.DOTALL)
-        content = re.sub(r'<em>(.*?)</em>', r'*\1*', content, flags=re.DOTALL)
-        content = re.sub(r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', r'[\2](\1)', content, flags=re.DOTALL)
-        content = re.sub(r'<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*/?>', r'![\2](\1)', content)
-        content = re.sub(r'<img[^>]*src="([^"]*)"[^>]*/?>', r'![](\1)', content)
-        content = re.sub(r'<[^>]+>', '', content)  # Strip remaining tags
-        content = re.sub(r'\n{3,}', '\n\n', content)  # Collapse newlines
+        content = re.sub(r"<h1[^>]*>(.*?)</h1>", r"# \1\n", content, flags=re.DOTALL)
+        content = re.sub(r"<h2[^>]*>(.*?)</h2>", r"## \1\n", content, flags=re.DOTALL)
+        content = re.sub(r"<h3[^>]*>(.*?)</h3>", r"### \1\n", content, flags=re.DOTALL)
+        content = re.sub(r"<p[^>]*>(.*?)</p>", r"\1\n\n", content, flags=re.DOTALL)
+        content = re.sub(r"<br\s*/?>", "\n", content)
+        content = re.sub(r"<strong>(.*?)</strong>", r"**\1**", content, flags=re.DOTALL)
+        content = re.sub(r"<em>(.*?)</em>", r"*\1*", content, flags=re.DOTALL)
+        content = re.sub(
+            r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>',
+            r"[\2](\1)",
+            content,
+            flags=re.DOTALL,
+        )
+        content = re.sub(
+            r'<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*/?>', r"![\2](\1)", content
+        )
+        content = re.sub(r'<img[^>]*src="([^"]*)"[^>]*/?>', r"![](\1)", content)
+        content = re.sub(r"<[^>]+>", "", content)  # Strip remaining tags
+        content = re.sub(r"\n{3,}", "\n\n", content)  # Collapse newlines
         content = content.strip()
 
         if not content or len(content) < 100:
             return ExtractionResult(
                 success=False,
                 error="no_content",
-                time_ms=int((time.time() - start) * 1000)
+                time_ms=int((time.time() - start) * 1000),
             )
 
         return ExtractionResult(
@@ -227,13 +237,11 @@ def extract_readability(html: str) -> ExtractionResult:
             word_count=count_words(content),
             char_count=len(content),
             image_count=count_images(content),
-            time_ms=int((time.time() - start) * 1000)
+            time_ms=int((time.time() - start) * 1000),
         )
     except Exception as e:
         return ExtractionResult(
-            success=False,
-            error=str(e)[:50],
-            time_ms=int((time.time() - start) * 1000)
+            success=False, error=str(e)[:50], time_ms=int((time.time() - start) * 1000)
         )
 
 
@@ -266,7 +274,7 @@ def extract_pdf_pymupdf(pdf_bytes: bytes) -> ExtractionResult:
             return ExtractionResult(
                 success=False,
                 error="no_content",
-                time_ms=int((time.time() - start) * 1000)
+                time_ms=int((time.time() - start) * 1000),
             )
 
         return ExtractionResult(
@@ -278,13 +286,11 @@ def extract_pdf_pymupdf(pdf_bytes: bytes) -> ExtractionResult:
             word_count=count_words(content),
             char_count=len(content),
             image_count=0,  # PDF text extraction doesn't include images
-            time_ms=int((time.time() - start) * 1000)
+            time_ms=int((time.time() - start) * 1000),
         )
     except Exception as e:
         return ExtractionResult(
-            success=False,
-            error=str(e)[:50],
-            time_ms=int((time.time() - start) * 1000)
+            success=False, error=str(e)[:50], time_ms=int((time.time() - start) * 1000)
         )
 
 
@@ -311,7 +317,7 @@ async def extract_jina(url: str) -> ExtractionResult:
             return ExtractionResult(
                 success=False,
                 error="no_content",
-                time_ms=int((time.time() - start) * 1000)
+                time_ms=int((time.time() - start) * 1000),
             )
 
         return ExtractionResult(
@@ -323,13 +329,11 @@ async def extract_jina(url: str) -> ExtractionResult:
             word_count=count_words(content),
             char_count=len(content),
             image_count=count_images(content),
-            time_ms=int((time.time() - start) * 1000)
+            time_ms=int((time.time() - start) * 1000),
         )
     except Exception as e:
         return ExtractionResult(
-            success=False,
-            error=str(e)[:50],
-            time_ms=int((time.time() - start) * 1000)
+            success=False, error=str(e)[:50], time_ms=int((time.time() - start) * 1000)
         )
 
 
@@ -351,14 +355,14 @@ async def extract_puremd(url: str) -> ExtractionResult:
                 frontmatter = content[3:end]
                 for line in frontmatter.split("\n"):
                     if line.startswith("title:"):
-                        title = line[6:].strip().strip('"\'')
+                        title = line[6:].strip().strip("\"'")
                         break
 
         if not content or len(content) < 100:
             return ExtractionResult(
                 success=False,
                 error="no_content",
-                time_ms=int((time.time() - start) * 1000)
+                time_ms=int((time.time() - start) * 1000),
             )
 
         return ExtractionResult(
@@ -370,21 +374,21 @@ async def extract_puremd(url: str) -> ExtractionResult:
             word_count=count_words(content),
             char_count=len(content),
             image_count=count_images(content),
-            time_ms=int((time.time() - start) * 1000)
+            time_ms=int((time.time() - start) * 1000),
         )
     except Exception as e:
         return ExtractionResult(
-            success=False,
-            error=str(e)[:50],
-            time_ms=int((time.time() - start) * 1000)
+            success=False, error=str(e)[:50], time_ms=int((time.time() - start) * 1000)
         )
 
 
 # === Test Runner ===
 
+
 @dataclass
 class TestResult:
     """Results for a single URL across all extractors."""
+
     url: TestURL
     fetch_error: Optional[str] = None
     trafilatura: Optional[ExtractionResult] = None
@@ -398,7 +402,7 @@ async def test_url(test_url: TestURL, include_apis: bool = False) -> TestResult:
     """Test all extractors on a single URL."""
     result = TestResult(url=test_url)
 
-    is_pdf = test_url.url.lower().endswith('.pdf')
+    is_pdf = test_url.url.lower().endswith(".pdf")
 
     if is_pdf:
         # PDF handling
@@ -467,7 +471,7 @@ def print_results(results: list[TestResult], include_apis: bool = False):
         # Truncate URL for display
         url_display = r.url.url
         if len(url_display) > url_width - 3:
-            url_display = url_display[:url_width - 6] + "..."
+            url_display = url_display[: url_width - 6] + "..."
 
         row = f"{url_display:<{url_width}}"
 
@@ -498,24 +502,24 @@ def print_results(results: list[TestResult], include_apis: bool = False):
         return success, total
 
     summary = f"{'SUCCESS RATE':<{url_width}}"
-    for ext in ['trafilatura', 'readability']:
+    for ext in ["trafilatura", "readability"]:
         s, t = count_success(ext)
         if t > 0:
-            summary += f"{s}/{t} ({100*s//t}%)".center(col_width)
+            summary += f"{s}/{t} ({100 * s // t}%)".center(col_width)
         else:
             summary += "-".center(col_width)
 
     if include_apis:
-        for ext in ['jina', 'puremd']:
+        for ext in ["jina", "puremd"]:
             s, t = count_success(ext)
             if t > 0:
-                summary += f"{s}/{t} ({100*s//t}%)".center(col_width)
+                summary += f"{s}/{t} ({100 * s // t}%)".center(col_width)
             else:
                 summary += "-".center(col_width)
 
-    s, t = count_success('pymupdf')
+    s, t = count_success("pymupdf")
     if t > 0:
-        summary += f"{s}/{t} ({100*s//t}%)".center(col_width)
+        summary += f"{s}/{t} ({100 * s // t}%)".center(col_width)
     else:
         summary += "-".center(col_width)
 
@@ -549,7 +553,9 @@ def print_results(results: list[TestResult], include_apis: bool = False):
                 if result.image_count:
                     meta.append(f"images={result.image_count}")
                 meta_str = ", ".join(meta) if meta else "no metadata"
-                print(f"  {name:12}: {result.word_count:,} words, {result.char_count:,} chars, {result.time_ms}ms | {meta_str}")
+                print(
+                    f"  {name:12}: {result.word_count:,} words, {result.char_count:,} chars, {result.time_ms}ms | {meta_str}"
+                )
 
 
 async def main():
@@ -557,15 +563,21 @@ async def main():
     parser.add_argument("--url", help="Test a single URL")
     parser.add_argument("--category", help="Test only URLs in this category")
     parser.add_argument("--quick", action="store_true", help="Test only first 3 URLs")
-    parser.add_argument("--apis", action="store_true", help="Include API extractors (Jina, pure.md)")
-    parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed output")
+    parser.add_argument(
+        "--apis", action="store_true", help="Include API extractors (Jina, pure.md)"
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show detailed output"
+    )
 
     args = parser.parse_args()
 
     # Check dependencies
     print("Available extractors:")
     print(f"  trafilatura: {'✓' if HAS_TRAFILATURA else '✗ (pip install trafilatura)'}")
-    print(f"  readability: {'✓' if HAS_READABILITY else '✗ (pip install readability-lxml)'}")
+    print(
+        f"  readability: {'✓' if HAS_READABILITY else '✗ (pip install readability-lxml)'}"
+    )
     print(f"  pymupdf:     {'✓' if HAS_PYMUPDF else '✗ (pip install pymupdf)'}")
     print(f"  jina:        {'✓ (API)' if args.apis else '- (use --apis)'}")
     print(f"  pure.md:     {'✓ (API)' if args.apis else '- (use --apis)'}")

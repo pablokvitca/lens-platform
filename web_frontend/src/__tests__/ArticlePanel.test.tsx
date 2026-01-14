@@ -10,32 +10,34 @@ describe("ArticlePanel", () => {
 
   it("resets scroll position to top when article content changes", async () => {
     const longContent = "First article.\n\n" + "Paragraph.\n\n".repeat(50);
-    const newContent = "Second article - completely different content.\n\n" + "New paragraph.\n\n".repeat(50);
+    const newContent =
+      "Second article - completely different content.\n\n" +
+      "New paragraph.\n\n".repeat(50);
 
     const { rerender, container } = render(
-      <ArticlePanel
-        article={{ content: longContent, title: "Article 1" }}
-      />
+      <ArticlePanel article={{ content: longContent, title: "Article 1" }} />
     );
 
     // Find the scroll container (the div with overflow-y-auto)
-    const scrollContainer = container.querySelector('[class*="overflow-y-auto"]');
+    const scrollContainer = container.querySelector(
+      '[class*="overflow-y-auto"]'
+    );
     expect(scrollContainer).toBeTruthy();
 
     // Simulate scrolling down
     if (scrollContainer) {
       // Set scroll position
-      Object.defineProperty(scrollContainer, 'scrollTop', {
+      Object.defineProperty(scrollContainer, "scrollTop", {
         writable: true,
         configurable: true,
         value: 500,
       });
-      Object.defineProperty(scrollContainer, 'scrollHeight', {
+      Object.defineProperty(scrollContainer, "scrollHeight", {
         writable: true,
         configurable: true,
         value: 2000,
       });
-      Object.defineProperty(scrollContainer, 'clientHeight', {
+      Object.defineProperty(scrollContainer, "clientHeight", {
         writable: true,
         configurable: true,
         value: 400,
@@ -47,9 +49,7 @@ describe("ArticlePanel", () => {
 
     // Change the article content
     rerender(
-      <ArticlePanel
-        article={{ content: newContent, title: "Article 2" }}
-      />
+      <ArticlePanel article={{ content: newContent, title: "Article 2" }} />
     );
 
     // After content change, scroll should be reset to top

@@ -18,7 +18,9 @@ class TestCreateMeetingsForGroup:
         """Should create one meeting per week."""
         with patch("core.meetings.get_transaction") as mock_tx:
             mock_conn = AsyncMock()
-            mock_conn.execute = AsyncMock(return_value=Mock(scalar_one=Mock(side_effect=[1, 2, 3])))
+            mock_conn.execute = AsyncMock(
+                return_value=Mock(scalar_one=Mock(side_effect=[1, 2, 3]))
+            )
             mock_tx.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
             mock_tx.return_value.__aexit__ = AsyncMock()
 
@@ -41,18 +43,27 @@ class TestSendCalendarInvites:
     @pytest.mark.asyncio
     async def test_sends_invites_to_all_members(self):
         """Should create calendar events for each meeting."""
-        with patch("core.meetings.get_connection") as mock_conn_ctx, \
-             patch("core.meetings.get_transaction") as mock_tx, \
-             patch("core.meetings.is_calendar_configured", return_value=True), \
-             patch("core.meetings.create_meeting_event") as mock_create_event, \
-             patch("core.meetings.get_group_member_emails") as mock_get_emails, \
-             patch("core.meetings.get_meetings_for_group") as mock_get_meetings:
-
+        with (
+            patch("core.meetings.get_connection") as mock_conn_ctx,
+            patch("core.meetings.get_transaction") as mock_tx,
+            patch("core.meetings.is_calendar_configured", return_value=True),
+            patch("core.meetings.create_meeting_event") as mock_create_event,
+            patch("core.meetings.get_group_member_emails") as mock_get_emails,
+            patch("core.meetings.get_meetings_for_group") as mock_get_meetings,
+        ):
             # Setup mocks
             mock_get_emails.return_value = ["alice@example.com", "bob@example.com"]
             mock_get_meetings.return_value = [
-                {"meeting_id": 1, "meeting_number": 1, "scheduled_at": datetime.now(timezone.utc)},
-                {"meeting_id": 2, "meeting_number": 2, "scheduled_at": datetime.now(timezone.utc) + timedelta(weeks=1)},
+                {
+                    "meeting_id": 1,
+                    "meeting_number": 1,
+                    "scheduled_at": datetime.now(timezone.utc),
+                },
+                {
+                    "meeting_id": 2,
+                    "meeting_number": 2,
+                    "scheduled_at": datetime.now(timezone.utc) + timedelta(weeks=1),
+                },
             ]
             mock_create_event.return_value = "google-event-id-123"
 
@@ -74,7 +85,10 @@ class TestSendCalendarInvites:
             assert mock_create_event.call_count == 2
             # Verify attendees were passed correctly
             call_args = mock_create_event.call_args_list[0]
-            assert call_args.kwargs["attendee_emails"] == ["alice@example.com", "bob@example.com"]
+            assert call_args.kwargs["attendee_emails"] == [
+                "alice@example.com",
+                "bob@example.com",
+            ]
 
     @pytest.mark.asyncio
     async def test_skips_when_calendar_not_configured(self):
@@ -91,10 +105,11 @@ class TestSendCalendarInvites:
     @pytest.mark.asyncio
     async def test_skips_when_no_member_emails(self):
         """Should skip when no members have email addresses."""
-        with patch("core.meetings.get_connection") as mock_conn_ctx, \
-             patch("core.meetings.is_calendar_configured", return_value=True), \
-             patch("core.meetings.get_group_member_emails") as mock_get_emails:
-
+        with (
+            patch("core.meetings.get_connection") as mock_conn_ctx,
+            patch("core.meetings.is_calendar_configured", return_value=True),
+            patch("core.meetings.get_group_member_emails") as mock_get_emails,
+        ):
             mock_get_emails.return_value = []  # No emails
 
             mock_conn = AsyncMock()

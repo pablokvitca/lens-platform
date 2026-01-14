@@ -28,9 +28,7 @@ export default function PersonalInfoStep({
 }: PersonalInfoStepProps) {
   return (
     <div className="max-w-md mx-auto">
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">
-        Join the Course
-      </h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">Join the Course</h2>
       <p className="text-gray-600 mb-8">
         Connect your Discord account to get started.
       </p>
@@ -66,7 +64,8 @@ export default function PersonalInfoStep({
               <span className="relative inline-flex items-center align-middle ml-1 group">
                 <Info className="w-[18px] h-[18px] text-gray-500 cursor-help" />
                 <span className="absolute left-0 bottom-full mb-2 px-3 py-2 text-xs text-white bg-gray-800 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity w-56 pointer-events-none z-10">
-                  You can use any email address. It doesn't need to match the email you use for your Discord account.
+                  You can use any email address. It doesn't need to match the
+                  email you use for your Discord account.
                 </span>
               </span>
             </label>
@@ -95,7 +94,8 @@ export default function PersonalInfoStep({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
             />
             <p className="mt-1 text-sm text-gray-500">
-              This will be set as your nickname in the Lens Academy Discord server, visible to all members.
+              This will be set as your nickname in the Lens Academy Discord
+              server, visible to all members.
             </p>
           </div>
 

@@ -31,7 +31,9 @@ import re
 
 
 # Default directory for transcript files (educational_content/video_transcripts/)
-TRANSCRIPTS_DIR = Path(__file__).parent.parent.parent / "educational_content" / "video_transcripts"
+TRANSCRIPTS_DIR = (
+    Path(__file__).parent.parent.parent / "educational_content" / "video_transcripts"
+)
 
 
 def _parse_timestamp(value: str | float | int) -> float:
@@ -52,7 +54,9 @@ def _parse_timestamp(value: str | float | int) -> float:
     return minutes * 60 + seconds
 
 
-def find_transcript_timestamps(video_id: str, search_dir: Path | str | None = None) -> Path:
+def find_transcript_timestamps(
+    video_id: str, search_dir: Path | str | None = None
+) -> Path:
     """
     Find .timestamps.json file for a video ID.
 
@@ -76,7 +80,9 @@ def find_transcript_timestamps(video_id: str, search_dir: Path | str | None = No
     matches = list(search_dir.glob(pattern))
 
     if not matches:
-        raise FileNotFoundError(f"No transcript timestamps found for video ID: {video_id}")
+        raise FileNotFoundError(
+            f"No transcript timestamps found for video ID: {video_id}"
+        )
 
     return matches[0]
 
@@ -103,9 +109,7 @@ def get_text_at_time(
     words = json.loads(timestamps_path.read_text())
 
     words_in_range = [
-        w["text"]
-        for w in words
-        if start <= _parse_timestamp(w["start"]) <= end
+        w["text"] for w in words if start <= _parse_timestamp(w["start"]) <= end
     ]
 
     return " ".join(words_in_range)
@@ -113,7 +117,7 @@ def get_text_at_time(
 
 def normalize_for_matching(text: str) -> str:
     """Normalize text for fuzzy matching: lowercase, strip punctuation."""
-    return re.sub(r'[^\w\s]', '', text).lower()
+    return re.sub(r"[^\w\s]", "", text).lower()
 
 
 def flatten_transcript(words: list[dict]) -> list[dict]:
@@ -173,15 +177,11 @@ def find_anchor_position(
     # Sliding window search
     for i in range(search_from, len(words) - anchor_len + 1):
         window_tokens = [
-            normalize_for_matching(words[i + j]["text"])
-            for j in range(anchor_len)
+            normalize_for_matching(words[i + j]["text"]) for j in range(anchor_len)
         ]
 
         # Count matching tokens
-        matches = sum(
-            1 for a, b in zip(anchor_tokens, window_tokens)
-            if a == b
-        )
+        matches = sum(1 for a, b in zip(anchor_tokens, window_tokens) if a == b)
 
         if matches > best_match_score:
             best_match_score = matches

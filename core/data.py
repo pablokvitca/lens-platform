@@ -9,7 +9,7 @@ from pathlib import Path
 # Data directory - can be overridden via DATA_DIR environment variable
 # Default: discord_bot/ directory (for backwards compatibility)
 _PROJECT_ROOT = Path(__file__).parent.parent
-DATA_DIR = Path(os.environ.get('DATA_DIR', _PROJECT_ROOT / 'discord_bot'))
+DATA_DIR = Path(os.environ.get("DATA_DIR", _PROJECT_ROOT / "discord_bot"))
 
 DATA_FILE = DATA_DIR / "user_data.json"
 COURSES_FILE = DATA_DIR / "courses.json"
@@ -52,6 +52,7 @@ def save_user_data(user_id: str, user_data: dict) -> None:
 
 
 # ============ COURSE DATA ============
+
 
 def load_courses() -> dict:
     """Load all course data from the JSON file."""

@@ -67,7 +67,9 @@ export default function CourseSidebar({
   const getUnitProgress = (unit: UnitInfo) => {
     // Only count required lessons for progress
     const requiredLessons = unit.lessons.filter((l) => !l.optional);
-    const completed = requiredLessons.filter((l) => l.status === "completed").length;
+    const completed = requiredLessons.filter(
+      (l) => l.status === "completed"
+    ).length;
     return `${completed}/${requiredLessons.length}`;
   };
 
@@ -98,7 +100,9 @@ export default function CourseSidebar({
                 <span className="flex-1 font-medium text-slate-900">
                   {getUnitLabel(unit)}
                 </span>
-                <span className="text-sm text-slate-500">{getUnitProgress(unit)}</span>
+                <span className="text-sm text-slate-500">
+                  {getUnitProgress(unit)}
+                </span>
               </button>
 
               {/* Lessons list */}
@@ -130,11 +134,12 @@ export default function CourseSidebar({
                             Optional
                           </span>
                         )}
-                        {!lesson.optional && lesson.status === "in_progress" && (
-                          <span className="text-xs text-blue-600 font-medium">
-                            Continue
-                          </span>
-                        )}
+                        {!lesson.optional &&
+                          lesson.status === "in_progress" && (
+                            <span className="text-xs text-blue-600 font-medium">
+                              Continue
+                            </span>
+                          )}
                       </button>
                     );
                   })}

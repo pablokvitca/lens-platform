@@ -1,9 +1,20 @@
 // web_frontend/src/pages/UnifiedLesson.tsx
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams } from "react-router-dom";
-import type { SessionState, PendingMessage, ArticleData, Stage } from "../types/unified-lesson";
+import type {
+  SessionState,
+  PendingMessage,
+  ArticleData,
+  Stage,
+} from "../types/unified-lesson";
 import type { StageInfo } from "../types/course";
-import { createSession, getSession, advanceStage, sendMessage, claimSession } from "../api/lessons";
+import {
+  createSession,
+  getSession,
+  advanceStage,
+  sendMessage,
+  claimSession,
+} from "../api/lessons";
 import { useAuth } from "../hooks/useAuth";
 import { useAnonymousSession } from "../hooks/useAnonymousSession";
 import { useActivityTracker } from "../hooks/useActivityTracker";
@@ -14,7 +25,9 @@ import StageProgressBar from "../components/unified-lesson/StageProgressBar";
 import LessonCompleteModal from "../components/unified-lesson/LessonCompleteModal";
 import HeaderAuthStatus from "../components/unified-lesson/HeaderAuthStatus";
 import AuthPromptModal from "../components/unified-lesson/AuthPromptModal";
-import LessonDrawer, { LessonDrawerToggle } from "../components/unified-lesson/LessonDrawer";
+import LessonDrawer, {
+  LessonDrawerToggle,
+} from "../components/unified-lesson/LessonDrawer";
 import {
   trackLessonStarted,
   trackLessonCompleted,
@@ -23,25 +36,37 @@ import {
 } from "../analytics";
 
 export default function UnifiedLesson() {
-  const { courseId: _courseId, lessonId } = useParams<{ courseId?: string; lessonId: string }>();
+  const { courseId: _courseId, lessonId } = useParams<{
+    courseId?: string;
+    lessonId: string;
+  }>();
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [session, setSession] = useState<SessionState | null>(null);
-  const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [pendingTransition, setPendingTransition] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastInitiatedStage, setLastInitiatedStage] = useState<number | null>(null);
-  const [viewingStageIndex, setViewingStageIndex] = useState<number | null>(null);
+  const [lastInitiatedStage, setLastInitiatedStage] = useState<number | null>(
+    null
+  );
+  const [viewingStageIndex, setViewingStageIndex] = useState<number | null>(
+    null
+  );
   // Cache for viewed stage content - prevents overwriting current stage's article
-  const [viewedContentCache, setViewedContentCache] = useState<Record<number, ArticleData>>({});
+  const [viewedContentCache, setViewedContentCache] = useState<
+    Record<number, ArticleData>
+  >({});
 
   // Analytics tracking refs
   const hasTrackedLessonStart = useRef(false);
 
   // Anonymous session flow
   const { isAuthenticated, login } = useAuth();
-  const { getStoredSessionId, storeSessionId, clearSessionId } = useAnonymousSession(lessonId!);
+  const { getStoredSessionId, storeSessionId, clearSessionId } =
+    useAnonymousSession(lessonId!);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [hasPromptedAuth, setHasPromptedAuth] = useState(false);
 
@@ -63,7 +88,11 @@ export default function UnifiedLesson() {
     stageIndex: stageIndexForTracking,
     stageType: "article",
     inactivityTimeout: 180_000, // 3 minutes
-    enabled: !!sessionId && !!lessonId && currentStageType === "article" && isViewingCurrentStage,
+    enabled:
+      !!sessionId &&
+      !!lessonId &&
+      currentStageType === "article" &&
+      isViewingCurrentStage,
   });
 
   // Activity tracking for video stages
@@ -71,7 +100,11 @@ export default function UnifiedLesson() {
     sessionId: sessionId ?? 0,
     lessonId: lessonId ?? "",
     stageIndex: stageIndexForTracking,
-    enabled: !!sessionId && !!lessonId && currentStageType === "video" && isViewingCurrentStage,
+    enabled:
+      !!sessionId &&
+      !!lessonId &&
+      currentStageType === "video" &&
+      isViewingCurrentStage,
   });
 
   // Activity tracking for chat stages (5 min inactivity timeout)
@@ -81,7 +114,11 @@ export default function UnifiedLesson() {
     stageIndex: stageIndexForTracking,
     stageType: "chat",
     inactivityTimeout: 300_000, // 5 minutes
-    enabled: !!sessionId && !!lessonId && currentStageType === "chat" && isViewingCurrentStage,
+    enabled:
+      !!sessionId &&
+      !!lessonId &&
+      currentStageType === "chat" &&
+      isViewingCurrentStage,
   });
 
   // Initialize session
@@ -91,7 +128,9 @@ export default function UnifiedLesson() {
     let completed = false;
     const timeoutId = setTimeout(() => {
       if (!completed) {
-        console.warn(`[UnifiedLesson] Session init taking >3s for lesson ${lessonId}`);
+        console.warn(
+          `[UnifiedLesson] Session init taking >3s for lesson ${lessonId}`
+        );
       }
     }, 3000);
 
@@ -112,7 +151,9 @@ export default function UnifiedLesson() {
             }
             completed = true;
             clearTimeout(timeoutId);
-            console.log(`[UnifiedLesson] Restored session ${storedId} in ${Date.now() - startTime}ms`);
+            console.log(
+              `[UnifiedLesson] Restored session ${storedId} in ${Date.now() - startTime}ms`
+            );
             return;
           } catch {
             // Session expired or invalid, create new one
@@ -127,7 +168,9 @@ export default function UnifiedLesson() {
         const state = await getSession(sid);
         completed = true;
         clearTimeout(timeoutId);
-        console.log(`[UnifiedLesson] Session initialized in ${Date.now() - startTime}ms`);
+        console.log(
+          `[UnifiedLesson] Session initialized in ${Date.now() - startTime}ms`
+        );
         setSession(state);
 
         // Track lesson start (only for new sessions)
@@ -138,7 +181,10 @@ export default function UnifiedLesson() {
       } catch (e) {
         completed = true;
         clearTimeout(timeoutId);
-        console.error(`[UnifiedLesson] Session init failed after ${Date.now() - startTime}ms:`, e);
+        console.error(
+          `[UnifiedLesson] Session init failed after ${Date.now() - startTime}ms:`,
+          e
+        );
         setError(e instanceof Error ? e.message : "Failed to start lesson");
       }
     }
@@ -146,65 +192,81 @@ export default function UnifiedLesson() {
     init();
 
     return () => clearTimeout(timeoutId);
-  }, [lessonId, isAuthenticated, getStoredSessionId, storeSessionId, clearSessionId]);
+  }, [
+    lessonId,
+    isAuthenticated,
+    getStoredSessionId,
+    storeSessionId,
+    clearSessionId,
+  ]);
 
-  const handleSendMessage = useCallback(async (content: string) => {
-    if (!sessionId) return;
+  const handleSendMessage = useCallback(
+    async (content: string) => {
+      if (!sessionId) return;
 
-    // Trigger activity tracking for chat stage
-    triggerChatActivity();
+      // Trigger activity tracking for chat stage
+      triggerChatActivity();
 
-    // For user messages (non-empty), set pending message for optimistic UI
-    if (content) {
-      setPendingMessage({ content, status: "sending" });
-      // Track chat message sent
-      if (lessonId) {
-        trackChatMessageSent(lessonId, content.length);
-      }
-    }
-    setIsLoading(true);
-    setStreamingContent("");
-    setPendingTransition(false);
-
-    try {
-      let assistantContent = "";
-      let shouldTransition = false;
-
-      for await (const chunk of sendMessage(sessionId, content)) {
-        if (chunk.type === "text" && chunk.content) {
-          assistantContent += chunk.content;
-          setStreamingContent(assistantContent);
-        } else if (chunk.type === "tool_use" && chunk.name === "transition_to_next") {
-          shouldTransition = true;
+      // For user messages (non-empty), set pending message for optimistic UI
+      if (content) {
+        setPendingMessage({ content, status: "sending" });
+        // Track chat message sent
+        if (lessonId) {
+          trackChatMessageSent(lessonId, content.length);
         }
       }
-
-      // Success: streaming response confirms server received user message
-      // Optimistically append both messages to local state (no refetch needed)
-      setSession(prev => prev ? {
-        ...prev,
-        messages: [
-          ...prev.messages,
-          ...(content ? [{ role: "user" as const, content }] : []),
-          { role: "assistant" as const, content: assistantContent }
-        ]
-      } : prev);
-      setPendingMessage(null);
+      setIsLoading(true);
       setStreamingContent("");
+      setPendingTransition(false);
 
-      if (shouldTransition) {
-        setPendingTransition(true);
+      try {
+        let assistantContent = "";
+        let shouldTransition = false;
+
+        for await (const chunk of sendMessage(sessionId, content)) {
+          if (chunk.type === "text" && chunk.content) {
+            assistantContent += chunk.content;
+            setStreamingContent(assistantContent);
+          } else if (
+            chunk.type === "tool_use" &&
+            chunk.name === "transition_to_next"
+          ) {
+            shouldTransition = true;
+          }
+        }
+
+        // Success: streaming response confirms server received user message
+        // Optimistically append both messages to local state (no refetch needed)
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                messages: [
+                  ...prev.messages,
+                  ...(content ? [{ role: "user" as const, content }] : []),
+                  { role: "assistant" as const, content: assistantContent },
+                ],
+              }
+            : prev
+        );
+        setPendingMessage(null);
+        setStreamingContent("");
+
+        if (shouldTransition) {
+          setPendingTransition(true);
+        }
+      } catch (e) {
+        // Failure: mark pending message as failed (don't lose user's message)
+        if (content) {
+          setPendingMessage({ content, status: "failed" });
+        }
+        setStreamingContent("");
+      } finally {
+        setIsLoading(false);
       }
-    } catch (e) {
-      // Failure: mark pending message as failed (don't lose user's message)
-      if (content) {
-        setPendingMessage({ content, status: "failed" });
-      }
-      setStreamingContent("");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [sessionId, triggerChatActivity]);
+    },
+    [sessionId, triggerChatActivity]
+  );
 
   const handleRetryMessage = useCallback(() => {
     if (!pendingMessage) return;
@@ -221,7 +283,11 @@ export default function UnifiedLesson() {
       setPendingTransition(false);
 
       if (result.completed) {
-        setSession(prev => prev ? { ...prev, completed: true, current_stage: null, content: null } : null);
+        setSession((prev) =>
+          prev
+            ? { ...prev, completed: true, current_stage: null, content: null }
+            : null
+        );
       } else {
         // Fetch fresh session - includes new system messages from server
         const state = await getSession(sessionId);
@@ -266,8 +332,14 @@ export default function UnifiedLesson() {
   const currentStageIndex = session?.current_stage_index ?? null;
 
   // Derived values for viewing non-current stages
-  const isReviewing = viewingStageIndex !== null && currentStageIndex !== null && viewingStageIndex < currentStageIndex;
-  const isPreviewing = viewingStageIndex !== null && currentStageIndex !== null && viewingStageIndex > currentStageIndex;
+  const isReviewing =
+    viewingStageIndex !== null &&
+    currentStageIndex !== null &&
+    viewingStageIndex < currentStageIndex;
+  const isPreviewing =
+    viewingStageIndex !== null &&
+    currentStageIndex !== null &&
+    viewingStageIndex > currentStageIndex;
   const isViewingOther = isReviewing || isPreviewing;
 
   // Get indices of reviewable stages (article/video only, before current)
@@ -275,15 +347,17 @@ export default function UnifiedLesson() {
     if (!session?.stages) return [];
     return session.stages
       .map((stage, index) => ({ stage, index }))
-      .filter(({ stage, index }) =>
-        stage.type !== 'chat' && index < session.current_stage_index
+      .filter(
+        ({ stage, index }) =>
+          stage.type !== "chat" && index < session.current_stage_index
       );
   }, [session?.stages, session?.current_stage_index]);
 
   const handleGoBack = useCallback(() => {
     const reviewable = getReviewableStages();
-    const currentViewing = viewingStageIndex ?? session?.current_stage_index ?? 0;
-    const earlier = reviewable.filter(s => s.index < currentViewing);
+    const currentViewing =
+      viewingStageIndex ?? session?.current_stage_index ?? 0;
+    const earlier = reviewable.filter((s) => s.index < currentViewing);
     if (earlier.length) {
       setViewingStageIndex(earlier[earlier.length - 1].index);
     }
@@ -291,11 +365,14 @@ export default function UnifiedLesson() {
 
   const handleGoForward = useCallback(() => {
     const reviewable = getReviewableStages();
-    const currentViewing = viewingStageIndex ?? session?.current_stage_index ?? 0;
+    const currentViewing =
+      viewingStageIndex ?? session?.current_stage_index ?? 0;
     const sessionStageIndex = session?.current_stage_index ?? 0;
 
     // Find next reviewable stage between here and current
-    const later = reviewable.filter(s => s.index > currentViewing && s.index < sessionStageIndex);
+    const later = reviewable.filter(
+      (s) => s.index > currentViewing && s.index < sessionStageIndex
+    );
     if (later.length) {
       setViewingStageIndex(later[0].index);
     } else {
@@ -308,21 +385,25 @@ export default function UnifiedLesson() {
     setViewingStageIndex(null);
   }, []);
 
-  const handleStageClick = useCallback((index: number) => {
-    // If clicking current stage, exit review mode
-    if (index === session?.current_stage_index) {
-      setViewingStageIndex(null);
-    } else {
-      setViewingStageIndex(index);
-    }
-  }, [session?.current_stage_index]);
+  const handleStageClick = useCallback(
+    (index: number) => {
+      // If clicking current stage, exit review mode
+      if (index === session?.current_stage_index) {
+        setViewingStageIndex(null);
+      } else {
+        setViewingStageIndex(index);
+      }
+    },
+    [session?.current_stage_index]
+  );
 
   // Compute navigation states
   const reviewableStages = getReviewableStages();
-  const currentViewing = viewingStageIndex ?? (session?.current_stage_index ?? 0);
-  const canGoBack = reviewableStages.some(s => s.index < currentViewing);
+  const currentViewing = viewingStageIndex ?? session?.current_stage_index ?? 0;
+  const canGoBack = reviewableStages.some((s) => s.index < currentViewing);
   // Forward enabled if reviewing and not already at current stage
-  const canGoForward = isReviewing && currentViewing < (session?.current_stage_index ?? 0);
+  const canGoForward =
+    isReviewing && currentViewing < (session?.current_stage_index ?? 0);
 
   // Get the stage to display (reviewed or current)
   const displayedStage = useMemo(() => {
@@ -344,12 +425,18 @@ export default function UnifiedLesson() {
   // Convert session stages to StageInfo format for the drawer
   const stagesForDrawer: StageInfo[] = useMemo(() => {
     if (!session?.stages) return [];
-    return session.stages.map((s: Stage & { title?: string; duration?: string }) => ({
-      type: s.type,
-      title: s.title ?? (s.type === "chat" ? "Discussion" : s.type.charAt(0).toUpperCase() + s.type.slice(1)),
-      duration: s.duration || null,  // Backend provides calculated duration
-      optional: ("optional" in s && s.optional) ?? false,
-    }));
+    return session.stages.map(
+      (s: Stage & { title?: string; duration?: string }) => ({
+        type: s.type,
+        title:
+          s.title ??
+          (s.type === "chat"
+            ? "Discussion"
+            : s.type.charAt(0).toUpperCase() + s.type.slice(1)),
+        duration: s.duration || null, // Backend provides calculated duration
+        optional: ("optional" in s && s.optional) ?? false,
+      })
+    );
   }, [session?.stages]);
 
   // Auto-initiate AI when entering any chat stage (initial load or after advancing)
@@ -368,7 +455,16 @@ export default function UnifiedLesson() {
     // Mark this stage as initiated and trigger AI to speak first
     setLastInitiatedStage(currentStageIndex);
     handleSendMessage("");
-  }, [sessionId, session, currentStageIndex, isChatStage, isLoading, lastInitiatedStage, handleSendMessage, lessonId]);
+  }, [
+    sessionId,
+    session,
+    currentStageIndex,
+    isChatStage,
+    isLoading,
+    lastInitiatedStage,
+    handleSendMessage,
+    lessonId,
+  ]);
 
   // Fetch content for viewed stage when reviewing
   useEffect(() => {
@@ -383,10 +479,13 @@ export default function UnifiedLesson() {
 
     const timeoutId = setTimeout(() => {
       if (isCurrent) {
-        console.warn(`[UnifiedLesson] Content fetch taking >3s for stage ${viewingStageIndex}`, {
-          sessionId,
-          viewingStageIndex,
-        });
+        console.warn(
+          `[UnifiedLesson] Content fetch taking >3s for stage ${viewingStageIndex}`,
+          {
+            sessionId,
+            viewingStageIndex,
+          }
+        );
       }
     }, 3000);
 
@@ -398,17 +497,22 @@ export default function UnifiedLesson() {
 
         // Only update if this request is still relevant (user hasn't navigated away)
         if (isCurrent && state.article) {
-          console.log(`[UnifiedLesson] Fetched stage ${viewingStageIndex} in ${Date.now() - startTime}ms`);
+          console.log(
+            `[UnifiedLesson] Fetched stage ${viewingStageIndex} in ${Date.now() - startTime}ms`
+          );
           // Store in cache instead of overwriting session.article
-          setViewedContentCache(prev => ({
+          setViewedContentCache((prev) => ({
             ...prev,
-            [viewingStageIndex!]: state.article!
+            [viewingStageIndex!]: state.article!,
           }));
         }
       } catch (e) {
         clearTimeout(timeoutId);
         if (isCurrent) {
-          console.error(`[UnifiedLesson] Failed to fetch stage ${viewingStageIndex} after ${Date.now() - startTime}ms:`, e);
+          console.error(
+            `[UnifiedLesson] Failed to fetch stage ${viewingStageIndex} after ${Date.now() - startTime}ms:`,
+            e
+          );
         }
       }
     }
@@ -438,7 +542,9 @@ export default function UnifiedLesson() {
       <div className="h-screen flex items-center justify-center bg-stone-50">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
-          <a href="/" className="text-emerald-600 hover:underline">Go home</a>
+          <a href="/" className="text-emerald-600 hover:underline">
+            Go home
+          </a>
         </div>
       </div>
     );
@@ -460,7 +566,10 @@ export default function UnifiedLesson() {
         <div className="md:hidden flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 truncate mr-4">
-              <a href="/" className="text-lg font-bold text-emerald-600 hover:text-emerald-700 transition-colors shrink-0">
+              <a
+                href="/"
+                className="text-lg font-bold text-emerald-600 hover:text-emerald-700 transition-colors shrink-0"
+              >
                 Lens
               </a>
               <span className="text-slate-300 shrink-0">|</span>
@@ -505,7 +614,10 @@ export default function UnifiedLesson() {
         {/* Desktop layout (>= md): absolute positioning for perfect centering */}
         <div className="hidden md:block relative">
           <div className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center gap-4">
-            <a href="/" className="text-lg font-bold text-emerald-600 hover:text-emerald-700 transition-colors">
+            <a
+              href="/"
+              className="text-lg font-bold text-emerald-600 hover:text-emerald-700 transition-colors"
+            >
               Lens Academy
             </a>
             <span className="text-slate-300">|</span>
@@ -550,13 +662,13 @@ export default function UnifiedLesson() {
       {/* Main content - split panel */}
       <div className="flex-1 flex overflow-hidden">
         {/* Content panel - left */}
-        <div className={`w-1/2 relative ${
-          !isChatStage || isViewingOther
-            ? "bg-white z-30"
-            : "bg-gray-50"
-        }`}>
+        <div
+          className={`w-1/2 relative ${
+            !isChatStage || isViewingOther ? "bg-white z-30" : "bg-gray-50"
+          }`}
+        >
           {/* Dimming overlay when not focused */}
-          {(isChatStage && !isViewingOther) && (
+          {isChatStage && !isViewingOther && (
             <div className="absolute inset-0 bg-gray-50/25 pointer-events-none z-10" />
           )}
           <ContentPanel
@@ -577,11 +689,11 @@ export default function UnifiedLesson() {
         </div>
 
         {/* Chat panel - right */}
-        <div className={`w-1/2 relative ${
-          isChatStage && !isViewingOther
-            ? "bg-white z-30"
-            : "bg-gray-50"
-        }`}>
+        <div
+          className={`w-1/2 relative ${
+            isChatStage && !isViewingOther ? "bg-white z-30" : "bg-gray-50"
+          }`}
+        >
           {/* Dimming overlay when not focused */}
           {(!isChatStage || isViewingOther) && (
             <div className="absolute inset-0 bg-gray-50/25 pointer-events-none z-10" />

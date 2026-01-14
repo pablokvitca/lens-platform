@@ -36,7 +36,7 @@ export type Lesson = {
 export type ChatMessage = {
   role: "user" | "assistant" | "system";
   content: string;
-  icon?: "article" | "video" | "chat";  // For system messages
+  icon?: "article" | "video" | "chat"; // For system messages
 };
 
 export type PendingMessage = {
@@ -54,7 +54,7 @@ export type PreviousStageInfo = {
 export type ArticleMetadata = {
   title: string | null;
   author: string | null;
-  source_url: string | null;  // Original article URL
+  source_url: string | null; // Original article URL
 };
 
 // Bundled article data - content + metadata together

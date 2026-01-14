@@ -29,7 +29,10 @@ def test_claim_session_success():
 
         # Mock get_or_create_user to return a user
         with patch("web_api.routes.lessons.get_or_create_user") as mock_get_user:
-            mock_get_user.return_value = {"user_id": 42, "discord_id": "test_discord_123"}
+            mock_get_user.return_value = {
+                "user_id": 42,
+                "discord_id": "test_discord_123",
+            }
 
             # Mock claim_session
             with patch("web_api.routes.lessons.claim_session") as mock_claim:
@@ -52,7 +55,9 @@ def test_claim_session_requires_auth():
     from fastapi import HTTPException
 
     with patch("web_api.routes.lessons.get_current_user") as mock_auth:
-        mock_auth.side_effect = HTTPException(status_code=401, detail="Not authenticated")
+        mock_auth.side_effect = HTTPException(
+            status_code=401, detail="Not authenticated"
+        )
 
         response = client.post("/api/lesson-sessions/1/claim")
 
@@ -66,10 +71,14 @@ def test_claim_already_claimed_session():
         mock_auth.return_value = {"sub": "test_discord_123", "username": "testuser"}
 
         with patch("web_api.routes.lessons.get_or_create_user") as mock_get_user:
-            mock_get_user.return_value = {"user_id": 42, "discord_id": "test_discord_123"}
+            mock_get_user.return_value = {
+                "user_id": 42,
+                "discord_id": "test_discord_123",
+            }
 
             with patch("web_api.routes.lessons.claim_session") as mock_claim:
                 from core.lessons import SessionAlreadyClaimedError
+
                 mock_claim.side_effect = SessionAlreadyClaimedError("Already claimed")
 
                 response = client.post("/api/lesson-sessions/1/claim")
@@ -83,10 +92,14 @@ def test_claim_nonexistent_session():
         mock_auth.return_value = {"sub": "test_discord_123", "username": "testuser"}
 
         with patch("web_api.routes.lessons.get_or_create_user") as mock_get_user:
-            mock_get_user.return_value = {"user_id": 42, "discord_id": "test_discord_123"}
+            mock_get_user.return_value = {
+                "user_id": 42,
+                "discord_id": "test_discord_123",
+            }
 
             with patch("web_api.routes.lessons.claim_session") as mock_claim:
                 from core.lessons import SessionNotFoundError
+
                 mock_claim.side_effect = SessionNotFoundError("Session not found")
 
                 response = client.post("/api/lesson-sessions/1/claim")
@@ -114,6 +127,7 @@ def test_get_anonymous_session_by_id():
 
             with patch("web_api.routes.lessons.load_lesson") as mock_lesson:
                 from unittest.mock import MagicMock
+
                 mock_stage = MagicMock()
                 mock_stage.type = "chat"
                 mock_stage.instructions = "hi"
@@ -140,7 +154,10 @@ def test_get_session_forbidden_for_wrong_user():
         mock_auth.return_value = {"sub": "test_discord_123", "username": "testuser"}
 
         with patch("web_api.routes.lessons.get_or_create_user") as mock_get_user:
-            mock_get_user.return_value = {"user_id": 42, "discord_id": "test_discord_123"}
+            mock_get_user.return_value = {
+                "user_id": 42,
+                "discord_id": "test_discord_123",
+            }
 
             with patch("web_api.routes.lessons.get_session") as mock_get:
                 mock_get.return_value = {
@@ -176,13 +193,13 @@ def test_create_anonymous_session():
 
             with patch("web_api.routes.lessons.load_lesson") as mock_lesson:
                 from unittest.mock import MagicMock
+
                 mock_lesson_obj = MagicMock()
                 mock_lesson_obj.stages = []  # No stages = no started message
                 mock_lesson.return_value = mock_lesson_obj
 
                 response = client.post(
-                    "/api/lesson-sessions",
-                    json={"lesson_slug": "intro-to-ai-safety"}
+                    "/api/lesson-sessions", json={"lesson_slug": "intro-to-ai-safety"}
                 )
 
                 assert response.status_code == 200
@@ -197,7 +214,10 @@ def test_create_authenticated_session():
         mock_auth.return_value = {"sub": "test_discord_123", "username": "testuser"}
 
         with patch("web_api.routes.lessons.get_or_create_user") as mock_get_user:
-            mock_get_user.return_value = {"user_id": 42, "discord_id": "test_discord_123"}
+            mock_get_user.return_value = {
+                "user_id": 42,
+                "discord_id": "test_discord_123",
+            }
 
             with patch("web_api.routes.lessons.create_session") as mock_create:
                 mock_create.return_value = {
@@ -209,13 +229,14 @@ def test_create_authenticated_session():
 
                 with patch("web_api.routes.lessons.load_lesson") as mock_lesson:
                     from unittest.mock import MagicMock
+
                     mock_lesson_obj = MagicMock()
                     mock_lesson_obj.stages = []
                     mock_lesson.return_value = mock_lesson_obj
 
                     response = client.post(
                         "/api/lesson-sessions",
-                        json={"lesson_slug": "intro-to-ai-safety"}
+                        json={"lesson_slug": "intro-to-ai-safety"},
                     )
 
                     assert response.status_code == 200

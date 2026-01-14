@@ -36,10 +36,12 @@ class TestBotManager:
 
             def make_on_ready(c: discord.Client, idx: int, evt: asyncio.Event):
                 """Factory to create on_ready with proper closure capture."""
+
                 @c.event
                 async def on_ready():
                     print(f"    Test bot {idx + 1} connected: {c.user}")
                     evt.set()
+
                 return on_ready
 
             make_on_ready(client, i, ready_event)
@@ -53,8 +55,7 @@ class TestBotManager:
         # Wait for all bots to be ready (with timeout)
         try:
             await asyncio.wait_for(
-                asyncio.gather(*[e.wait() for e in self._ready_events]),
-                timeout=30.0
+                asyncio.gather(*[e.wait() for e in self._ready_events]), timeout=30.0
             )
         except asyncio.TimeoutError:
             print("  Warning: Some test bots failed to connect")

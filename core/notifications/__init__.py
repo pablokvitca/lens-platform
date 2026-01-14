@@ -16,7 +16,12 @@ High-level actions:
 """
 
 from .dispatcher import send_notification
-from .scheduler import schedule_reminder, cancel_reminders, init_scheduler, shutdown_scheduler
+from .scheduler import (
+    schedule_reminder,
+    cancel_reminders,
+    init_scheduler,
+    shutdown_scheduler,
+)
 from .actions import (
     notify_welcome,
     notify_group_assigned,

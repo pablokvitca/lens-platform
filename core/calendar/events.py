@@ -44,11 +44,15 @@ def create_meeting_event(
     }
 
     try:
-        result = service.events().insert(
-            calendarId=get_calendar_email(),
-            body=event,
-            sendUpdates="all",
-        ).execute()
+        result = (
+            service.events()
+            .insert(
+                calendarId=get_calendar_email(),
+                body=event,
+                sendUpdates="all",
+            )
+            .execute()
+        )
 
         return result["id"]
     except Exception as e:
@@ -76,10 +80,14 @@ def update_meeting_event(
 
     try:
         # Get existing event
-        event = service.events().get(
-            calendarId=get_calendar_email(),
-            eventId=event_id,
-        ).execute()
+        event = (
+            service.events()
+            .get(
+                calendarId=get_calendar_email(),
+                eventId=event_id,
+            )
+            .execute()
+        )
 
         # Update fields
         if start:
@@ -142,13 +150,20 @@ def get_event_rsvps(event_id: str) -> list[dict] | None:
         return None
 
     try:
-        event = service.events().get(
-            calendarId=get_calendar_email(),
-            eventId=event_id,
-        ).execute()
+        event = (
+            service.events()
+            .get(
+                calendarId=get_calendar_email(),
+                eventId=event_id,
+            )
+            .execute()
+        )
 
         return [
-            {"email": a["email"], "responseStatus": a.get("responseStatus", "needsAction")}
+            {
+                "email": a["email"],
+                "responseStatus": a.get("responseStatus", "needsAction"),
+            }
             for a in event.get("attendees", [])
         ]
     except Exception as e:

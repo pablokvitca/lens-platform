@@ -10,29 +10,36 @@ Use get_user_profile(), save_user_profile(), etc. instead.
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Re-export from core for backward compatibility
 from core import (
     # Constants
-    DAY_CODES, DAY_NAMES, TIMEZONES,
+    DAY_CODES,
+    DAY_NAMES,
+    TIMEZONES,
     # Timezone
-    local_to_utc_time, utc_to_local_time,
+    local_to_utc_time,
+    utc_to_local_time,
     # Group names (formerly cohort names)
-    COHORT_NAMES, CohortNameGenerator,
+    COHORT_NAMES,
+    CohortNameGenerator,
     # Google docs
-    extract_doc_id, fetch_google_doc, parse_doc_tabs,
+    extract_doc_id,
+    fetch_google_doc,
+    parse_doc_tabs,
 )
 
 __all__ = [
-    'DAY_CODES',
-    'DAY_NAMES',
-    'TIMEZONES',
-    'local_to_utc_time',
-    'utc_to_local_time',
-    'COHORT_NAMES',
-    'CohortNameGenerator',
-    'extract_doc_id',
-    'fetch_google_doc',
-    'parse_doc_tabs',
+    "DAY_CODES",
+    "DAY_NAMES",
+    "TIMEZONES",
+    "local_to_utc_time",
+    "utc_to_local_time",
+    "COHORT_NAMES",
+    "CohortNameGenerator",
+    "extract_doc_id",
+    "fetch_google_doc",
+    "parse_doc_tabs",
 ]

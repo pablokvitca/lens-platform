@@ -24,14 +24,16 @@ async def create_meeting(
         The new meeting_id
     """
     result = await conn.execute(
-        insert(meetings).values(
+        insert(meetings)
+        .values(
             group_id=group_id,
             cohort_id=cohort_id,
             scheduled_at=scheduled_at,
             meeting_number=meeting_number,
             discord_event_id=discord_event_id,
             discord_voice_channel_id=discord_voice_channel_id,
-        ).returning(meetings.c.meeting_id)
+        )
+        .returning(meetings.c.meeting_id)
     )
     return result.scalar_one()
 
@@ -115,7 +117,6 @@ async def get_group_member_user_ids(
 ) -> list[int]:
     """Get user IDs for all members of a group."""
     result = await conn.execute(
-        select(groups_users.c.user_id)
-        .where(groups_users.c.group_id == group_id)
+        select(groups_users.c.user_id).where(groups_users.c.group_id == group_id)
     )
     return [row.user_id for row in result]

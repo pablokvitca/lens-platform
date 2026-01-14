@@ -44,9 +44,13 @@ export default function Layout() {
       <footer className="border-t border-slate-200 py-6 mt-auto">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center gap-4 text-sm text-slate-500">
-            <a href="/privacy" className="hover:text-slate-700">Privacy Policy</a>
+            <a href="/privacy" className="hover:text-slate-700">
+              Privacy Policy
+            </a>
             <span>·</span>
-            <a href="/terms" className="hover:text-slate-700">Terms of Service</a>
+            <a href="/terms" className="hover:text-slate-700">
+              Terms of Service
+            </a>
             <span>·</span>
             <button
               onClick={() => setShowCookieSettings(true)}

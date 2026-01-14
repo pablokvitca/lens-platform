@@ -58,9 +58,10 @@ export default function LessonOverview({
             <div
               className="absolute left-[1.125rem] top-5 w-0.5 -translate-x-1/2 bg-blue-500 transition-all duration-300"
               style={{
-                height: status === "completed"
-                  ? "calc(100% - 2.5rem)"
-                  : `calc(${((effectiveCurrentIndex + 0.5) / stages.length) * 100}% - 1.25rem)`,
+                height:
+                  status === "completed"
+                    ? "calc(100% - 2.5rem)"
+                    : `calc(${((effectiveCurrentIndex + 0.5) / stages.length) * 100}% - 1.25rem)`,
               }}
             />
           )}
@@ -86,8 +87,8 @@ export default function LessonOverview({
                       stage.optional
                         ? "bg-white border-2 border-dashed border-slate-400 text-slate-400"
                         : state === "completed" || state === "current"
-                        ? "bg-blue-500 text-white"
-                        : "bg-slate-300 text-slate-500"
+                          ? "bg-blue-500 text-white"
+                          : "bg-slate-300 text-slate-500"
                     } ${isViewed ? "ring-2 ring-offset-2 ring-blue-500" : ""}`}
                   >
                     <StageIcon type={stage.type} small />
@@ -98,7 +99,9 @@ export default function LessonOverview({
                     <div className="flex items-center gap-2">
                       <span
                         className={`font-medium ${
-                          state === "future" ? "text-slate-400" : "text-slate-900"
+                          state === "future"
+                            ? "text-slate-400"
+                            : "text-slate-900"
                         }`}
                       >
                         {stage.title}
@@ -112,7 +115,8 @@ export default function LessonOverview({
                     <div className="text-sm text-slate-500 mt-0.5">
                       {stage.type === "chat"
                         ? "Discuss with AI tutor"
-                        : stage.duration || (stage.type === "article" ? "Article" : "Video")}
+                        : stage.duration ||
+                          (stage.type === "article" ? "Article" : "Video")}
                     </div>
                   </div>
                 </div>

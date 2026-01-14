@@ -42,9 +42,7 @@ def test_extract_section_with_anchors():
     """
 
     section = extract_article_section(
-        full_text,
-        from_text="The first claim is",
-        to_text="instrumental convergence."
+        full_text, from_text="The first claim is", to_text="instrumental convergence."
     )
 
     assert "The first claim is" in section

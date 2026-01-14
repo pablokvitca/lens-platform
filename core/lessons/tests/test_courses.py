@@ -57,7 +57,9 @@ def test_get_all_lesson_slugs():
     assert "intro-to-ai-safety" in lesson_slugs
     assert "intelligence-feedback-loop" in lesson_slugs
     # Order should be intro first
-    assert lesson_slugs.index("intro-to-ai-safety") < lesson_slugs.index("intelligence-feedback-loop")
+    assert lesson_slugs.index("intro-to-ai-safety") < lesson_slugs.index(
+        "intelligence-feedback-loop"
+    )
 
 
 from core.lessons.loader import get_available_lessons, load_lesson
@@ -104,7 +106,7 @@ def test_get_lessons():
             LessonRef(slug="lesson-2", optional=True),
             Meeting(number=1),
             LessonRef(slug="lesson-3"),
-        ]
+        ],
     )
     lessons = get_lessons(course)
     assert len(lessons) == 3
@@ -124,7 +126,7 @@ def test_get_required_lessons():
             Meeting(number=1),
             LessonRef(slug="lesson-3"),
             LessonRef(slug="lesson-4", optional=True),
-        ]
+        ],
     )
     required = get_required_lessons(course)
     assert len(required) == 2
@@ -143,7 +145,7 @@ def test_get_due_by_meeting():
             Meeting(number=1),
             LessonRef(slug="lesson-3"),
             Meeting(number=2),
-        ]
+        ],
     )
     assert get_due_by_meeting(course, "lesson-1") == 1
     assert get_due_by_meeting(course, "lesson-2") == 1
@@ -159,7 +161,7 @@ def test_get_due_by_meeting_no_following_meeting():
             LessonRef(slug="lesson-1"),
             Meeting(number=1),
             LessonRef(slug="lesson-2"),
-        ]
+        ],
     )
     assert get_due_by_meeting(course, "lesson-1") == 1
     assert get_due_by_meeting(course, "lesson-2") is None
@@ -173,7 +175,7 @@ def test_get_due_by_meeting_unknown_lesson():
         progression=[
             LessonRef(slug="lesson-1"),
             Meeting(number=1),
-        ]
+        ],
     )
     assert get_due_by_meeting(course, "nonexistent-lesson") is None
 

@@ -1,6 +1,16 @@
 // web_frontend/src/components/unified-lesson/ChatPanel.tsx
-import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
-import type { ChatMessage, Stage, PendingMessage } from "../../types/unified-lesson";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useLayoutEffect,
+} from "react";
+import type {
+  ChatMessage,
+  Stage,
+  PendingMessage,
+} from "../../types/unified-lesson";
 import { transcribeAudio } from "../../api/lessons";
 import { Tooltip } from "../Tooltip";
 import { StageIcon } from "./StageProgressBar";
@@ -79,7 +89,10 @@ export default function ChatPanel({
     if (pendingMessage) {
       // Small delay to ensure ref is attached after render
       requestAnimationFrame(() => {
-        lastUserMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        lastUserMessageRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       });
     }
   }, [pendingMessage]);
@@ -206,7 +219,10 @@ export default function ChatPanel({
 
     // Fast attack, slow decay (0.97 = holds volume longer for slower sample rate)
     const decay = 0.97;
-    smoothedVolumeRef.current = Math.max(instantVolume, smoothedVolumeRef.current * decay);
+    smoothedVolumeRef.current = Math.max(
+      instantVolume,
+      smoothedVolumeRef.current * decay
+    );
 
     // Update bars every ~150ms (~7fps) with current volume + random jitter (±30%)
     const now = performance.now();
@@ -237,7 +253,8 @@ export default function ChatPanel({
       if (audioContextRef.current.state === "suspended") {
         await audioContextRef.current.resume();
       }
-      sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
+      sourceRef.current =
+        audioContextRef.current.createMediaStreamSource(stream);
       analyserRef.current = audioContextRef.current.createAnalyser();
       sourceRef.current.connect(analyserRef.current);
       // Note: NOT connected to destination - just source → analyser
@@ -411,113 +428,118 @@ export default function ChatPanel({
       {/* Messages */}
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4">
         <div className="max-w-[620px] mx-auto space-y-3">
-        {messages.map((msg, i) => {
-          // Check if this is the last assistant message (for spacer calculation)
-          const isLastAssistant = msg.role === "assistant" &&
-            !isLoading &&
-            i === messages.length - 1;
+          {messages.map((msg, i) => {
+            // Check if this is the last assistant message (for spacer calculation)
+            const isLastAssistant =
+              msg.role === "assistant" &&
+              !isLoading &&
+              i === messages.length - 1;
 
-          return msg.role === "system" ? (
-            <div key={i} className="flex justify-center my-3">
-              <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
-                {msg.icon && <StageIcon type={msg.icon} small />}
-                {msg.content}
-              </span>
-            </div>
-          ) : (
+            return msg.role === "system" ? (
+              <div key={i} className="flex justify-center my-3">
+                <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
+                  {msg.icon && <StageIcon type={msg.icon} small />}
+                  {msg.content}
+                </span>
+              </div>
+            ) : (
+              <div
+                key={i}
+                ref={isLastAssistant ? aiResponseRef : undefined}
+                className={`p-3 rounded-lg ${
+                  msg.role === "assistant"
+                    ? "bg-blue-50 text-gray-800"
+                    : "bg-gray-100 text-gray-800 ml-8"
+                }`}
+              >
+                <div className="text-xs text-gray-500 mb-1">
+                  {msg.role === "assistant" ? "Tutor" : "You"}
+                </div>
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+              </div>
+            );
+          })}
+
+          {/* Pending user message (optimistic) */}
+          {pendingMessage && (
             <div
-              key={i}
-              ref={isLastAssistant ? aiResponseRef : undefined}
-              className={`p-3 rounded-lg ${
-                msg.role === "assistant"
-                  ? "bg-blue-50 text-gray-800"
-                  : "bg-gray-100 text-gray-800 ml-8"
+              ref={lastUserMessageRef}
+              className={`p-3 rounded-lg ml-8 ${
+                pendingMessage.status === "failed"
+                  ? "bg-red-50 border border-red-200"
+                  : "bg-gray-100"
               }`}
             >
-              <div className="text-xs text-gray-500 mb-1">
-                {msg.role === "assistant" ? "Tutor" : "You"}
+              <div className="text-xs text-gray-500 mb-1 flex items-center justify-between">
+                <span>You</span>
+                {pendingMessage.status === "sending" && (
+                  <span className="text-gray-400">Sending...</span>
+                )}
+                {pendingMessage.status === "failed" && (
+                  <button
+                    onClick={onRetryMessage}
+                    className="text-red-600 hover:text-red-700 text-xs"
+                  >
+                    Failed - Click to retry
+                  </button>
+                )}
               </div>
-              <div className="whitespace-pre-wrap">{msg.content}</div>
+              <div className="whitespace-pre-wrap text-gray-800">
+                {pendingMessage.content}
+              </div>
             </div>
-          );
-        })}
+          )}
 
-        {/* Pending user message (optimistic) */}
-        {pendingMessage && (
-          <div
-            ref={lastUserMessageRef}
-            className={`p-3 rounded-lg ml-8 ${
-              pendingMessage.status === "failed"
-                ? "bg-red-50 border border-red-200"
-                : "bg-gray-100"
-            }`}
-          >
-            <div className="text-xs text-gray-500 mb-1 flex items-center justify-between">
-              <span>You</span>
-              {pendingMessage.status === "sending" && (
-                <span className="text-gray-400">Sending...</span>
-              )}
-              {pendingMessage.status === "failed" && (
+          {/* Streaming message */}
+          {isLoading && streamingContent && (
+            <div ref={aiResponseRef} className="bg-blue-50 p-3 rounded-lg">
+              <div className="text-xs text-gray-500 mb-1">Tutor</div>
+              <div className="whitespace-pre-wrap">{streamingContent}</div>
+            </div>
+          )}
+
+          {/* Loading indicator */}
+          {isLoading && !streamingContent && (
+            <div ref={aiResponseRef} className="bg-blue-50 p-3 rounded-lg">
+              <div className="text-xs text-gray-500 mb-1">Tutor</div>
+              <div className="text-gray-800">Thinking...</div>
+            </div>
+          )}
+
+          {/* Transition prompt */}
+          {pendingTransition && (
+            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+              <p className="text-yellow-800 mb-3">
+                Ready to continue to the next part?
+              </p>
+              <div className="flex gap-2">
                 <button
-                  onClick={onRetryMessage}
-                  className="text-red-600 hover:text-red-700 text-xs"
+                  onClick={onConfirmTransition}
+                  className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
                 >
-                  Failed - Click to retry
+                  Continue
                 </button>
-              )}
+                <button
+                  onClick={onContinueChatting}
+                  className="bg-white text-yellow-700 px-4 py-2 rounded border border-yellow-300 hover:bg-yellow-50"
+                >
+                  Keep chatting
+                </button>
+              </div>
             </div>
-            <div className="whitespace-pre-wrap text-gray-800">{pendingMessage.content}</div>
-          </div>
-        )}
+          )}
 
-        {/* Streaming message */}
-        {isLoading && streamingContent && (
-          <div ref={aiResponseRef} className="bg-blue-50 p-3 rounded-lg">
-            <div className="text-xs text-gray-500 mb-1">Tutor</div>
-            <div className="whitespace-pre-wrap">{streamingContent}</div>
-          </div>
-        )}
+          <div ref={messagesEndRef} />
 
-        {/* Loading indicator */}
-        {isLoading && !streamingContent && (
-          <div ref={aiResponseRef} className="bg-blue-50 p-3 rounded-lg">
-            <div className="text-xs text-gray-500 mb-1">Tutor</div>
-            <div className="text-gray-800">Thinking...</div>
-          </div>
-        )}
-
-        {/* Transition prompt */}
-        {pendingTransition && (
-          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-            <p className="text-yellow-800 mb-3">Ready to continue to the next part?</p>
-            <div className="flex gap-2">
-              <button
-                onClick={onConfirmTransition}
-                className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
-              >
-                Continue
-              </button>
-              <button
-                onClick={onContinueChatting}
-                className="bg-white text-yellow-700 px-4 py-2 rounded border border-yellow-300 hover:bg-yellow-50"
-              >
-                Keep chatting
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-
-        {/* Dynamic spacer for infinite canvas scrolling */}
-        {/* Allows user message to scroll to top, shrinks as AI content grows */}
-        {spacerHeight > 0 && (
-          <div
-            aria-hidden="true"
-            style={{ height: spacerHeight }}
-            className="shrink-0"
-          />
-        )}
+          {/* Dynamic spacer for infinite canvas scrolling */}
+          {/* Allows user message to scroll to top, shrinks as AI content grows */}
+          {spacerHeight > 0 && (
+            <div
+              aria-hidden="true"
+              style={{ height: spacerHeight }}
+              className="shrink-0"
+            />
+          )}
         </div>
       </div>
 
@@ -525,37 +547,53 @@ export default function ChatPanel({
       {showDisclaimer && (
         <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 relative z-20">
           <div className="max-w-[620px] mx-auto">
-          {isPreviewing ? (
-            <>
-              <p className="text-sm font-medium text-gray-800">You're previewing upcoming content</p>
-              <p className="text-sm text-gray-500 mt-1">
-                Complete earlier stages to continue here. You can still ask the AI tutor questions.
+            {isPreviewing ? (
+              <>
+                <p className="text-sm font-medium text-gray-800">
+                  You're previewing upcoming content
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Complete earlier stages to continue here. You can still ask
+                  the AI tutor questions.
+                </p>
+              </>
+            ) : isReviewing ? (
+              <>
+                <p className="text-sm font-medium text-gray-800">
+                  You're reviewing previous content
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  You can ask the AI tutor questions, but it doesn't know that
+                  you're reviewing older content.
+                </p>
+              </>
+            ) : currentStage?.type === "article" ? (
+              <>
+                <p className="text-sm font-medium text-gray-800">
+                  Please read the article
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  You can already chat with the AI tutor about it, but there
+                  will also be a dedicated chat section after reading the
+                  article.
+                </p>
+              </>
+            ) : currentStage?.type === "video" ? (
+              <>
+                <p className="text-sm font-medium text-gray-800">
+                  Please watch the video
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  You can already chat with the AI tutor about it, but there
+                  will also be a dedicated chat section after watching the
+                  video.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">
+                Feel free to ask questions.
               </p>
-            </>
-          ) : isReviewing ? (
-            <>
-              <p className="text-sm font-medium text-gray-800">You're reviewing previous content</p>
-              <p className="text-sm text-gray-500 mt-1">
-                You can ask the AI tutor questions, but it doesn't know that you're reviewing older content.
-              </p>
-            </>
-          ) : currentStage?.type === "article" ? (
-            <>
-              <p className="text-sm font-medium text-gray-800">Please read the article</p>
-              <p className="text-sm text-gray-500 mt-1">
-                You can already chat with the AI tutor about it, but there will also be a dedicated chat section after reading the article.
-              </p>
-            </>
-          ) : currentStage?.type === "video" ? (
-            <>
-              <p className="text-sm font-medium text-gray-800">Please watch the video</p>
-              <p className="text-sm text-gray-500 mt-1">
-                You can already chat with the AI tutor about it, but there will also be a dedicated chat section after watching the video.
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-gray-500">Feel free to ask questions.</p>
-          )}
+            )}
           </div>
         </div>
       )}
@@ -573,19 +611,30 @@ export default function ChatPanel({
       {showRecordingWarning && (
         <div className="px-4 py-2 bg-amber-50 border-t border-amber-100">
           <div className="max-w-[620px] mx-auto text-sm text-amber-700">
-            Recording will automatically stop and transcribe after {MAX_RECORDING_TIME >= 60 ? `${Math.floor(MAX_RECORDING_TIME / 60)} minute${MAX_RECORDING_TIME >= 120 ? 's' : ''}` : `${MAX_RECORDING_TIME} seconds`}. You can start another recording afterwards.
+            Recording will automatically stop and transcribe after{" "}
+            {MAX_RECORDING_TIME >= 60
+              ? `${Math.floor(MAX_RECORDING_TIME / 60)} minute${MAX_RECORDING_TIME >= 120 ? "s" : ""}`
+              : `${MAX_RECORDING_TIME} seconds`}
+            . You can start another recording afterwards.
           </div>
         </div>
       )}
 
       {/* Input form */}
-      <form onSubmit={handleSubmit} className="flex gap-2 p-4 border-t border-gray-200 items-end max-w-[620px] mx-auto w-full">
+      <form
+        onSubmit={handleSubmit}
+        className="flex gap-2 p-4 border-t border-gray-200 items-end max-w-[620px] mx-auto w-full"
+      >
         <textarea
           ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={recordingState === "transcribing" ? "Transcribing..." : "Type a message..."}
+          placeholder={
+            recordingState === "transcribing"
+              ? "Transcribing..."
+              : "Type a message..."
+          }
           disabled={recordingState === "transcribing"}
           rows={1}
           className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none resize-none leading-normal disabled:bg-gray-100"
@@ -600,15 +649,25 @@ export default function ChatPanel({
                   <div
                     key={i}
                     className="w-1.5 bg-gray-500 rounded-sm transition-[height] duration-100"
-                    style={{ height: `${Math.max(6, Math.min(1, vol * 2) * 24)}px` }}
+                    style={{
+                      height: `${Math.max(6, Math.min(1, vol * 2) * 24)}px`,
+                    }}
                   />
                 ))}
               </div>
-              <span className="text-sm text-gray-500 tabular-nums">{formatTime(recordingTime)}</span>
+              <span className="text-sm text-gray-500 tabular-nums">
+                {formatTime(recordingTime)}
+              </span>
             </div>
           )}
           <div className="flex gap-2">
-            <Tooltip content={recordingState === "recording" ? "Stop recording" : "Start recording"}>
+            <Tooltip
+              content={
+                recordingState === "recording"
+                  ? "Stop recording"
+                  : "Start recording"
+              }
+            >
               <button
                 type="button"
                 onClick={handleMicClick}
@@ -617,9 +676,24 @@ export default function ChatPanel({
               >
                 {recordingState === "transcribing" ? (
                   // Spinner
-                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  <svg
+                    className="w-5 h-5 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
                   </svg>
                 ) : (
                   // Microphone icon (pulses when recording)
@@ -628,11 +702,20 @@ export default function ChatPanel({
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
-                    style={recordingState === "recording" ? {
-                      animation: "mic-pulse 1s ease-in-out infinite",
-                    } : undefined}
+                    style={
+                      recordingState === "recording"
+                        ? {
+                            animation: "mic-pulse 1s ease-in-out infinite",
+                          }
+                        : undefined
+                    }
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                    />
                   </svg>
                 )}
               </button>
@@ -644,7 +727,11 @@ export default function ChatPanel({
                   onClick={handleMicClick}
                   className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 min-w-[70px] flex items-center justify-center"
                 >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     <rect x="6" y="6" width="12" height="12" rx="1" />
                   </svg>
                 </button>
@@ -652,7 +739,9 @@ export default function ChatPanel({
             ) : (
               <button
                 type="submit"
-                disabled={isLoading || !input.trim() || recordingState !== "idle"}
+                disabled={
+                  isLoading || !input.trim() || recordingState !== "idle"
+                }
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-default min-w-[70px]"
               >
                 Send

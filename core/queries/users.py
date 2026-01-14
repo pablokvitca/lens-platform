@@ -14,9 +14,7 @@ async def get_user_by_discord_id(
     discord_id: str,
 ) -> dict[str, Any] | None:
     """Get a user by their Discord ID."""
-    result = await conn.execute(
-        select(users).where(users.c.discord_id == discord_id)
-    )
+    result = await conn.execute(select(users).where(users.c.discord_id == discord_id))
     row = result.mappings().first()
     return dict(row) if row else None
 
@@ -101,7 +99,9 @@ async def get_or_create_user(
             return await update_user(conn, discord_id, **updates), False
         return existing, False
 
-    new_user = await create_user(conn, discord_id, discord_username, discord_avatar, email, email_verified)
+    new_user = await create_user(
+        conn, discord_id, discord_username, discord_avatar, email, email_verified
+    )
     return new_user, True
 
 
@@ -135,15 +135,24 @@ async def save_user_profile(
     if existing:
         # Filter to only valid user columns
         valid_fields = {
-            k: v for k, v in fields.items()
-            if k in (
-                "nickname", "timezone", "availability_local",
-                "if_needed_availability_local", "email", "discord_username"
+            k: v
+            for k, v in fields.items()
+            if k
+            in (
+                "nickname",
+                "timezone",
+                "availability_local",
+                "if_needed_availability_local",
+                "email",
+                "discord_username",
             )
         }
         # Set availability_last_updated_at if availability or timezone fields are being updated
         # (timezone changes affect when user is available in absolute terms)
-        if any(k in valid_fields for k in ("availability_local", "if_needed_availability_local", "timezone")):
+        if any(
+            k in valid_fields
+            for k in ("availability_local", "if_needed_availability_local", "timezone")
+        ):
             valid_fields["availability_last_updated_at"] = datetime.now(timezone.utc)
         if valid_fields:
             return await update_user(conn, discord_id, **valid_fields)
@@ -168,8 +177,8 @@ async def get_all_users_with_availability(
     """
     result = await conn.execute(
         select(users).where(
-            (users.c.availability_local.isnot(None)) |
-            (users.c.if_needed_availability_local.isnot(None))
+            (users.c.availability_local.isnot(None))
+            | (users.c.if_needed_availability_local.isnot(None))
         )
     )
     return [dict(row) for row in result.mappings()]
@@ -265,7 +274,5 @@ async def toggle_facilitator(
         return False
     else:
         # Add facilitator status
-        await conn.execute(
-            insert(facilitators).values(user_id=user_id)
-        )
+        await conn.execute(insert(facilitators).values(user_id=user_id))
         return True

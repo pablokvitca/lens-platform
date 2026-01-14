@@ -105,7 +105,9 @@ async def update_user_profile(
         # If email is being updated, check if it changed and clear verification
         if email is not None:
             current_user = await conn.execute(
-                select(users_table.c.email).where(users_table.c.discord_id == discord_id)
+                select(users_table.c.email).where(
+                    users_table.c.discord_id == discord_id
+                )
             )
             current_row = current_user.mappings().first()
             if current_row and current_row["email"] != email:
@@ -197,9 +199,7 @@ async def become_facilitator(discord_id: str) -> bool:
             return True
 
         # Add to facilitators table
-        await conn.execute(
-            insert(facilitators).values(user_id=user["user_id"])
-        )
+        await conn.execute(insert(facilitators).values(user_id=user["user_id"]))
         return True
 
 
@@ -233,7 +233,9 @@ async def enroll_in_cohort(
         if not cohort:
             return None
 
-        role_enum = CohortRole.facilitator if role == "facilitator" else CohortRole.participant
+        role_enum = (
+            CohortRole.facilitator if role == "facilitator" else CohortRole.participant
+        )
 
         result = await conn.execute(
             insert(signups)
@@ -259,6 +261,9 @@ async def _send_welcome_notification(user_id: int) -> None:
     """Send welcome notification, logging any errors."""
     try:
         from .notifications import notify_welcome
+
         await notify_welcome(user_id)
     except Exception as e:
-        print(f"[Notifications] Failed to send welcome notification to user {user_id}: {e}")
+        print(
+            f"[Notifications] Failed to send welcome notification to user {user_id}: {e}"
+        )

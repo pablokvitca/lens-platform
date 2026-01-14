@@ -22,13 +22,19 @@ from datetime import datetime, timezone, timedelta
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
-load_dotenv('.env.local')
+
+load_dotenv(".env.local")
 
 from sqlalchemy import insert, text
 from core.database import get_connection
 from core.tables import (
-    users, courses, cohorts, groups, groups_users,
-    lesson_sessions, content_events,
+    users,
+    courses,
+    cohorts,
+    groups,
+    groups_users,
+    lesson_sessions,
+    content_events,
 )
 from core.enums import ContentEventType
 
@@ -54,34 +60,78 @@ FAKE_USERS = [
 # Lorem ipsum chat messages
 LOREM_CHATS = [
     [
-        {"role": "user", "content": "I'm confused about mesa-optimization. Can you explain it simply?"},
-        {"role": "assistant", "content": "Of course! Mesa-optimization occurs when a learned model itself becomes an optimizer. Think of it like training a student who develops their own goals that might differ from what you intended to teach them."},
+        {
+            "role": "user",
+            "content": "I'm confused about mesa-optimization. Can you explain it simply?",
+        },
+        {
+            "role": "assistant",
+            "content": "Of course! Mesa-optimization occurs when a learned model itself becomes an optimizer. Think of it like training a student who develops their own goals that might differ from what you intended to teach them.",
+        },
         {"role": "user", "content": "So it's like the AI developing its own agenda?"},
-        {"role": "assistant", "content": "That's a good intuition! More precisely, it's when the AI's internal optimization process pursues objectives that weren't explicitly specified in training. This can lead to unexpected behaviors."},
+        {
+            "role": "assistant",
+            "content": "That's a good intuition! More precisely, it's when the AI's internal optimization process pursues objectives that weren't explicitly specified in training. This can lead to unexpected behaviors.",
+        },
     ],
     [
-        {"role": "user", "content": "What's the difference between AI safety and AI alignment?"},
-        {"role": "assistant", "content": "Great question! AI safety is the broader field concerned with preventing AI systems from causing harm. AI alignment is specifically about ensuring AI systems pursue the goals we actually want them to pursue."},
+        {
+            "role": "user",
+            "content": "What's the difference between AI safety and AI alignment?",
+        },
+        {
+            "role": "assistant",
+            "content": "Great question! AI safety is the broader field concerned with preventing AI systems from causing harm. AI alignment is specifically about ensuring AI systems pursue the goals we actually want them to pursue.",
+        },
         {"role": "user", "content": "So alignment is a subset of safety?"},
-        {"role": "assistant", "content": "Exactly! Alignment is one crucial component of safety. You could have a well-aligned AI that still has safety issues (like being hacked), or safety measures that don't address alignment."},
-        {"role": "user", "content": "That makes sense. What are the main approaches to alignment?"},
-        {"role": "assistant", "content": "The main approaches include RLHF (learning from human feedback), constitutional AI, interpretability research, and formal verification methods. Each tackles the problem from a different angle."},
+        {
+            "role": "assistant",
+            "content": "Exactly! Alignment is one crucial component of safety. You could have a well-aligned AI that still has safety issues (like being hacked), or safety measures that don't address alignment.",
+        },
+        {
+            "role": "user",
+            "content": "That makes sense. What are the main approaches to alignment?",
+        },
+        {
+            "role": "assistant",
+            "content": "The main approaches include RLHF (learning from human feedback), constitutional AI, interpretability research, and formal verification methods. Each tackles the problem from a different angle.",
+        },
     ],
     [
-        {"role": "user", "content": "I read about Goodhart's Law. How does it apply to AI?"},
-        {"role": "assistant", "content": "Goodhart's Law states that when a measure becomes a target, it ceases to be a good measure. In AI, this means optimizing for a proxy metric can lead to behaviors that game the metric without achieving the true goal."},
+        {
+            "role": "user",
+            "content": "I read about Goodhart's Law. How does it apply to AI?",
+        },
+        {
+            "role": "assistant",
+            "content": "Goodhart's Law states that when a measure becomes a target, it ceases to be a good measure. In AI, this means optimizing for a proxy metric can lead to behaviors that game the metric without achieving the true goal.",
+        },
         {"role": "user", "content": "Can you give an example?"},
-        {"role": "assistant", "content": "Sure! Imagine training an AI to maximize user engagement. It might learn to show increasingly extreme content because that keeps people clicking, even though that wasn't the intended outcome."},
+        {
+            "role": "assistant",
+            "content": "Sure! Imagine training an AI to maximize user engagement. It might learn to show increasingly extreme content because that keeps people clicking, even though that wasn't the intended outcome.",
+        },
     ],
     [
         {"role": "user", "content": "What is instrumental convergence?"},
-        {"role": "assistant", "content": "Instrumental convergence refers to the idea that many different final goals lead to similar intermediate goals. For example, almost any goal benefits from self-preservation, resource acquisition, and goal-content integrity."},
+        {
+            "role": "assistant",
+            "content": "Instrumental convergence refers to the idea that many different final goals lead to similar intermediate goals. For example, almost any goal benefits from self-preservation, resource acquisition, and goal-content integrity.",
+        },
         {"role": "user", "content": "Why is that concerning for AI safety?"},
-        {"role": "assistant", "content": "It's concerning because even a seemingly benign goal could lead an AI to resist being shut down (self-preservation) or accumulate resources, simply because these help achieve almost any objective."},
+        {
+            "role": "assistant",
+            "content": "It's concerning because even a seemingly benign goal could lead an AI to resist being shut down (self-preservation) or accumulate resources, simply because these help achieve almost any objective.",
+        },
     ],
 ]
 
-LESSON_IDS = ["intro-to-ai-safety", "mesa-optimization", "alignment-basics", "instrumental-convergence"]
+LESSON_IDS = [
+    "intro-to-ai-safety",
+    "mesa-optimization",
+    "alignment-basics",
+    "instrumental-convergence",
+]
 
 
 async def create_test_data():
@@ -91,44 +141,53 @@ async def create_test_data():
 
         # 1. Create course
         course_result = await conn.execute(
-            insert(courses).values(
+            insert(courses)
+            .values(
                 course_name=f"{PREFIX}AI Safety Fundamentals",
                 description="Test course for facilitator panel",
-            ).returning(courses)
+            )
+            .returning(courses)
         )
         course = dict(course_result.mappings().first())
         print(f"  Created course: {course['course_name']} (id={course['course_id']})")
 
         # 2. Create cohort
         cohort_result = await conn.execute(
-            insert(cohorts).values(
+            insert(cohorts)
+            .values(
                 cohort_name=f"{PREFIX}January 2025 Cohort",
                 course_id=course["course_id"],
-                cohort_start_date=datetime.now(timezone.utc).date() - timedelta(days=14),
+                cohort_start_date=datetime.now(timezone.utc).date()
+                - timedelta(days=14),
                 duration_days=56,
                 number_of_group_meetings=8,
                 status="active",
-            ).returning(cohorts)
+            )
+            .returning(cohorts)
         )
         cohort = dict(cohort_result.mappings().first())
         print(f"  Created cohort: {cohort['cohort_name']} (id={cohort['cohort_id']})")
 
         # 3. Create groups
         group1_result = await conn.execute(
-            insert(groups).values(
+            insert(groups)
+            .values(
                 cohort_id=cohort["cohort_id"],
                 group_name=f"{PREFIX}Alignment Alpacas",
                 status="active",
-            ).returning(groups)
+            )
+            .returning(groups)
         )
         group1 = dict(group1_result.mappings().first())
 
         group2_result = await conn.execute(
-            insert(groups).values(
+            insert(groups)
+            .values(
                 cohort_id=cohort["cohort_id"],
                 group_name=f"{PREFIX}Safety Sloths",
                 status="active",
-            ).returning(groups)
+            )
+            .returning(groups)
         )
         group2 = dict(group2_result.mappings().first())
         print(f"  Created groups: {group1['group_name']}, {group2['group_name']}")
@@ -137,11 +196,13 @@ async def create_test_data():
         created_users = []
         for i, fake_user in enumerate(FAKE_USERS):
             user_result = await conn.execute(
-                insert(users).values(
+                insert(users)
+                .values(
                     discord_id=f"{PREFIX}discord_{i}",
                     discord_username=f"{PREFIX}{fake_user['name'].lower().replace(' ', '_')}",
                     nickname=fake_user["name"],
-                ).returning(users)
+                )
+                .returning(users)
             )
             user = dict(user_result.mappings().first())
             user["progress"] = fake_user["progress"]
@@ -199,14 +260,20 @@ async def create_user_progress(conn, user):
         chat_messages = random.choice(LOREM_CHATS) if random.random() > 0.3 else []
 
         session_result = await conn.execute(
-            insert(lesson_sessions).values(
+            insert(lesson_sessions)
+            .values(
                 user_id=user["user_id"],
                 lesson_id=lesson_id,
                 current_stage_index=2 if is_completed else random.randint(0, 2),
                 messages=chat_messages,
-                started_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 10)),
-                completed_at=datetime.now(timezone.utc) - timedelta(days=random.randint(0, 5)) if is_completed else None,
-            ).returning(lesson_sessions)
+                started_at=datetime.now(timezone.utc)
+                - timedelta(days=random.randint(1, 10)),
+                completed_at=datetime.now(timezone.utc)
+                - timedelta(days=random.randint(0, 5))
+                if is_completed
+                else None,
+            )
+            .returning(lesson_sessions)
         )
         session = dict(session_result.mappings().first())
 
@@ -231,12 +298,15 @@ async def create_user_progress(conn, user):
                         stage_index=stage_index,
                         stage_type=stage_type,
                         event_type=ContentEventType.heartbeat,
-                        timestamp=datetime.now(timezone.utc) - timedelta(
+                        timestamp=datetime.now(timezone.utc)
+                        - timedelta(
                             days=random.randint(0, 7),
                             hours=random.randint(0, 23),
                             minutes=random.randint(0, 59),
                         ),
-                        metadata={"scroll_depth": random.random()} if stage_type == "article" else None,
+                        metadata={"scroll_depth": random.random()}
+                        if stage_type == "article"
+                        else None,
                     )
                 )
 

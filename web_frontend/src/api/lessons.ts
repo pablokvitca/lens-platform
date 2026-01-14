@@ -7,7 +7,9 @@ import type { CourseProgress } from "../types/course";
 
 const API_BASE = "";
 
-export async function listLessons(): Promise<{ slug: string; title: string }[]> {
+export async function listLessons(): Promise<
+  { slug: string; title: string }[]
+> {
   const res = await fetch(`${API_BASE}/api/lessons`);
   if (!res.ok) throw new Error("Failed to fetch lessons");
   const data = await res.json();
@@ -113,11 +115,16 @@ export async function getNextLesson(
   return res.json();
 }
 
-export async function claimSession(sessionId: number): Promise<{ claimed: boolean }> {
-  const res = await fetch(`${API_BASE}/api/lesson-sessions/${sessionId}/claim`, {
-    method: "POST",
-    credentials: "include",
-  });
+export async function claimSession(
+  sessionId: number
+): Promise<{ claimed: boolean }> {
+  const res = await fetch(
+    `${API_BASE}/api/lesson-sessions/${sessionId}/claim`,
+    {
+      method: "POST",
+      credentials: "include",
+    }
+  );
   if (!res.ok) {
     if (res.status === 403) throw new Error("Session already claimed");
     if (res.status === 404) throw new Error("Session not found");
@@ -137,7 +144,8 @@ export async function transcribeAudio(audioBlob: Blob): Promise<string> {
 
   if (!res.ok) {
     if (res.status === 413) throw new Error("Recording too large");
-    if (res.status === 429) throw new Error("Too many requests, try again shortly");
+    if (res.status === 429)
+      throw new Error("Too many requests, try again shortly");
     throw new Error("Transcription failed");
   }
 
@@ -145,7 +153,9 @@ export async function transcribeAudio(audioBlob: Blob): Promise<string> {
   return data.text;
 }
 
-export async function getCourseProgress(courseSlug: string): Promise<CourseProgress> {
+export async function getCourseProgress(
+  courseSlug: string
+): Promise<CourseProgress> {
   const res = await fetch(`${API_BASE}/api/courses/${courseSlug}/progress`, {
     credentials: "include",
   });

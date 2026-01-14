@@ -1,4 +1,10 @@
-import { useState, cloneElement, isValidElement, type ReactNode, type ReactElement } from "react";
+import {
+  useState,
+  cloneElement,
+  isValidElement,
+  type ReactNode,
+  type ReactElement,
+} from "react";
 import {
   useFloating,
   useHover,
@@ -55,7 +61,9 @@ export function Tooltip({
 
   // Handle click to show tooltip immediately when persistOnClick is true
   const handleClick = persistOnClick
-    ? () => { if (!isOpen) setIsOpen(true); }
+    ? () => {
+        if (!isOpen) setIsOpen(true);
+      }
     : undefined;
 
   if (!isValidElement(children)) {
@@ -69,13 +77,17 @@ export function Tooltip({
         ...getReferenceProps({
           onClick: (e: React.MouseEvent) => {
             // Call original onClick if it exists
-            const childProps = children.props as { onClick?: (e: React.MouseEvent) => void };
+            const childProps = children.props as {
+              onClick?: (e: React.MouseEvent) => void;
+            };
             childProps.onClick?.(e);
             // Then handle tooltip click behavior
             handleClick?.();
           },
         }),
-      } as React.HTMLAttributes<HTMLElement> & { ref: typeof refs.setReference })}
+      } as React.HTMLAttributes<HTMLElement> & {
+        ref: typeof refs.setReference;
+      })}
       {isOpen && (
         <FloatingPortal>
           <div

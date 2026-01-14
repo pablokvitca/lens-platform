@@ -91,29 +91,29 @@ export function formatTimezoneDisplay(timezone: string): string {
 }
 
 export const COMMON_TIMEZONES = [
-  "Pacific/Honolulu",       // GMT-10
-  "America/Anchorage",      // GMT-9
-  "America/Los_Angeles",    // GMT-8
-  "America/Denver",         // GMT-7
-  "America/Chicago",        // GMT-6
-  "America/New_York",       // GMT-5
-  "America/Halifax",        // GMT-4
-  "America/Sao_Paulo",      // GMT-3
+  "Pacific/Honolulu", // GMT-10
+  "America/Anchorage", // GMT-9
+  "America/Los_Angeles", // GMT-8
+  "America/Denver", // GMT-7
+  "America/Chicago", // GMT-6
+  "America/New_York", // GMT-5
+  "America/Halifax", // GMT-4
+  "America/Sao_Paulo", // GMT-3
   "Atlantic/South_Georgia", // GMT-2
-  "Atlantic/Azores",        // GMT-1
-  "Europe/London",          // GMT+0
-  "Europe/Paris",           // GMT+1
-  "Europe/Athens",          // GMT+2
-  "Europe/Moscow",          // GMT+3
-  "Asia/Dubai",             // GMT+4
-  "Asia/Karachi",           // GMT+5
-  "Asia/Kolkata",           // GMT+5:30
-  "Asia/Dhaka",             // GMT+6
-  "Asia/Bangkok",           // GMT+7
-  "Asia/Singapore",         // GMT+8
-  "Asia/Tokyo",             // GMT+9
-  "Australia/Brisbane",     // GMT+10
-  "Australia/Sydney",       // GMT+11
-  "Pacific/Fiji",           // GMT+12
-  "Pacific/Auckland",       // GMT+13
+  "Atlantic/Azores", // GMT-1
+  "Europe/London", // GMT+0
+  "Europe/Paris", // GMT+1
+  "Europe/Athens", // GMT+2
+  "Europe/Moscow", // GMT+3
+  "Asia/Dubai", // GMT+4
+  "Asia/Karachi", // GMT+5
+  "Asia/Kolkata", // GMT+5:30
+  "Asia/Dhaka", // GMT+6
+  "Asia/Bangkok", // GMT+7
+  "Asia/Singapore", // GMT+8
+  "Asia/Tokyo", // GMT+9
+  "Australia/Brisbane", // GMT+10
+  "Australia/Sydney", // GMT+11
+  "Pacific/Fiji", // GMT+12
+  "Pacific/Auckland", // GMT+13
 ] as const;

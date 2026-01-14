@@ -1,8 +1,8 @@
 // web_frontend/src/errorTracking.ts
-import * as Sentry from '@sentry/react';
+import * as Sentry from "@sentry/react";
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
-const APP_VERSION = import.meta.env.VITE_APP_VERSION || 'unknown';
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || "unknown";
 
 let initialized = false;
 
@@ -13,7 +13,9 @@ let initialized = false;
 export function initSentry(): void {
   if (initialized || !SENTRY_DSN) {
     if (!SENTRY_DSN) {
-      console.warn('[errorTracking] VITE_SENTRY_DSN not set, skipping Sentry init');
+      console.warn(
+        "[errorTracking] VITE_SENTRY_DSN not set, skipping Sentry init"
+      );
     }
     return;
   }
@@ -49,11 +51,14 @@ export function isSentryInitialized(): boolean {
 /**
  * Identify a user in Sentry (call when user logs in)
  */
-export function identifySentryUser(userId: number, properties?: {
-  discord_id?: string;
-  discord_username?: string;
-  email?: string | null;
-}): void {
+export function identifySentryUser(
+  userId: number,
+  properties?: {
+    discord_id?: string;
+    discord_username?: string;
+    email?: string | null;
+  }
+): void {
   if (!initialized) return;
 
   Sentry.setUser({

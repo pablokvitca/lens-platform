@@ -48,29 +48,36 @@ We believe that by bringing together motivated individuals from diverse backgrou
         embed.set_author(
             name="AI Safety Course Platform",
             icon_url="https://stampy.ai/images/stampy-logo.png",
-            url="https://stampy.ai/"
+            url="https://stampy.ai/",
         )
-        embed.set_thumbnail(url="https://images.unsplash.com/photo-1677442136019-21780ecad995?w=200")
+        embed.set_thumbnail(
+            url="https://images.unsplash.com/photo-1677442136019-21780ecad995?w=200"
+        )
         embed.add_field(name="📅 Duration", value="8 weeks", inline=True)
         embed.add_field(name="⏰ Time Commitment", value="2-3 hrs/week", inline=True)
         embed.add_field(name="👥 Cohort Size", value="4-6 people", inline=True)
         embed.add_field(
             name="📚 Prerequisites",
             value="No prior AI/ML knowledge required! Just bring curiosity and willingness to engage with challenging ideas.",
-            inline=False
+            inline=False,
         )
         embed.add_field(
             name="🎯 Who Should Join",
             value="• Students interested in AI research\n• Software engineers wanting to pivot to safety\n• Policy professionals exploring AI governance\n• Anyone curious about existential risk",
-            inline=False
+            inline=False,
         )
         embed.add_field(
             name="🔗 Resources",
             value="[Course Website](https://aisafetyfundamentals.com/) • [Stampy FAQ](https://stampy.ai/) • [Alignment Forum](https://alignmentforum.org/)",
-            inline=False
+            inline=False,
         )
-        embed.set_image(url="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800")
-        embed.set_footer(text="AI Safety Course Platform • Sign up with /signup", icon_url="https://stampy.ai/images/stampy-logo.png")
+        embed.set_image(
+            url="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800"
+        )
+        embed.set_footer(
+            text="AI Safety Course Platform • Sign up with /signup",
+            icon_url="https://stampy.ai/images/stampy-logo.png",
+        )
 
         await interaction.response.send_message(embed=embed)
 
@@ -247,7 +254,9 @@ Sign up with /signup to join a cohort and start learning!
         # Create a file-like object from the string
         file = discord.File(io.StringIO(content), filename="ai_safety_course_info.txt")
 
-        await interaction.response.send_message("Here's the course information:", file=file)
+        await interaction.response.send_message(
+            "Here's the course information:", file=file
+        )
 
     @app_commands.command(name="spoiler", description="Test spoiler text")
     async def spoiler_test(self, interaction: discord.Interaction):
@@ -278,16 +287,19 @@ Key concerns include:
 
         await interaction.response.send_message(message)
 
-    @app_commands.command(name="collapse", description="Test collapsible content with buttons")
+    @app_commands.command(
+        name="collapse", description="Test collapsible content with buttons"
+    )
     async def collapse_test(self, interaction: discord.Interaction):
         """Demonstrate expand/collapse behavior using buttons."""
         view = CollapseView()
         await interaction.response.send_message(
-            content=view.get_collapsed_content(),
-            view=view
+            content=view.get_collapsed_content(), view=view
         )
 
-    @app_commands.command(name="test-presence", description="Show your presence and user info")
+    @app_commands.command(
+        name="test-presence", description="Show your presence and user info"
+    )
     async def test_presence(self, interaction: discord.Interaction):
         """Report all available information about the user including presence data."""
         user = interaction.user
@@ -332,9 +344,13 @@ Key concerns include:
             if member.activities:
                 lines.append("\n**Activities:**")
                 for i, activity in enumerate(member.activities):
-                    lines.append(f"\n  *Activity {i+1}:*")
-                    lines.append(f"    Type: {activity.type.name if hasattr(activity, 'type') else 'Unknown'}")
-                    lines.append(f"    Name: {activity.name if hasattr(activity, 'name') else 'Unknown'}")
+                    lines.append(f"\n  *Activity {i + 1}:*")
+                    lines.append(
+                        f"    Type: {activity.type.name if hasattr(activity, 'type') else 'Unknown'}"
+                    )
+                    lines.append(
+                        f"    Name: {activity.name if hasattr(activity, 'name') else 'Unknown'}"
+                    )
 
                     if isinstance(activity, discord.Spotify):
                         lines.append(f"    (Spotify)")
@@ -358,17 +374,17 @@ Key concerns include:
                         lines.append(f"    Emoji: {activity.emoji}")
                     elif isinstance(activity, discord.Activity):
                         lines.append(f"    (Activity)")
-                        if hasattr(activity, 'details'):
+                        if hasattr(activity, "details"):
                             lines.append(f"    Details: {activity.details}")
-                        if hasattr(activity, 'state'):
+                        if hasattr(activity, "state"):
                             lines.append(f"    State: {activity.state}")
-                        if hasattr(activity, 'application_id'):
+                        if hasattr(activity, "application_id"):
                             lines.append(f"    App ID: {activity.application_id}")
-                        if hasattr(activity, 'timestamps'):
+                        if hasattr(activity, "timestamps"):
                             lines.append(f"    Timestamps: {activity.timestamps}")
-                        if hasattr(activity, 'assets'):
+                        if hasattr(activity, "assets"):
                             lines.append(f"    Assets: {activity.assets}")
-                        if hasattr(activity, 'party'):
+                        if hasattr(activity, "party"):
                             lines.append(f"    Party: {activity.party}")
             else:
                 lines.append("\n**Activities:** None")
@@ -384,7 +400,9 @@ Key concerns include:
                 lines.append(f"  Streaming: {member.voice.self_stream}")
                 lines.append(f"  Video: {member.voice.self_video}")
                 lines.append(f"  Suppress: {member.voice.suppress}")
-                lines.append(f"  Requested to Speak: {member.voice.requested_to_speak_at}")
+                lines.append(
+                    f"  Requested to Speak: {member.voice.requested_to_speak_at}"
+                )
             else:
                 lines.append("\n**Voice State:** Not in voice")
         else:
@@ -392,7 +410,9 @@ Key concerns include:
 
         await interaction.response.send_message("\n".join(lines))
 
-    @app_commands.command(name="test-embed-simple", description="Test simple embed with just text")
+    @app_commands.command(
+        name="test-embed-simple", description="Test simple embed with just text"
+    )
     async def test_embed_simple(self, interaction: discord.Interaction):
         """Send a simple embed with just description text, no fields."""
         embed = discord.Embed(
@@ -415,7 +435,9 @@ Researchers are pursuing many different technical approaches to AI safety, inclu
         )
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="test-linebreak", description="Test LINE SEPARATOR character")
+    @app_commands.command(
+        name="test-linebreak", description="Test LINE SEPARATOR character"
+    )
     async def test_linebreak(self, interaction: discord.Interaction):
         """Test if Unicode LINE SEPARATOR renders as line break but copies as space."""
         # \u2028 is LINE SEPARATOR
@@ -434,43 +456,39 @@ Researchers are pursuing many different technical approaches to AI safety, inclu
         )
         await interaction.response.send_message(test_message)
 
-    @app_commands.command(name="test-spaces", description="Test trailing spaces preservation")
+    @app_commands.command(
+        name="test-spaces", description="Test trailing spaces preservation"
+    )
     async def test_spaces(self, interaction: discord.Interaction):
         """Test if Discord preserves trailing spaces."""
         # Send multiple messages to test different space counts
         await interaction.response.send_message(
-            f"**0. 200 chars of text:**\n|{'x'*200}|"
+            f"**0. 200 chars of text:**\n|{'x' * 200}|"
         )
+        await interaction.followup.send(f"**1. 200 spaces:**\n|{' ' * 200}.|")
+        await interaction.followup.send(f"**2. 400 spaces:**\n|{' ' * 400}.|")
+        await interaction.followup.send(f"**3. 600 spaces:**\n|{' ' * 600}.|")
+        await interaction.followup.send(f"**4. 800 spaces:**\n|{' ' * 800}.|")
         await interaction.followup.send(
-            f"**1. 200 spaces:**\n|{' '*200}.|"
-        )
-        await interaction.followup.send(
-            f"**2. 400 spaces:**\n|{' '*400}.|"
-        )
-        await interaction.followup.send(
-            f"**3. 600 spaces:**\n|{' '*600}.|"
-        )
-        await interaction.followup.send(
-            f"**4. 800 spaces:**\n|{' '*800}.|"
-        )
-        await interaction.followup.send(
-            f"**5. 200 braille blanks (\\u2800):**\n|{chr(0x2800)*200}.|"
+            f"**5. 200 braille blanks (\\u2800):**\n|{chr(0x2800) * 200}.|"
         )
         # Braille blanks with spaces every 10 chars to allow line breaking
-        braille_with_breaks = (chr(0x2800)*10 + ' ') * 20
+        braille_with_breaks = (chr(0x2800) * 10 + " ") * 20
         await interaction.followup.send(
             f"**6. 200 braille blanks with space every 10:**\n|{braille_with_breaks}.|"
         )
         await interaction.followup.send(
-            f"**7. space then 200 braille blanks:**\n| {chr(0x2800)*200}.|"
+            f"**7. space then 200 braille blanks:**\n| {chr(0x2800) * 200}.|"
         )
         # Alternating: braille, space, braille, space...
-        alternating = (chr(0x2800) + ' ') * 200
+        alternating = (chr(0x2800) + " ") * 200
         await interaction.followup.send(
             f"**8. 200 alternating braille+space:**\n|{alternating}.|"
         )
 
-    @app_commands.command(name="scrollingtext", description="Test streaming chain of thought display")
+    @app_commands.command(
+        name="scrollingtext", description="Test streaming chain of thought display"
+    )
     async def scrollingtext_test(self, interaction: discord.Interaction):
         """Simulate streaming chain of thought with cycling last 3 lines."""
         # Simulated chain of thought text (what Stampy might "think")
@@ -492,7 +510,9 @@ Let me structure this in a clear and accessible way.
 I'll start with a definition, then examples, then implications."""
 
         # Send initial message
-        await interaction.response.send_message("**Stampy is thinking...**\n```\n...\n```")
+        await interaction.response.send_message(
+            "**Stampy is thinking...**\n```\n...\n```"
+        )
         message = await interaction.original_response()
 
         # Split into words and simulate streaming
@@ -532,7 +552,9 @@ I'll start with a definition, then examples, then implications."""
 
             # Update message
             try:
-                await message.edit(content=f"**Stampy is thinking...**\n```\n{display_text}\n```")
+                await message.edit(
+                    content=f"**Stampy is thinking...**\n```\n{display_text}\n```"
+                )
             except discord.errors.HTTPException:
                 # Rate limited, wait a bit longer
                 await asyncio.sleep(1.0)
@@ -544,7 +566,7 @@ I'll start with a definition, then examples, then implications."""
         view = CoTExpandView(cot_text)
         await message.edit(
             content=f"**Stampy finished thinking.**\n```\n{chr(10).join(lines[-5:])}\n```",
-            view=view
+            view=view,
         )
 
 
@@ -552,7 +574,9 @@ class CollapseView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=300)  # 5 minute timeout
         self.expanded = False
-        self.summary = "**AI Safety Fundamentals Course**\nClick below to expand details..."
+        self.summary = (
+            "**AI Safety Fundamentals Course**\nClick below to expand details..."
+        )
         self.details = """**AI Safety Fundamentals Course**
 
 The alignment problem refers to the challenge of ensuring that AI systems pursue goals that are aligned with human values and intentions. This problem becomes more pressing as AI systems become more capable.
@@ -588,7 +612,9 @@ The alignment problem refers to the challenge of ensuring that AI systems pursue
         return self.details
 
     @discord.ui.button(label="▼ Expand", style=discord.ButtonStyle.primary)
-    async def toggle_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def toggle_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         self.expanded = not self.expanded
 
         if self.expanded:
@@ -607,18 +633,22 @@ class CoTExpandView(discord.ui.View):
         self.full_cot = full_cot
         self.expanded = False
 
-    @discord.ui.button(label="▼ Show full reasoning", style=discord.ButtonStyle.secondary)
-    async def toggle_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(
+        label="▼ Show full reasoning", style=discord.ButtonStyle.secondary
+    )
+    async def toggle_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
         self.expanded = not self.expanded
 
         if self.expanded:
             button.label = "▲ Hide reasoning"
             # Send full CoT as a file attachment to avoid message length limits
-            file = discord.File(io.StringIO(self.full_cot), filename="chain_of_thought.txt")
+            file = discord.File(
+                io.StringIO(self.full_cot), filename="chain_of_thought.txt"
+            )
             await interaction.response.edit_message(
-                content="**Stampy's full reasoning:**",
-                attachments=[file],
-                view=self
+                content="**Stampy's full reasoning:**", attachments=[file], view=self
             )
         else:
             button.label = "▼ Show full reasoning"
@@ -637,7 +667,7 @@ class CoTExpandView(discord.ui.View):
             await interaction.response.edit_message(
                 content=f"**Stampy finished thinking.**\n```\n{chr(10).join(lines[-5:])}\n```",
                 attachments=[],
-                view=self
+                view=self,
             )
 
 

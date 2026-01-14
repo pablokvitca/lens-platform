@@ -72,7 +72,9 @@ def init_scheduler(skip_if_db_unavailable: bool = True) -> AsyncIOScheduler | No
     except Exception as e:
         if skip_if_db_unavailable and "timeout" in str(e).lower():
             # Database unavailable - fall back to in-memory scheduler
-            print(f"Warning: Could not connect to database for scheduler: timeout expired")
+            print(
+                f"Warning: Could not connect to database for scheduler: timeout expired"
+            )
             print("  └─ Scheduler running in memory-only mode (jobs won't persist)")
             _scheduler = AsyncIOScheduler(
                 jobstores={},  # No persistence
@@ -178,7 +180,10 @@ async def _execute_reminder(
 
     This is the job function called by APScheduler.
     """
-    from core.notifications.dispatcher import send_notification, send_channel_notification
+    from core.notifications.dispatcher import (
+        send_notification,
+        send_channel_notification,
+    )
 
     # Check condition if specified (e.g., lesson progress)
     if condition:

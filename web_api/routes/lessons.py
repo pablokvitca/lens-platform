@@ -120,6 +120,7 @@ async def get_user_id_for_lesson(request: Request) -> int | None:
     user = await get_or_create_user(discord_id)
     return user["user_id"]
 
+
 router = APIRouter(prefix="/api", tags=["lessons"])
 
 
@@ -201,6 +202,7 @@ class CreateSessionRequest(BaseModel):
 
 class HeartbeatRequest(BaseModel):
     """Request body for heartbeat tracking."""
+
     stage_index: int
     stage_type: str  # "article", "video", "chat"
     scroll_depth: float | None = None
@@ -208,9 +210,7 @@ class HeartbeatRequest(BaseModel):
 
 
 @router.post("/lesson-sessions")
-async def start_session(
-    request_body: CreateSessionRequest, request: Request
-):
+async def start_session(request_body: CreateSessionRequest, request: Request):
     """Start a new lesson session. Can be anonymous (no auth required)."""
     user_jwt = await get_optional_user(request)
 
@@ -233,7 +233,12 @@ async def start_session(
         first_stage = lesson.stages[0]
         started_msg = get_started_message(first_stage)
         if started_msg:
-            await add_message(session["session_id"], "system", started_msg["content"], started_msg.get("icon"))
+            await add_message(
+                session["session_id"],
+                "system",
+                started_msg["content"],
+                started_msg.get("icon"),
+            )
 
     # Schedule trial nudge for logged-in users (24h reminder to complete)
     if user_id is not None:
@@ -244,7 +249,9 @@ async def start_session(
                 lesson_url=build_lesson_url(request_body.lesson_slug),
             )
         except Exception as e:
-            print(f"[Notifications] Failed to schedule trial nudge for session {session['session_id']}: {e}")
+            print(
+                f"[Notifications] Failed to schedule trial nudge for session {session['session_id']}: {e}"
+            )
 
     return {"session_id": session["session_id"]}
 
@@ -269,7 +276,9 @@ async def get_session_state(
     lesson = load_lesson(session["lesson_slug"])
 
     # Determine which stage to get content for
-    content_stage_index = view_stage if view_stage is not None else session["current_stage_index"]
+    content_stage_index = (
+        view_stage if view_stage is not None else session["current_stage_index"]
+    )
 
     # Validate view_stage is within bounds
     if view_stage is not None:
@@ -377,7 +386,11 @@ async def get_session_state(
                 "type": s.type,
                 "title": get_stage_title(s),
                 "duration": get_stage_duration(s),
-                **({"source": s.source, "optional": s.optional} if s.type == "article" else {}),
+                **(
+                    {"source": s.source, "optional": s.optional}
+                    if s.type == "article"
+                    else {}
+                ),
                 **(serialize_video_stage(s) if s.type == "video" else {}),
             }
             for s in lesson.stages
@@ -484,21 +497,27 @@ async def advance_session(session_id: int, request: Request):
         # Add "Finished" message for current stage before completing
         finished_msg = get_finished_message(current_stage)
         if finished_msg:
-            await add_message(session_id, "system", finished_msg["content"], finished_msg.get("icon"))
+            await add_message(
+                session_id, "system", finished_msg["content"], finished_msg.get("icon")
+            )
         await complete_session(session_id)
 
         # Cancel any scheduled trial nudge since user completed the lesson
         try:
             cancel_trial_nudge(session_id)
         except Exception as e:
-            print(f"[Notifications] Failed to cancel trial nudge for session {session_id}: {e}")
+            print(
+                f"[Notifications] Failed to cancel trial nudge for session {session_id}: {e}"
+            )
 
         return {"completed": True}
 
     # Add "Finished" message for current stage
     finished_msg = get_finished_message(current_stage)
     if finished_msg:
-        await add_message(session_id, "system", finished_msg["content"], finished_msg.get("icon"))
+        await add_message(
+            session_id, "system", finished_msg["content"], finished_msg.get("icon")
+        )
 
     await advance_stage(session_id)
 
@@ -506,7 +525,9 @@ async def advance_session(session_id: int, request: Request):
     new_stage = lesson.stages[current_stage_index + 1]
     started_msg = get_started_message(new_stage)
     if started_msg:
-        await add_message(session_id, "system", started_msg["content"], started_msg.get("icon"))
+        await add_message(
+            session_id, "system", started_msg["content"], started_msg.get("icon")
+        )
 
     return {"completed": False, "new_stage_index": current_stage_index + 1}
 

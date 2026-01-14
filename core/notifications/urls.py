@@ -21,7 +21,9 @@ def build_profile_url() -> str:
     return f"{base}/signup"
 
 
-def build_discord_channel_url(server_id: str | None = None, channel_id: str = "") -> str:
+def build_discord_channel_url(
+    server_id: str | None = None, channel_id: str = ""
+) -> str:
     """
     Build URL to a Discord channel.
 

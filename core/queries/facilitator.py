@@ -17,9 +17,7 @@ async def is_admin(conn: AsyncConnection, user_id: int) -> bool:
     return row is not None and row.is_admin is True
 
 
-async def get_facilitator_group_ids(
-    conn: AsyncConnection, user_id: int
-) -> list[int]:
+async def get_facilitator_group_ids(conn: AsyncConnection, user_id: int) -> list[int]:
     """Get group IDs where user is a facilitator."""
     result = await conn.execute(
         select(groups_users.c.group_id).where(
@@ -66,9 +64,7 @@ async def get_accessible_groups(
     return [dict(row) for row in result.mappings()]
 
 
-async def can_access_group(
-    conn: AsyncConnection, user_id: int, group_id: int
-) -> bool:
+async def can_access_group(conn: AsyncConnection, user_id: int, group_id: int) -> bool:
     """Check if user can access a specific group."""
     if await is_admin(conn, user_id):
         return True

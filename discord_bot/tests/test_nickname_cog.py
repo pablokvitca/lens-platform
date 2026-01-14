@@ -13,7 +13,9 @@ class TestNicknameCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="test-nickname", description="Test setting a user's nickname")
+    @app_commands.command(
+        name="test-nickname", description="Test setting a user's nickname"
+    )
     @app_commands.checks.has_permissions(administrator=True)
     async def test_nickname(self, interaction: discord.Interaction):
         """Change Cian Dally's nickname to 'nicknameTest'."""
@@ -29,7 +31,9 @@ class TestNicknameCog(commands.Cog):
             member = None
 
         if not member:
-            await interaction.followup.send(f"Could not find user with ID {target_user_id} in this server.")
+            await interaction.followup.send(
+                f"Could not find user with ID {target_user_id} in this server."
+            )
             return
 
         try:

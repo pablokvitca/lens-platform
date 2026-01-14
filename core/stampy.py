@@ -1,6 +1,7 @@
 """
 Stampy chatbot integration.
 """
+
 import json
 import os
 import httpx

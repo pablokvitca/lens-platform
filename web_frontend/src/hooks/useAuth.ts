@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { API_URL } from "../config";
 import { identifyUser, resetUser, hasConsent } from "../analytics";
-import { identifySentryUser, resetSentryUser, isSentryInitialized } from "../errorTracking";
+import {
+  identifySentryUser,
+  resetSentryUser,
+  isSentryInitialized,
+} from "../errorTracking";
 
 export interface User {
   user_id: number;

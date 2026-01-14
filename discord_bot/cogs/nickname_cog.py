@@ -9,6 +9,7 @@ from discord.ext import commands
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core import get_user_nickname, update_user_nickname
@@ -97,6 +98,7 @@ async def setup(bot):
 
     # Register the callback with core so web API can trigger nickname updates
     from core.nickname_sync import register_nickname_callback
+
     register_nickname_callback(update_nickname_in_discord)
 
     await bot.add_cog(NicknameCog(bot))

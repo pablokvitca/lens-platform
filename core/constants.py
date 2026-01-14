@@ -10,11 +10,19 @@ DAY_CODES = {
     "Thursday": "R",
     "Friday": "F",
     "Saturday": "S",
-    "Sunday": "U"
+    "Sunday": "U",
 }
 
 # Day name list for ordering
-DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+DAY_NAMES = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+]
 
 # Common timezones (max 25 for Discord select menu)
 TIMEZONES = [
@@ -47,5 +55,5 @@ TIMEZONES = [
     "Africa/Cairo",
     "Africa/Johannesburg",
     # UTC
-    "UTC"
+    "UTC",
 ]

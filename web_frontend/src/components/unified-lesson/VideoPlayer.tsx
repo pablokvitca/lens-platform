@@ -69,7 +69,9 @@ export default function VideoPlayer({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const video = containerRef.current.querySelector("youtube-video") as HTMLVideoElement | null;
+    const video = containerRef.current.querySelector(
+      "youtube-video"
+    ) as HTMLVideoElement | null;
     if (!video) return;
 
     videoRef.current = video;
@@ -280,10 +282,7 @@ export default function VideoPlayer({
         onMouseLeave={() => setIsHovering(false)}
       >
         {/* Video with native YouTube controls */}
-        <div
-          ref={containerRef}
-          className="w-full aspect-video relative"
-        >
+        <div ref={containerRef} className="w-full aspect-video relative">
           <youtube-video
             src={youtubeUrl}
             controls
@@ -326,25 +325,28 @@ export default function VideoPlayer({
             className="flex items-center gap-3 pt-3 transition-opacity duration-200"
             style={{ opacity: showControls ? 1 : 0 }}
           >
-          <div
-            ref={progressBarRef}
-            className="flex-1 rounded cursor-pointer relative select-none"
-            style={{ height: "6px", backgroundColor: "#ddd" }}
-            onMouseDown={handleMouseDown}
-          >
             <div
-              className="h-full rounded pointer-events-none"
-              style={{ width: `${progress * 100}%`, backgroundColor: "#3b82f6" }}
-            />
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow pointer-events-none bg-blue-600 border-2 border-white"
-              style={{ left: `calc(${progress * 100}% - 8px)` }}
-            />
+              ref={progressBarRef}
+              className="flex-1 rounded cursor-pointer relative select-none"
+              style={{ height: "6px", backgroundColor: "#ddd" }}
+              onMouseDown={handleMouseDown}
+            >
+              <div
+                className="h-full rounded pointer-events-none"
+                style={{
+                  width: `${progress * 100}%`,
+                  backgroundColor: "#3b82f6",
+                }}
+              />
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full shadow pointer-events-none bg-blue-600 border-2 border-white"
+                style={{ left: `calc(${progress * 100}% - 8px)` }}
+              />
+            </div>
+            <span className="text-sm text-gray-600 whitespace-nowrap">
+              {formatTime(progress * duration)} / {formatTime(duration)}
+            </span>
           </div>
-          <span className="text-sm text-gray-600 whitespace-nowrap">
-            {formatTime(progress * duration)} / {formatTime(duration)}
-          </span>
-        </div>
         )}
       </div>
 

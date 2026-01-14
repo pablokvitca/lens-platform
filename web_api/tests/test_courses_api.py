@@ -26,13 +26,17 @@ def test_get_next_lesson():
 
 def test_get_next_lesson_end_of_course():
     """Should return 204 No Content at end of course."""
-    response = client.get("/api/courses/default/next-lesson?current=intelligence-feedback-loop")
+    response = client.get(
+        "/api/courses/default/next-lesson?current=intelligence-feedback-loop"
+    )
     assert response.status_code == 204
 
 
 def test_get_next_lesson_invalid_course():
     """Should return 404 for invalid course."""
-    response = client.get("/api/courses/nonexistent/next-lesson?current=intro-to-ai-safety")
+    response = client.get(
+        "/api/courses/nonexistent/next-lesson?current=intro-to-ai-safety"
+    )
     assert response.status_code == 404
 
 

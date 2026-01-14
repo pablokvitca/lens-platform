@@ -36,3 +36,6 @@ google-auth>=2.25.0
 
 # Error tracking
 sentry-sdk[fastapi]>=1.40.0
+
+# Development
+ruff>=0.8.0

@@ -8,7 +8,10 @@ class TestBuildUrls:
     def test_builds_lesson_url(self):
         from core.notifications.urls import build_lesson_url
 
-        with patch("core.notifications.urls.get_frontend_url", return_value="https://aisafety.com"):
+        with patch(
+            "core.notifications.urls.get_frontend_url",
+            return_value="https://aisafety.com",
+        ):
             url = build_lesson_url("lesson-123")
 
         assert url == "https://aisafety.com/lesson/lesson-123"
@@ -16,7 +19,10 @@ class TestBuildUrls:
     def test_builds_profile_url(self):
         from core.notifications.urls import build_profile_url
 
-        with patch("core.notifications.urls.get_frontend_url", return_value="https://aisafety.com"):
+        with patch(
+            "core.notifications.urls.get_frontend_url",
+            return_value="https://aisafety.com",
+        ):
             url = build_profile_url()
 
         assert url == "https://aisafety.com/signup"

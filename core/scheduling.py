@@ -20,12 +20,13 @@ from .tables import signups, users, facilitators
 
 
 # Day code mapping (used by tests)
-DAY_MAP = {'M': 0, 'T': 1, 'W': 2, 'R': 3, 'F': 4, 'S': 5, 'U': 6}
+DAY_MAP = {"M": 0, "T": 1, "W": 2, "R": 3, "F": 4, "S": 5, "U": 6}
 
 
 @dataclass
 class Person:
     """Represents a person for scheduling."""
+
     id: str
     name: str
     intervals: list  # List of (start_minutes, end_minutes)
@@ -35,16 +36,26 @@ class Person:
 
 class UngroupableReason(str, Enum):
     """Reasons why a user couldn't be grouped."""
+
     NO_AVAILABILITY = "no_availability"  # User has no availability slots
-    NO_OVERLAP_WITH_OTHERS = "no_overlap_with_others"  # Availability doesn't overlap with enough other users
-    NO_FACILITATOR_OVERLAP = "no_facilitator_overlap"  # No facilitator available for user's time slots
-    FACILITATOR_CAPACITY = "facilitator_capacity"  # Facilitators at max groups, but user has overlap
-    INSUFFICIENT_GROUP_SIZE = "insufficient_group_size"  # Could form group but not enough people
+    NO_OVERLAP_WITH_OTHERS = (
+        "no_overlap_with_others"  # Availability doesn't overlap with enough other users
+    )
+    NO_FACILITATOR_OVERLAP = (
+        "no_facilitator_overlap"  # No facilitator available for user's time slots
+    )
+    FACILITATOR_CAPACITY = (
+        "facilitator_capacity"  # Facilitators at max groups, but user has overlap
+    )
+    INSUFFICIENT_GROUP_SIZE = (
+        "insufficient_group_size"  # Could form group but not enough people
+    )
 
 
 @dataclass
 class UngroupableDetail:
     """Details about why a user couldn't be grouped."""
+
     user_id: int
     discord_id: str
     name: str
@@ -55,6 +66,7 @@ class UngroupableDetail:
 @dataclass
 class CohortSchedulingResult:
     """Result of scheduling a single cohort."""
+
     cohort_id: int
     cohort_name: str
     groups_created: int
@@ -69,13 +81,15 @@ def calculate_total_available_time(person: Person) -> int:
     """Calculate total minutes of availability for a person."""
     total = 0
     for start, end in person.intervals:
-        total += (end - start)
+        total += end - start
     for start, end in person.if_needed_intervals:
-        total += (end - start)
+        total += end - start
     return total
 
 
-def _intervals_overlap(intervals1: list, intervals2: list, min_overlap: int = 60) -> bool:
+def _intervals_overlap(
+    intervals1: list, intervals2: list, min_overlap: int = 60
+) -> bool:
     """Check if two sets of intervals have sufficient overlap."""
     for start1, end1 in intervals1:
         for start2, end2 in intervals2:
@@ -140,13 +154,15 @@ def analyze_ungroupable_users(
 
         # Check if user has any availability
         if not all_intervals:
-            details.append(UngroupableDetail(
-                user_id=user_id_map.get(person.id, 0),
-                discord_id=person.id,
-                name=person.name,
-                reason=UngroupableReason.NO_AVAILABILITY,
-                details={"total_slots": 0},
-            ))
+            details.append(
+                UngroupableDetail(
+                    user_id=user_id_map.get(person.id, 0),
+                    discord_id=person.id,
+                    name=person.name,
+                    reason=UngroupableReason.NO_AVAILABILITY,
+                    details={"total_slots": 0},
+                )
+            )
             continue
 
         # If we have facilitators, check facilitator-related reasons
@@ -169,30 +185,36 @@ def analyze_ungroupable_users(
                         facilitators_at_capacity.append(fac.id)
 
             if not has_facilitator_overlap:
-                details.append(UngroupableDetail(
-                    user_id=user_id_map.get(person.id, 0),
-                    discord_id=person.id,
-                    name=person.name,
-                    reason=UngroupableReason.NO_FACILITATOR_OVERLAP,
-                    details={
-                        "user_slots": len(all_intervals),
-                        "facilitator_count": len(facilitators),
-                    },
-                ))
+                details.append(
+                    UngroupableDetail(
+                        user_id=user_id_map.get(person.id, 0),
+                        discord_id=person.id,
+                        name=person.name,
+                        reason=UngroupableReason.NO_FACILITATOR_OVERLAP,
+                        details={
+                            "user_slots": len(all_intervals),
+                            "facilitator_count": len(facilitators),
+                        },
+                    )
+                )
                 continue
 
             # Has facilitator overlap but all overlapping facilitators at capacity
-            if facilitators_with_overlap and len(facilitators_at_capacity) == len(facilitators_with_overlap):
-                details.append(UngroupableDetail(
-                    user_id=user_id_map.get(person.id, 0),
-                    discord_id=person.id,
-                    name=person.name,
-                    reason=UngroupableReason.FACILITATOR_CAPACITY,
-                    details={
-                        "facilitators_with_overlap": len(facilitators_with_overlap),
-                        "all_at_capacity": True,
-                    },
-                ))
+            if facilitators_with_overlap and len(facilitators_at_capacity) == len(
+                facilitators_with_overlap
+            ):
+                details.append(
+                    UngroupableDetail(
+                        user_id=user_id_map.get(person.id, 0),
+                        discord_id=person.id,
+                        name=person.name,
+                        reason=UngroupableReason.FACILITATOR_CAPACITY,
+                        details={
+                            "facilitators_with_overlap": len(facilitators_with_overlap),
+                            "all_at_capacity": True,
+                        },
+                    )
+                )
                 continue
 
         # Check overlap with other unassigned users
@@ -206,30 +228,34 @@ def analyze_ungroupable_users(
                 overlapping_unassigned += 1
 
         if overlapping_unassigned + 1 < min_people:  # +1 for self
-            details.append(UngroupableDetail(
-                user_id=user_id_map.get(person.id, 0),
-                discord_id=person.id,
-                name=person.name,
-                reason=UngroupableReason.INSUFFICIENT_GROUP_SIZE,
-                details={
-                    "overlapping_users": overlapping_unassigned + 1,
-                    "min_required": min_people,
-                },
-            ))
+            details.append(
+                UngroupableDetail(
+                    user_id=user_id_map.get(person.id, 0),
+                    discord_id=person.id,
+                    name=person.name,
+                    reason=UngroupableReason.INSUFFICIENT_GROUP_SIZE,
+                    details={
+                        "overlapping_users": overlapping_unassigned + 1,
+                        "min_required": min_people,
+                    },
+                )
+            )
             continue
 
         # If we get here, it's likely a complex scheduling issue
         # (e.g., could form group but scheduling algorithm didn't find optimal solution)
-        details.append(UngroupableDetail(
-            user_id=user_id_map.get(person.id, 0),
-            discord_id=person.id,
-            name=person.name,
-            reason=UngroupableReason.NO_OVERLAP_WITH_OTHERS,
-            details={
-                "overlapping_unassigned": overlapping_unassigned,
-                "note": "Complex scheduling constraint - user has availability but couldn't be optimally placed",
-            },
-        ))
+        details.append(
+            UngroupableDetail(
+                user_id=user_id_map.get(person.id, 0),
+                discord_id=person.id,
+                name=person.name,
+                reason=UngroupableReason.NO_OVERLAP_WITH_OTHERS,
+                details={
+                    "overlapping_unassigned": overlapping_unassigned,
+                    "note": "Complex scheduling constraint - user has availability but couldn't be optimally placed",
+                },
+            )
+        )
 
     return details
 
@@ -277,7 +303,9 @@ async def schedule_cohort(
             )
             .join(signups, users.c.user_id == signups.c.user_id)
             .where(signups.c.cohort_id == cohort_id)
-            .where(signups.c.ungroupable_reason.is_(None))  # Only users not yet marked ungroupable
+            .where(
+                signups.c.ungroupable_reason.is_(None)
+            )  # Only users not yet marked ungroupable
         )
         result = await conn.execute(query)
         user_rows = [dict(row) for row in result.mappings()]
@@ -304,13 +332,19 @@ async def schedule_cohort(
             user_timezone = row["timezone"] or "UTC"
 
             # Parse availability from JSON format, converting from local to UTC
-            intervals = availability_json_to_intervals(row["availability_local"], user_timezone)
-            if_needed = availability_json_to_intervals(row["if_needed_availability_local"], user_timezone)
+            intervals = availability_json_to_intervals(
+                row["availability_local"], user_timezone
+            )
+            if_needed = availability_json_to_intervals(
+                row["if_needed_availability_local"], user_timezone
+            )
 
             if not intervals and not if_needed:
                 continue  # Skip users with no availability
 
-            name = row["nickname"] or row["discord_username"] or f"User {row['user_id']}"
+            name = (
+                row["nickname"] or row["discord_username"] or f"User {row['user_id']}"
+            )
             person = Person(
                 id=discord_id,
                 name=name,
@@ -329,22 +363,26 @@ async def schedule_cohort(
         if facilitator_ids:
             # Get user_ids for facilitators in this cohort
             facilitator_user_ids = [
-                user_id_map[discord_id] for discord_id in facilitator_ids
+                user_id_map[discord_id]
+                for discord_id in facilitator_ids
                 if discord_id in user_id_map
             ]
             if facilitator_user_ids:
-                fac_query = (
-                    select(facilitators.c.user_id, facilitators.c.max_active_groups)
-                    .where(facilitators.c.user_id.in_(facilitator_user_ids))
-                )
+                fac_query = select(
+                    facilitators.c.user_id, facilitators.c.max_active_groups
+                ).where(facilitators.c.user_id.in_(facilitator_user_ids))
                 fac_result = await conn.execute(fac_query)
-                fac_rows = {row.user_id: row.max_active_groups for row in fac_result.fetchall()}
+                fac_rows = {
+                    row.user_id: row.max_active_groups for row in fac_result.fetchall()
+                }
 
                 # Build mapping: discord_id -> max_active_groups
                 for discord_id in facilitator_ids:
                     user_id = user_id_map.get(discord_id)
                     if user_id and user_id in fac_rows:
-                        facilitator_max_groups[discord_id] = fac_rows[user_id] or 999  # Default to unlimited if NULL
+                        facilitator_max_groups[discord_id] = (
+                            fac_rows[user_id] or 999
+                        )  # Default to unlimited if NULL
 
         if not people:
             return CohortSchedulingResult(
@@ -367,7 +405,9 @@ async def schedule_cohort(
             max_people=max_people,
             num_iterations=num_iterations,
             facilitator_ids=facilitator_ids if facilitator_ids else None,
-            facilitator_max_cohorts=facilitator_max_groups if facilitator_max_groups else None,
+            facilitator_max_cohorts=facilitator_max_groups
+            if facilitator_max_groups
+            else None,
             use_if_needed=use_if_needed,
             balance=balance,
             progress_callback=progress_callback,
@@ -382,7 +422,9 @@ async def schedule_cohort(
             for i, group in enumerate(solution, 1):
                 # Format meeting time
                 if group.selected_time:
-                    meeting_time = cohort_scheduler.format_time_range(*group.selected_time)
+                    meeting_time = cohort_scheduler.format_time_range(
+                        *group.selected_time
+                    )
                 else:
                     meeting_time = "TBD"
 
@@ -398,20 +440,30 @@ async def schedule_cohort(
                 for person in group.people:
                     user_id = user_id_map.get(person.id)
                     if user_id:
-                        role = "facilitator" if person.id in facilitator_ids else "participant"
-                        await add_user_to_group(conn, group_record["group_id"], user_id, role)
+                        role = (
+                            "facilitator"
+                            if person.id in facilitator_ids
+                            else "participant"
+                        )
+                        await add_user_to_group(
+                            conn, group_record["group_id"], user_id, role
+                        )
                         grouped_user_ids.add(user_id)
 
-                created_groups.append({
-                    "group_id": group_record["group_id"],
-                    "group_name": group_record["group_name"],
-                    "member_count": len(group.people),
-                    "meeting_time": meeting_time,
-                })
+                created_groups.append(
+                    {
+                        "group_id": group_record["group_id"],
+                        "group_name": group_record["group_name"],
+                        "member_count": len(group.people),
+                        "meeting_time": meeting_time,
+                    }
+                )
 
         # Update signups: delete grouped users, mark ungroupable users
         all_user_ids = [row["user_id"] for row in user_rows]
-        ungroupable_user_ids = [uid for uid in all_user_ids if uid not in grouped_user_ids]
+        ungroupable_user_ids = [
+            uid for uid in all_user_ids if uid not in grouped_user_ids
+        ]
 
         if grouped_user_ids:
             # Delete signups for grouped users (they're now in groups_users)

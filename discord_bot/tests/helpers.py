@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.tables import cohorts, users, signups, groups, groups_users
@@ -74,12 +75,13 @@ async def create_test_user(
     user = dict(user_result.mappings().first())
 
     # Map string role to enum
-    role_enum = CohortRole.facilitator if role == "facilitator" else CohortRole.participant
+    role_enum = (
+        CohortRole.facilitator if role == "facilitator" else CohortRole.participant
+    )
 
     # Create signup for cohort
     await conn.execute(
-        insert(signups)
-        .values(
+        insert(signups).values(
             user_id=user["user_id"],
             cohort_id=cohort_id,
             role=role_enum,

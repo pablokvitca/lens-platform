@@ -99,7 +99,8 @@ export default function CohortRoleStep({
             <option value="">Select a cohort...</option>
             {availableCohorts.map((cohort) => (
               <option key={cohort.cohort_id} value={cohort.cohort_id}>
-                {cohort.cohort_name} — starts {formatDate(cohort.cohort_start_date)}
+                {cohort.cohort_name} — starts{" "}
+                {formatDate(cohort.cohort_start_date)}
               </option>
             ))}
           </select>

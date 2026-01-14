@@ -71,11 +71,7 @@ function TimeSlotCell({
       onMouseLeave={onMouseLeave}
       onTouchStart={onTouchStart}
     >
-      <div
-        data-day={day}
-        data-slot={slot}
-        className={`h-6 ${bgClass}`}
-      />
+      <div data-day={day} data-slot={slot} className={`h-6 ${bgClass}`} />
     </div>
   );
 }
@@ -88,19 +84,25 @@ export default function ScheduleSelector({
 }: ScheduleSelectorProps) {
   const slots = Array.from(
     { length: (endHour - startHour) * 2 },
-    (_, i) => startHour + i * 0.5,
+    (_, i) => startHour + i * 0.5
   );
 
-  const { gridRef, selectionState, isSelected, isPreview, isHovered, handlers } =
-    useScheduleSelection({
-      value,
-      onChange,
-      slots,
-    });
+  const {
+    gridRef,
+    selectionState,
+    isSelected,
+    isPreview,
+    isHovered,
+    handlers,
+  } = useScheduleSelection({
+    value,
+    onChange,
+    slots,
+  });
 
   const totalSelected = Object.values(value).reduce(
     (sum, slots) => sum + slots.length,
-    0,
+    0
   );
 
   return (
@@ -136,9 +138,7 @@ export default function ScheduleSelector({
         {slots.map((slot) => (
           <div key={`row-${slot}`} className="contents">
             {/* Time label - only show on full hours, positioned at top edge */}
-            <div
-              className="sticky left-0 text-right pr-2 text-xs text-gray-500 flex items-start justify-end relative"
-            >
+            <div className="sticky left-0 text-right pr-2 text-xs text-gray-500 flex items-start justify-end relative">
               {slot % 1 === 0 && (
                 <span className="relative -top-2">{formatHour(slot)}</span>
               )}

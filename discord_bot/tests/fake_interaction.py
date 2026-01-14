@@ -43,7 +43,9 @@ class FakeInteraction:
         async def defer(self, ephemeral: bool = False):
             self._parent._deferred = True
 
-        async def send_message(self, content: str = None, embed: discord.Embed = None, **kwargs):
+        async def send_message(
+            self, content: str = None, embed: discord.Embed = None, **kwargs
+        ):
             self._parent.responses.append({"content": content, "embed": embed})
             self._parent._deferred = True
 

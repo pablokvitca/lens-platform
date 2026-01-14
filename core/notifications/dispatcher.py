@@ -4,7 +4,10 @@ Notification dispatcher - routes messages to channels based on user preferences.
 
 from core.notifications.templates import get_message, load_templates
 from core.notifications.channels.email import send_email
-from core.notifications.channels.discord import send_discord_dm, send_discord_channel_message
+from core.notifications.channels.discord import (
+    send_discord_dm,
+    send_discord_channel_message,
+)
 
 
 async def log_notification(
@@ -55,9 +58,7 @@ async def get_user_by_id(user_id: int) -> dict | None:
     from core.tables import users
 
     async with get_connection() as conn:
-        result = await conn.execute(
-            select(users).where(users.c.user_id == user_id)
-        )
+        result = await conn.execute(select(users).where(users.c.user_id == user_id))
         row = result.mappings().first()
         return dict(row) if row else None
 

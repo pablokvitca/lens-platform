@@ -3,7 +3,10 @@
 import secrets
 
 from .database import get_transaction
-from .queries.auth import create_auth_code as _create_auth_code, validate_auth_code as _validate_auth_code
+from .queries.auth import (
+    create_auth_code as _create_auth_code,
+    validate_auth_code as _validate_auth_code,
+)
 from .queries.users import get_or_create_user as _get_or_create_user
 
 

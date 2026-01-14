@@ -28,10 +28,13 @@ export default function Auth() {
 
     // Validate code via API
     const origin = encodeURIComponent(window.location.origin);
-    fetch(`${API_URL}/auth/code?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}&origin=${origin}`, {
-      method: "POST",
-      credentials: "include",
-    })
+    fetch(
+      `${API_URL}/auth/code?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}&origin=${origin}`,
+      {
+        method: "POST",
+        credentials: "include",
+      }
+    )
       .then((res) => {
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
@@ -49,7 +52,9 @@ export default function Auth() {
           setStatus("error");
           switch (data.error) {
             case "expired_code":
-              setErrorMessage("This link has expired. Please request a new one or sign in with Discord.");
+              setErrorMessage(
+                "This link has expired. Please request a new one or sign in with Discord."
+              );
               break;
             case "invalid_code":
               setErrorMessage("This link is invalid or has already been used.");

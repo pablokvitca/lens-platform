@@ -17,11 +17,17 @@ export default function CourseOverview() {
   const { courseId = "default" } = useParams();
   const navigate = useNavigate();
 
-  const [courseProgress, setCourseProgress] = useState<CourseProgress | null>(null);
+  const [courseProgress, setCourseProgress] = useState<CourseProgress | null>(
+    null
+  );
   const [selectedLesson, setSelectedLesson] = useState<LessonInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [previewStage, setPreviewStage] = useState<{ lessonSlug: string; stageIndex: number; sessionId: number | null } | null>(null);
+  const [previewStage, setPreviewStage] = useState<{
+    lessonSlug: string;
+    stageIndex: number;
+    sessionId: number | null;
+  } | null>(null);
 
   // Load course progress
   useEffect(() => {
@@ -132,7 +138,9 @@ export default function CourseOverview() {
           Home
         </a>
         <ChevronRight className="w-4 h-4 text-slate-400" />
-        <span className="text-slate-700 font-medium">{courseProgress.course.title}</span>
+        <span className="text-slate-700 font-medium">
+          {courseProgress.course.title}
+        </span>
         {selectedUnitLabel && (
           <>
             <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -171,7 +179,9 @@ export default function CourseOverview() {
               onStartLesson={handleStartLesson}
             />
           ) : (
-            <div className="text-slate-500">Select a lesson to view details</div>
+            <div className="text-slate-500">
+              Select a lesson to view details
+            </div>
           )}
         </div>
       </div>

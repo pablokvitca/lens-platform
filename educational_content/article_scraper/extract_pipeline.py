@@ -35,18 +35,21 @@ import httpx
 try:
     import trafilatura
     from trafilatura import bare_extraction
+
     HAS_TRAFILATURA = True
 except ImportError:
     HAS_TRAFILATURA = False
 
 try:
     from readability import Document
+
     HAS_READABILITY = True
 except ImportError:
     HAS_READABILITY = False
 
 try:
     import pymupdf
+
     HAS_PYMUPDF = True
 except ImportError:
     HAS_PYMUPDF = False
@@ -54,9 +57,11 @@ except ImportError:
 
 # === Data Classes ===
 
+
 @dataclass
 class Metadata:
     """Article metadata."""
+
     title: Optional[str] = None
     author: Optional[str] = None
     date: Optional[str] = None
@@ -66,6 +71,7 @@ class Metadata:
 @dataclass
 class ExtractionResult:
     """Result from the extraction pipeline."""
+
     url: str
     success: bool = False
     content: str = ""
@@ -78,6 +84,7 @@ class ExtractionResult:
 
 
 # === Fetching ===
+
 
 async def fetch_html(url: str, timeout: int = 30) -> tuple[str, Optional[str]]:
     """Fetch HTML from URL. Returns (html, error)."""
@@ -110,6 +117,7 @@ async def fetch_pdf_bytes(url: str, timeout: int = 60) -> tuple[bytes, Optional[
 
 # === Local Extractors ===
 
+
 def extract_trafilatura(html: str) -> tuple[str | None, Metadata]:
     """Extract using trafilatura. Returns (content, metadata)."""
     if not HAS_TRAFILATURA:
@@ -119,18 +127,22 @@ def extract_trafilatura(html: str) -> tuple[str | None, Metadata]:
     doc = bare_extraction(html, with_metadata=True)
     if doc:
         # Convert to dict to reliably access all metadata fields
-        doc_dict = doc if isinstance(doc, dict) else (doc.as_dict() if hasattr(doc, 'as_dict') else {})
+        doc_dict = (
+            doc
+            if isinstance(doc, dict)
+            else (doc.as_dict() if hasattr(doc, "as_dict") else {})
+        )
         metadata = Metadata(
-            title=doc_dict.get('title'),
-            author=doc_dict.get('author'),
-            date=doc_dict.get('date'),
+            title=doc_dict.get("title"),
+            author=doc_dict.get("author"),
+            date=doc_dict.get("date"),
         )
     else:
         metadata = Metadata()
 
     content = trafilatura.extract(
         html,
-        output_format='markdown',
+        output_format="markdown",
         include_formatting=True,
         include_links=True,  # Preserve hyperlinks
         include_images=True,
@@ -148,13 +160,13 @@ def fix_trafilatura_links(content: str) -> str:
     result = content
 
     # Fix: newline before link -> space before link
-    result = re.sub(r'\n+(\[[^\]]+\]\([^)]+\))', r' \1', result)
+    result = re.sub(r"\n+(\[[^\]]+\]\([^)]+\))", r" \1", result)
 
     # Fix: link followed by text without space
-    result = re.sub(r'(\]\([^)]+\))([a-zA-Z])', r'\1 \2', result)
+    result = re.sub(r"(\]\([^)]+\))([a-zA-Z])", r"\1 \2", result)
 
     # Fix: text followed by link without space
-    result = re.sub(r'([a-zA-Z])(\[[^\]]+\]\()', r'\1 \2', result)
+    result = re.sub(r"([a-zA-Z])(\[[^\]]+\]\()", r"\1 \2", result)
 
     return result
 
@@ -180,42 +192,56 @@ def html_to_markdown(html: str) -> str:
     content = html
 
     # Headers
-    content = re.sub(r'<h1[^>]*>(.*?)</h1>', r'# \1\n\n', content, flags=re.DOTALL)
-    content = re.sub(r'<h2[^>]*>(.*?)</h2>', r'## \1\n\n', content, flags=re.DOTALL)
-    content = re.sub(r'<h3[^>]*>(.*?)</h3>', r'### \1\n\n', content, flags=re.DOTALL)
-    content = re.sub(r'<h4[^>]*>(.*?)</h4>', r'#### \1\n\n', content, flags=re.DOTALL)
+    content = re.sub(r"<h1[^>]*>(.*?)</h1>", r"# \1\n\n", content, flags=re.DOTALL)
+    content = re.sub(r"<h2[^>]*>(.*?)</h2>", r"## \1\n\n", content, flags=re.DOTALL)
+    content = re.sub(r"<h3[^>]*>(.*?)</h3>", r"### \1\n\n", content, flags=re.DOTALL)
+    content = re.sub(r"<h4[^>]*>(.*?)</h4>", r"#### \1\n\n", content, flags=re.DOTALL)
 
     # Paragraphs and breaks
-    content = re.sub(r'<p[^>]*>(.*?)</p>', r'\1\n\n', content, flags=re.DOTALL)
-    content = re.sub(r'<br\s*/?>', '\n', content)
+    content = re.sub(r"<p[^>]*>(.*?)</p>", r"\1\n\n", content, flags=re.DOTALL)
+    content = re.sub(r"<br\s*/?>", "\n", content)
 
     # Formatting
-    content = re.sub(r'<strong>(.*?)</strong>', r'**\1**', content, flags=re.DOTALL)
-    content = re.sub(r'<b>(.*?)</b>', r'**\1**', content, flags=re.DOTALL)
-    content = re.sub(r'<em>(.*?)</em>', r'*\1*', content, flags=re.DOTALL)
-    content = re.sub(r'<i>(.*?)</i>', r'*\1*', content, flags=re.DOTALL)
+    content = re.sub(r"<strong>(.*?)</strong>", r"**\1**", content, flags=re.DOTALL)
+    content = re.sub(r"<b>(.*?)</b>", r"**\1**", content, flags=re.DOTALL)
+    content = re.sub(r"<em>(.*?)</em>", r"*\1*", content, flags=re.DOTALL)
+    content = re.sub(r"<i>(.*?)</i>", r"*\1*", content, flags=re.DOTALL)
 
     # Links and images
-    content = re.sub(r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', r'[\2](\1)', content, flags=re.DOTALL)
-    content = re.sub(r'<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*/?\s*>', r'![\2](\1)\n\n', content)
-    content = re.sub(r'<img[^>]*alt="([^"]*)"[^>]*src="([^"]*)"[^>]*/?\s*>', r'![\1](\2)\n\n', content)
-    content = re.sub(r'<img[^>]*src="([^"]*)"[^>]*/?\s*>', r'![](\1)\n\n', content)
+    content = re.sub(
+        r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', r"[\2](\1)", content, flags=re.DOTALL
+    )
+    content = re.sub(
+        r'<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*/?\s*>',
+        r"![\2](\1)\n\n",
+        content,
+    )
+    content = re.sub(
+        r'<img[^>]*alt="([^"]*)"[^>]*src="([^"]*)"[^>]*/?\s*>',
+        r"![\1](\2)\n\n",
+        content,
+    )
+    content = re.sub(r'<img[^>]*src="([^"]*)"[^>]*/?\s*>', r"![](\1)\n\n", content)
 
     # Lists
-    content = re.sub(r'<li[^>]*>(.*?)</li>', r'- \1\n', content, flags=re.DOTALL)
-    content = re.sub(r'</?[uo]l[^>]*>', '', content)
+    content = re.sub(r"<li[^>]*>(.*?)</li>", r"- \1\n", content, flags=re.DOTALL)
+    content = re.sub(r"</?[uo]l[^>]*>", "", content)
 
     # Blockquotes
-    content = re.sub(r'<blockquote[^>]*>(.*?)</blockquote>',
-                     lambda m: '\n'.join('> ' + line for line in m.group(1).strip().split('\n')) + '\n\n',
-                     content, flags=re.DOTALL)
+    content = re.sub(
+        r"<blockquote[^>]*>(.*?)</blockquote>",
+        lambda m: "\n".join("> " + line for line in m.group(1).strip().split("\n"))
+        + "\n\n",
+        content,
+        flags=re.DOTALL,
+    )
 
     # Strip remaining tags
-    content = re.sub(r'<[^>]+>', '', content)
+    content = re.sub(r"<[^>]+>", "", content)
 
     # Clean up whitespace
-    content = re.sub(r'\n{3,}', '\n\n', content)
-    content = '\n'.join(line.rstrip() for line in content.split('\n'))
+    content = re.sub(r"\n{3,}", "\n\n", content)
+    content = "\n".join(line.rstrip() for line in content.split("\n"))
 
     return content.strip()
 
@@ -249,6 +275,7 @@ def extract_pdf(pdf_bytes: bytes) -> tuple[str | None, Metadata]:
 
 # === API Extractors (Fallback) ===
 
+
 async def extract_jina(url: str) -> tuple[str | None, Metadata]:
     """Extract using Jina Reader API (free tier)."""
     try:
@@ -259,8 +286,8 @@ async def extract_jina(url: str) -> tuple[str | None, Metadata]:
 
             content = r.text
             title = None
-            for line in content.split('\n')[:10]:
-                if line.startswith('Title:'):
+            for line in content.split("\n")[:10]:
+                if line.startswith("Title:"):
                     title = line[6:].strip()
                     break
 
@@ -279,36 +306,38 @@ async def extract_api_fallback(url: str) -> tuple[str | None, Metadata]:
 
 # === Cleanup ===
 
+
 def light_cleanup(content: str) -> str:
     """Non-LLM cleanup for basic formatting issues."""
     result = content
 
     # Fix spacing around asterisks
-    result = re.sub(r'\*\s+([^*]+)\s+\*', r'*\1*', result)
-    result = re.sub(r'\*\*\s+([^*]+)\s+\*\*', r'**\1**', result)
+    result = re.sub(r"\*\s+([^*]+)\s+\*", r"*\1*", result)
+    result = re.sub(r"\*\*\s+([^*]+)\s+\*\*", r"**\1**", result)
 
     # Collapse excessive blank lines
-    result = re.sub(r'\n{3,}', '\n\n', result)
+    result = re.sub(r"\n{3,}", "\n\n", result)
 
     # Strip trailing whitespace
-    result = '\n'.join(line.rstrip() for line in result.split('\n'))
+    result = "\n".join(line.rstrip() for line in result.split("\n"))
 
     return result
 
 
 # === Frontmatter ===
 
+
 def build_frontmatter(metadata: Metadata) -> str:
     """Build YAML frontmatter."""
-    lines = ['---']
+    lines = ["---"]
     lines.append(f'title: "{metadata.title or "Untitled"}"')
-    lines.append(f'author: {metadata.author or "Unknown"}')
+    lines.append(f"author: {metadata.author or 'Unknown'}")
     if metadata.date:
-        lines.append(f'date: {metadata.date}')
-    lines.append(f'source_url: {metadata.url}')
-    lines.append('---')
-    lines.append('')
-    return '\n'.join(lines) + '\n'
+        lines.append(f"date: {metadata.date}")
+    lines.append(f"source_url: {metadata.url}")
+    lines.append("---")
+    lines.append("")
+    return "\n".join(lines) + "\n"
 
 
 def author_slug(author: str | None) -> str:
@@ -320,31 +349,32 @@ def author_slug(author: str | None) -> str:
     author = author.strip()
 
     # Handle organization names (no spaces or already short)
-    if ' ' not in author or len(author) <= 15:
-        return re.sub(r'[^a-zA-Z0-9]', '-', author.lower()).strip('-')
+    if " " not in author or len(author) <= 15:
+        return re.sub(r"[^a-zA-Z0-9]", "-", author.lower()).strip("-")
 
     # Extract last name (last word)
     parts = author.split()
     lastname = parts[-1]
 
     # Clean and return
-    return re.sub(r'[^a-zA-Z0-9]', '-', lastname.lower()).strip('-')
+    return re.sub(r"[^a-zA-Z0-9]", "-", lastname.lower()).strip("-")
 
 
 # === Main Pipeline ===
 
+
 def url_to_slug(url: str) -> str:
     """Convert URL to a filename-safe slug."""
     parsed = urlparse(url)
-    path_parts = parsed.path.strip('/').split('/')
+    path_parts = parsed.path.strip("/").split("/")
     if path_parts and path_parts[-1]:
         name = path_parts[-1]
-        name = re.sub(r'\.(html?|php|aspx?|pdf)$', '', name, flags=re.IGNORECASE)
+        name = re.sub(r"\.(html?|php|aspx?|pdf)$", "", name, flags=re.IGNORECASE)
     else:
-        name = parsed.netloc.replace('.', '-')
+        name = parsed.netloc.replace(".", "-")
 
-    name = re.sub(r'[^a-zA-Z0-9-]', '-', name)
-    name = re.sub(r'-+', '-', name).strip('-')[:50]
+    name = re.sub(r"[^a-zA-Z0-9-]", "-", name)
+    name = re.sub(r"-+", "-", name).strip("-")[:50]
     return name
 
 
@@ -383,7 +413,7 @@ async def process_url(
     result = ExtractionResult(url=url)
     result.metadata.url = url
 
-    is_pdf = url.lower().endswith('.pdf')
+    is_pdf = url.lower().endswith(".pdf")
     slug = url_to_slug(url)
 
     if verbose:
@@ -413,7 +443,7 @@ async def process_url(
             if output_path:
                 frontmatter = build_frontmatter(result.metadata)
                 output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_text(frontmatter + content, encoding='utf-8')
+                output_path.write_text(frontmatter + content, encoding="utf-8")
                 if verbose:
                     print(f"  Saved to {output_path}")
 
@@ -424,7 +454,9 @@ async def process_url(
 
     if error:
         if verbose:
-            print(f"fetch failed ({error}), trying API fallback...", end=" ", flush=True)
+            print(
+                f"fetch failed ({error}), trying API fallback...", end=" ", flush=True
+            )
 
         content, metadata = await extract_api_fallback(url)
         if content:
@@ -439,7 +471,7 @@ async def process_url(
             if output_path:
                 frontmatter = build_frontmatter(result.metadata)
                 output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_text(frontmatter + content, encoding='utf-8')
+                output_path.write_text(frontmatter + content, encoding="utf-8")
         else:
             result.error = f"all_methods_failed (fetch: {error})"
             if verbose:
@@ -476,16 +508,16 @@ async def process_url(
         frontmatter = build_frontmatter(result.metadata)
 
         # Generate base filename from author + slug
-        base_name = generate_filename(result.metadata, url).replace('.md', '')
+        base_name = generate_filename(result.metadata, url).replace(".md", "")
 
         if traf_content:
             traf_path = work_dir / f"{base_name}_trafilatura.md"
-            traf_path.write_text(frontmatter + traf_content, encoding='utf-8')
+            traf_path.write_text(frontmatter + traf_content, encoding="utf-8")
             result.traf_path = traf_path
 
         if read_content:
             read_path = work_dir / f"{base_name}_readability.md"
-            read_path.write_text(frontmatter + read_content, encoding='utf-8')
+            read_path.write_text(frontmatter + read_content, encoding="utf-8")
             result.read_path = read_path
 
         result.success = True
@@ -529,7 +561,7 @@ async def process_url(
     if output_path:
         frontmatter = build_frontmatter(result.metadata)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(frontmatter + content, encoding='utf-8')
+        output_path.write_text(frontmatter + content, encoding="utf-8")
         if verbose:
             print(f"  Saved to {output_path}")
 
@@ -538,19 +570,20 @@ async def process_url(
 
 # === Batch Processing ===
 
+
 def parse_urls_file(filepath: Path) -> list[str]:
     """Parse URLs file. Returns list of URLs."""
     urls = []
     with open(filepath) as f:
         for line in f:
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
 
-            parts = [p.strip() for p in line.split('|')]
+            parts = [p.strip() for p in line.split("|")]
             url = parts[0]
 
-            if not url.startswith('http'):
+            if not url.startswith("http"):
                 continue
 
             urls.append(url)
@@ -586,7 +619,7 @@ async def process_batch(
             output_path = output_dir / filename
             frontmatter = build_frontmatter(result.metadata)
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(frontmatter + result.content, encoding='utf-8')
+            output_path.write_text(frontmatter + result.content, encoding="utf-8")
             if verbose:
                 print(f"  Saved to {output_path}")
 
@@ -653,11 +686,12 @@ Or if MERGE is needed:
 
 # === CLI ===
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Extract articles with optional skill-based LLM selection",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
 
     # Positional args for single URL mode
@@ -666,18 +700,32 @@ def main():
 
     # Batch mode
     parser.add_argument("--batch", "-b", type=Path, help="File with URLs to process")
-    parser.add_argument("--output-dir", "-o", type=Path, default=Path("."),
-                        help="Output directory for batch mode")
+    parser.add_argument(
+        "--output-dir",
+        "-o",
+        type=Path,
+        default=Path("."),
+        help="Output directory for batch mode",
+    )
 
     # Dual mode
-    parser.add_argument("--dual", "-d", action="store_true",
-                        help="Save both extractions for skill-based selection")
-    parser.add_argument("--work-dir", "-w", type=Path,
-                        help="Directory for intermediate files (default: /tmp/article_extractions)")
+    parser.add_argument(
+        "--dual",
+        "-d",
+        action="store_true",
+        help="Save both extractions for skill-based selection",
+    )
+    parser.add_argument(
+        "--work-dir",
+        "-w",
+        type=Path,
+        help="Directory for intermediate files (default: /tmp/article_extractions)",
+    )
 
     # Options
-    parser.add_argument("--verbose", "-v", action="store_true",
-                        help="Show detailed progress")
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show detailed progress"
+    )
 
     args = parser.parse_args()
 
@@ -694,26 +742,30 @@ def main():
         urls = parse_urls_file(args.batch)
         print(f"Processing {len(urls)} URLs...")
 
-        results = asyncio.run(process_batch(
-            urls,
-            args.output_dir,
-            dual_mode=args.dual,
-            work_dir=args.work_dir,
-            verbose=args.verbose,
-        ))
+        results = asyncio.run(
+            process_batch(
+                urls,
+                args.output_dir,
+                dual_mode=args.dual,
+                work_dir=args.work_dir,
+                verbose=args.verbose,
+            )
+        )
         print_summary(results, dual_mode=args.dual)
 
     elif args.url:
         # Single URL mode
         output_path = Path(args.output) if args.output and not args.dual else None
 
-        result = asyncio.run(process_url(
-            args.url,
-            output_path,
-            dual_mode=args.dual,
-            work_dir=args.work_dir,
-            verbose=args.verbose,
-        ))
+        result = asyncio.run(
+            process_url(
+                args.url,
+                output_path,
+                dual_mode=args.dual,
+                work_dir=args.work_dir,
+                verbose=args.verbose,
+            )
+        )
 
         if result.success:
             if args.dual:

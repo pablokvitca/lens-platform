@@ -52,11 +52,16 @@ else:
 # (auth.py computes DISCORD_REDIRECT_URI based on DEV_MODE at import time)
 if __name__ == "__main__":
     import argparse
+
     _early_parser = argparse.ArgumentParser(add_help=False)
     _early_parser.add_argument("--dev", action="store_true")
     _early_parser.add_argument("--no-db", action="store_true")
-    _early_parser.add_argument("--port", type=int, default=int(os.getenv("API_PORT", "8000")))
-    _early_parser.add_argument("--vite-port", type=int, default=int(os.getenv("VITE_PORT", "5173")))
+    _early_parser.add_argument(
+        "--port", type=int, default=int(os.getenv("API_PORT", "8000"))
+    )
+    _early_parser.add_argument(
+        "--vite-port", type=int, default=int(os.getenv("VITE_PORT", "5173"))
+    )
     _early_args, _ = _early_parser.parse_known_args()
     if _early_args.dev:
         os.environ["DEV_MODE"] = "true"
@@ -232,6 +237,7 @@ async def lifespan(app: FastAPI):
         if bot.is_ready():
             set_notification_bot(bot)
             print("Notification system connected to Discord bot")
+
     asyncio.create_task(on_bot_ready())
 
     # Start Vite dev server if in dev mode
@@ -280,7 +286,9 @@ app.include_router(facilitator_router)
 
 
 # New paths for static files
-static_path = project_root / "web_frontend" / "static"  # Truly static HTML (landing page)
+static_path = (
+    project_root / "web_frontend" / "static"
+)  # Truly static HTML (landing page)
 spa_path = project_root / "web_frontend" / "dist"  # React SPA build
 
 
@@ -396,15 +404,21 @@ if __name__ == "__main__":
     server_info_dir.mkdir(exist_ok=True)
     server_info_file = server_info_dir / f"{os.getpid()}.json"
     import json
-    server_info_file.write_text(json.dumps({
-        "pid": os.getpid(),
-        "workspace": workspace_name,
-        "api_port": args.port,
-        "vite_port": args.vite_port if args.dev else None,
-    }))
+
+    server_info_file.write_text(
+        json.dumps(
+            {
+                "pid": os.getpid(),
+                "workspace": workspace_name,
+                "api_port": args.port,
+                "vite_port": args.vite_port if args.dev else None,
+            }
+        )
+    )
 
     # Register cleanup on exit
     import atexit
+
     atexit.register(lambda: server_info_file.unlink(missing_ok=True))
 
     # Set env vars so they persist across uvicorn reloads
@@ -431,7 +445,9 @@ if __name__ == "__main__":
     # Run with uvicorn
     # Pass app object directly (not string) to avoid module reimport issues
     # Note: --reload requires string import; use `uvicorn main:app --reload` if needed
-    print(f"Starting server on port {args.port} (PORT env: {os.environ.get('PORT', 'not set')})")
+    print(
+        f"Starting server on port {args.port} (PORT env: {os.environ.get('PORT', 'not set')})"
+    )
     uvicorn.run(
         app,
         host="0.0.0.0",

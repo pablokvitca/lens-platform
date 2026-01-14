@@ -15,7 +15,9 @@ from core.lessons.sessions import (
 @pytest.mark.asyncio
 async def test_create_session(test_user_id):
     """Should create a new lesson session."""
-    session = await create_session(user_id=test_user_id, lesson_slug="intro-to-ai-safety")
+    session = await create_session(
+        user_id=test_user_id, lesson_slug="intro-to-ai-safety"
+    )
     assert session["lesson_slug"] == "intro-to-ai-safety"
     assert session["current_stage_index"] == 0
     assert session["messages"] == []
@@ -24,7 +26,9 @@ async def test_create_session(test_user_id):
 @pytest.mark.asyncio
 async def test_get_session(test_user_id):
     """Should retrieve an existing session."""
-    created = await create_session(user_id=test_user_id, lesson_slug="intro-to-ai-safety")
+    created = await create_session(
+        user_id=test_user_id, lesson_slug="intro-to-ai-safety"
+    )
     session = await get_session(created["session_id"])
     assert session["lesson_slug"] == "intro-to-ai-safety"
 
@@ -32,12 +36,10 @@ async def test_get_session(test_user_id):
 @pytest.mark.asyncio
 async def test_add_message(test_user_id):
     """Should add a message to session history."""
-    session = await create_session(user_id=test_user_id, lesson_slug="intro-to-ai-safety")
-    updated = await add_message(
-        session["session_id"],
-        role="user",
-        content="Hello!"
+    session = await create_session(
+        user_id=test_user_id, lesson_slug="intro-to-ai-safety"
     )
+    updated = await add_message(session["session_id"], role="user", content="Hello!")
     assert len(updated["messages"]) == 1
     assert updated["messages"][0]["role"] == "user"
 
@@ -45,7 +47,9 @@ async def test_add_message(test_user_id):
 @pytest.mark.asyncio
 async def test_advance_stage(test_user_id):
     """Should increment stage index."""
-    session = await create_session(user_id=test_user_id, lesson_slug="intro-to-ai-safety")
+    session = await create_session(
+        user_id=test_user_id, lesson_slug="intro-to-ai-safety"
+    )
     updated = await advance_stage(session["session_id"])
     assert updated["current_stage_index"] == 1
 

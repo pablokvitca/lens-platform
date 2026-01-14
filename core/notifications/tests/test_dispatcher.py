@@ -18,9 +18,17 @@ class TestSendNotification:
             "dm_notifications_enabled": False,
         }
 
-        with patch("core.notifications.dispatcher.get_user_by_id", AsyncMock(return_value=mock_user)):
-            with patch("core.notifications.dispatcher.send_email", return_value=True) as mock_email:
-                with patch("core.notifications.dispatcher.send_discord_dm", AsyncMock(return_value=True)):
+        with patch(
+            "core.notifications.dispatcher.get_user_by_id",
+            AsyncMock(return_value=mock_user),
+        ):
+            with patch(
+                "core.notifications.dispatcher.send_email", return_value=True
+            ) as mock_email:
+                with patch(
+                    "core.notifications.dispatcher.send_discord_dm",
+                    AsyncMock(return_value=True),
+                ):
                     result = await send_notification(
                         user_id=1,
                         message_type="welcome",
@@ -47,9 +55,15 @@ class TestSendNotification:
             "dm_notifications_enabled": True,
         }
 
-        with patch("core.notifications.dispatcher.get_user_by_id", AsyncMock(return_value=mock_user)):
+        with patch(
+            "core.notifications.dispatcher.get_user_by_id",
+            AsyncMock(return_value=mock_user),
+        ):
             with patch("core.notifications.dispatcher.send_email", return_value=True):
-                with patch("core.notifications.dispatcher.send_discord_dm", AsyncMock(return_value=True)) as mock_dm:
+                with patch(
+                    "core.notifications.dispatcher.send_discord_dm",
+                    AsyncMock(return_value=True),
+                ) as mock_dm:
                     result = await send_notification(
                         user_id=1,
                         message_type="welcome",
@@ -76,9 +90,17 @@ class TestSendNotification:
             "dm_notifications_enabled": True,
         }
 
-        with patch("core.notifications.dispatcher.get_user_by_id", AsyncMock(return_value=mock_user)):
-            with patch("core.notifications.dispatcher.send_email", return_value=True) as mock_email:
-                with patch("core.notifications.dispatcher.send_discord_dm", AsyncMock(return_value=True)) as mock_dm:
+        with patch(
+            "core.notifications.dispatcher.get_user_by_id",
+            AsyncMock(return_value=mock_user),
+        ):
+            with patch(
+                "core.notifications.dispatcher.send_email", return_value=True
+            ) as mock_email:
+                with patch(
+                    "core.notifications.dispatcher.send_discord_dm",
+                    AsyncMock(return_value=True),
+                ) as mock_dm:
                     result = await send_notification(
                         user_id=1,
                         message_type="welcome",

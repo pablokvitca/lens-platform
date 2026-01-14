@@ -11,15 +11,17 @@ from pathlib import Path
 # Credentials file - can be overridden via GOOGLE_CREDENTIALS_FILE environment variable
 # Default: discord_bot/google_credentials.json (for backwards compatibility)
 _PROJECT_ROOT = Path(__file__).parent.parent
-CREDENTIALS_FILE = Path(os.environ.get(
-    'GOOGLE_CREDENTIALS_FILE',
-    _PROJECT_ROOT / 'discord_bot' / 'google_credentials.json'
-))
+CREDENTIALS_FILE = Path(
+    os.environ.get(
+        "GOOGLE_CREDENTIALS_FILE",
+        _PROJECT_ROOT / "discord_bot" / "google_credentials.json",
+    )
+)
 
 
 def extract_doc_id(url: str) -> str | None:
     """Extract Google Doc ID from a URL."""
-    match = re.search(r'/d/([a-zA-Z0-9_-]+)', url)
+    match = re.search(r"/d/([a-zA-Z0-9_-]+)", url)
     return match.group(1) if match else None
 
 
@@ -51,7 +53,10 @@ async def _get_access_token() -> tuple[str | None, str | None]:
     async with aiohttp.ClientSession() as session:
         async with session.post(
             "https://oauth2.googleapis.com/token",
-            data={"grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer", "assertion": signed_jwt},
+            data={
+                "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                "assertion": signed_jwt,
+            },
         ) as resp:
             data = await resp.json()
             if "access_token" in data:
@@ -68,7 +73,9 @@ async def fetch_google_doc(doc_id: str) -> tuple[dict | None, str | None]:
     url = f"https://docs.googleapis.com/v1/documents/{doc_id}?includeTabsContent=true"
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers={"Authorization": f"Bearer {token}"}) as resp:
+            async with session.get(
+                url, headers={"Authorization": f"Bearer {token}"}
+            ) as resp:
                 data = await resp.json()
                 if resp.status == 200:
                     return data, None
@@ -76,9 +83,15 @@ async def fetch_google_doc(doc_id: str) -> tuple[dict | None, str | None]:
                 code = error.get("code", resp.status)
                 message = error.get("message", "Unknown error")
                 if code == 403:
-                    return None, f"Access denied ({code}): {message}. Share the doc with the service account email."
+                    return (
+                        None,
+                        f"Access denied ({code}): {message}. Share the doc with the service account email.",
+                    )
                 elif code == 404:
-                    return None, f"Document not found ({code}). Check that the URL is correct."
+                    return (
+                        None,
+                        f"Document not found ({code}). Check that the URL is correct.",
+                    )
                 else:
                     return None, f"Google API error ({code}): {message}"
     except aiohttp.ClientError as e:

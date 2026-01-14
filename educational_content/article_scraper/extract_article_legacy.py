@@ -31,10 +31,10 @@ def fix_formatting(content: str) -> str:
     result = content
 
     # Collapse multiple blank lines to single blank line
-    result = re.sub(r'\n{3,}', '\n\n', result)
+    result = re.sub(r"\n{3,}", "\n\n", result)
 
     # Clean up trailing whitespace
-    result = '\n'.join(line.rstrip() for line in result.split('\n'))
+    result = "\n".join(line.rstrip() for line in result.split("\n"))
 
     return result
 
@@ -46,7 +46,7 @@ def extract_with_images(url: str) -> tuple[str | None, dict]:
         tuple: (markdown_content, metadata_dict)
         metadata_dict contains: title, author, date (if found)
     """
-    metadata = {'url': url, 'title': None, 'author': None, 'date': None}
+    metadata = {"url": url, "title": None, "author": None, "date": None}
 
     # Fetch page
     try:
@@ -62,14 +62,14 @@ def extract_with_images(url: str) -> tuple[str | None, dict]:
     # Extract metadata using bare_extraction
     doc = bare_extraction(raw_html)
     if doc:
-        metadata['title'] = doc.title
-        metadata['author'] = doc.author
-        metadata['date'] = doc.date
+        metadata["title"] = doc.title
+        metadata["author"] = doc.author
+        metadata["date"] = doc.date
 
     # Step 1: Get markdown from trafilatura
     # Note: output may have formatting issues (spaces inside asterisks)
     # Use clean-article.skill.md with a subagent to fix these
-    clean_md = extract(raw_html, output_format='markdown', include_formatting=True)
+    clean_md = extract(raw_html, output_format="markdown", include_formatting=True)
     if not clean_md:
         print("Trafilatura returned no content", file=sys.stderr)
         return None, metadata
@@ -78,10 +78,10 @@ def extract_with_images(url: str) -> tuple[str | None, dict]:
     content_selectors = [
         '//div[contains(@class,"entry-content")]',
         '//article//div[contains(@class,"content")]',
-        '//article',
+        "//article",
         '//div[contains(@class,"post-content")]',
         '//div[contains(@class,"article-content")]',
-        '//main',
+        "//main",
     ]
 
     content_div = None
@@ -92,7 +92,10 @@ def extract_with_images(url: str) -> tuple[str | None, dict]:
             break
 
     if content_div is None:
-        print("Could not find content container, returning without images", file=sys.stderr)
+        print(
+            "Could not find content container, returning without images",
+            file=sys.stderr,
+        )
         return clean_md, metadata
 
     # Step 3: Extract (preceding_text, image_md) pairs
@@ -100,21 +103,24 @@ def extract_with_images(url: str) -> tuple[str | None, dict]:
     last_text = ""
 
     for elem in content_div.iter():
-        if elem.tag == 'p':
+        if elem.tag == "p":
             text = elem.text_content().strip()
             if text and len(text) > 20:
                 last_text = text
-        elif elem.tag == 'img':
-            src = elem.get('src', '')
-            alt = elem.get('alt', '') or ''
+        elif elem.tag == "img":
+            src = elem.get("src", "")
+            alt = elem.get("alt", "") or ""
 
             # Filter valid images
-            if not any(ext in src.lower() for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']):
+            if not any(
+                ext in src.lower()
+                for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"]
+            ):
                 continue
 
             # Skip tiny images (likely icons/tracking pixels)
-            width = elem.get('width', '999')
-            height = elem.get('height', '999')
+            width = elem.get("width", "999")
+            height = elem.get("height", "999")
             try:
                 if int(width) < 50 or int(height) < 50:
                     continue
@@ -122,7 +128,18 @@ def extract_with_images(url: str) -> tuple[str | None, dict]:
                 pass
 
             # Skip common non-content images
-            if any(skip in src.lower() for skip in ['facebook', 'twitter', 'pinterest', 'share', 'logo', 'icon', 'avatar']):
+            if any(
+                skip in src.lower()
+                for skip in [
+                    "facebook",
+                    "twitter",
+                    "pinterest",
+                    "share",
+                    "logo",
+                    "icon",
+                    "avatar",
+                ]
+            ):
                 continue
 
             image_md = f"\n\n![{alt}]({src})\n\n"
@@ -139,13 +156,15 @@ def extract_with_images(url: str) -> tuple[str | None, dict]:
             continue
 
         # Strip only asterisks and brackets (markdown formatting), keep parentheses
-        marker_clean = text_marker[:50].replace('*', '').replace('[', '').replace(']', '')
+        marker_clean = (
+            text_marker[:50].replace("*", "").replace("[", "").replace("]", "")
+        )
         marker_clean = marker_clean[:40]
 
         # Search in a stripped version of the result to find position
-        result_stripped = re.sub(r'\*+', '', result)
+        result_stripped = re.sub(r"\*+", "", result)
         marker_escaped = re.escape(marker_clean)
-        pattern = rf'{marker_escaped}[^\n]*\n'
+        pattern = rf"{marker_escaped}[^\n]*\n"
         match = re.search(pattern, result_stripped)
 
         if match:
@@ -157,7 +176,7 @@ def extract_with_images(url: str) -> tuple[str | None, dict]:
             orig_pos = 0
             stripped_pos = 0
             while stripped_pos < stripped_end and orig_pos < len(result):
-                if result[orig_pos] == '*':
+                if result[orig_pos] == "*":
                     orig_pos += 1
                 else:
                     orig_pos += 1
@@ -172,37 +191,48 @@ def extract_with_images(url: str) -> tuple[str | None, dict]:
     return result, metadata
 
 
-def build_front_matter(metadata: dict, title_override: str = None, author_override: str = None, date_override: str = None) -> str:
+def build_front_matter(
+    metadata: dict,
+    title_override: str = None,
+    author_override: str = None,
+    date_override: str = None,
+) -> str:
     """Build YAML front matter from metadata."""
-    title = title_override or metadata.get('title') or 'Untitled'
-    author = author_override or metadata.get('author') or 'Unknown'
-    date = date_override or metadata.get('date')
-    url = metadata.get('url', '')
+    title = title_override or metadata.get("title") or "Untitled"
+    author = author_override or metadata.get("author") or "Unknown"
+    date = date_override or metadata.get("date")
+    url = metadata.get("url", "")
 
-    lines = ['---']
+    lines = ["---"]
     lines.append(f'title: "{title}"')
-    lines.append(f'author: {author}')
+    lines.append(f"author: {author}")
     if date:
-        lines.append(f'date: {date}')
-    lines.append(f'source_url: {url}')
-    lines.append('---')
-    lines.append('')
+        lines.append(f"date: {date}")
+    lines.append(f"source_url: {url}")
+    lines.append("---")
+    lines.append("")
 
-    return '\n'.join(lines) + '\n'
+    return "\n".join(lines) + "\n"
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Extract web articles with images to markdown.',
+        description="Extract web articles with images to markdown.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
-    parser.add_argument('url', help='URL of the article to extract')
-    parser.add_argument('output', nargs='?', help='Output file path (optional, prints to stdout if not specified)')
-    parser.add_argument('--title', help='Override article title')
-    parser.add_argument('--author', help='Override author name')
-    parser.add_argument('--date', help='Override date')
-    parser.add_argument('--no-frontmatter', action='store_true', help='Skip adding front matter')
+    parser.add_argument("url", help="URL of the article to extract")
+    parser.add_argument(
+        "output",
+        nargs="?",
+        help="Output file path (optional, prints to stdout if not specified)",
+    )
+    parser.add_argument("--title", help="Override article title")
+    parser.add_argument("--author", help="Override author name")
+    parser.add_argument("--date", help="Override date")
+    parser.add_argument(
+        "--no-frontmatter", action="store_true", help="Skip adding front matter"
+    )
 
     args = parser.parse_args()
 
@@ -217,15 +247,23 @@ def main():
         content = front_matter + content
 
     if args.output:
-        with open(args.output, 'w', encoding='utf-8') as f:
+        with open(args.output, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"Saved to {args.output}", file=sys.stderr)
-        print(f"Title: {args.title or metadata.get('title') or 'Unknown'}", file=sys.stderr)
-        print(f"Author: {args.author or metadata.get('author') or 'Unknown'}", file=sys.stderr)
-        print(f"Date: {args.date or metadata.get('date') or 'Unknown'}", file=sys.stderr)
+        print(
+            f"Title: {args.title or metadata.get('title') or 'Unknown'}",
+            file=sys.stderr,
+        )
+        print(
+            f"Author: {args.author or metadata.get('author') or 'Unknown'}",
+            file=sys.stderr,
+        )
+        print(
+            f"Date: {args.date or metadata.get('date') or 'Unknown'}", file=sys.stderr
+        )
     else:
         print(content)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -9,6 +9,7 @@ from sqlalchemy import insert, select
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.tables import users
@@ -59,7 +60,9 @@ class TestAvailabilityIntegration:
     async def test_adjacent_slots_are_merged(self, db_conn):
         """Adjacent 30-minute slots should merge into one continuous interval."""
         # Four adjacent slots: 14:00-14:30, 14:30-15:00, 15:00-15:30, 15:30-16:00
-        frontend_availability = '{"Tuesday": ["14:00-14:30", "14:30-15:00", "15:00-15:30", "15:30-16:00"]}'
+        frontend_availability = (
+            '{"Tuesday": ["14:00-14:30", "14:30-15:00", "15:00-15:30", "15:30-16:00"]}'
+        )
 
         result = await db_conn.execute(
             insert(users)
@@ -84,10 +87,10 @@ class TestAvailabilityIntegration:
     @pytest.mark.asyncio
     async def test_multiple_days_produces_multiple_intervals(self, db_conn):
         """Availability on different days should produce separate intervals."""
-        frontend_availability = '''{
+        frontend_availability = """{
             "Monday": ["10:00-10:30", "10:30-11:00"],
             "Wednesday": ["15:00-15:30", "15:30-16:00"]
-        }'''
+        }"""
 
         result = await db_conn.execute(
             insert(users)
@@ -248,7 +251,9 @@ class TestAvailabilityLastUpdatedAt:
     """Tests for availability_last_updated_at timestamp tracking."""
 
     @pytest.mark.asyncio
-    async def test_save_user_profile_sets_timestamp_on_availability_update(self, db_conn):
+    async def test_save_user_profile_sets_timestamp_on_availability_update(
+        self, db_conn
+    ):
         """save_user_profile should set availability_last_updated_at when availability changes."""
         # Create user first
         await db_conn.execute(

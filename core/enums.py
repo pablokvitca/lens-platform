@@ -42,11 +42,20 @@ class CohortRole(str, enum.Enum):
 
 class UngroupableReason(str, enum.Enum):
     """Reasons why a user couldn't be grouped during scheduling."""
+
     no_availability = "no_availability"  # User has no availability slots
-    no_overlap_with_others = "no_overlap_with_others"  # Availability doesn't overlap with enough other users
-    no_facilitator_overlap = "no_facilitator_overlap"  # No facilitator available for user's time slots
-    facilitator_capacity = "facilitator_capacity"  # Facilitators at max groups, but user has overlap
-    insufficient_group_size = "insufficient_group_size"  # Could form group but not enough people
+    no_overlap_with_others = (
+        "no_overlap_with_others"  # Availability doesn't overlap with enough other users
+    )
+    no_facilitator_overlap = (
+        "no_facilitator_overlap"  # No facilitator available for user's time slots
+    )
+    facilitator_capacity = (
+        "facilitator_capacity"  # Facilitators at max groups, but user has overlap
+    )
+    insufficient_group_size = (
+        "insufficient_group_size"  # Could form group but not enough people
+    )
 
 
 class RSVPStatus(str, enum.Enum):

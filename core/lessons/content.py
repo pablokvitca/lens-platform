@@ -30,11 +30,15 @@ def extract_video_id_from_url(url: str) -> str:
         ValueError: If URL format is not recognized
     """
     # Pattern for youtube.com/watch?v=ID
-    match = re.search(r'(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]+)', url)
+    match = re.search(
+        r"(?:youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]+)",
+        url,
+    )
     if match:
         return match.group(1)
 
     raise ValueError(f"Could not extract video ID from URL: {url}")
+
 
 # In-memory cache for stage durations (calculated once per server process)
 # Key: (source, from_text/from_seconds, to_text/to_seconds)
@@ -45,6 +49,7 @@ _duration_cache: dict[tuple, str] = {}
 @dataclass
 class ArticleMetadata:
     """Metadata extracted from article frontmatter."""
+
     title: str | None = None
     author: str | None = None
     source_url: str | None = None  # Original article URL
@@ -53,6 +58,7 @@ class ArticleMetadata:
 @dataclass
 class VideoTranscriptMetadata:
     """Metadata extracted from video transcript frontmatter."""
+
     video_id: str | None = None
     title: str | None = None
     url: str | None = None  # YouTube URL
@@ -61,6 +67,7 @@ class VideoTranscriptMetadata:
 @dataclass
 class VideoTranscriptContent:
     """Video transcript content with metadata."""
+
     transcript: str
     metadata: VideoTranscriptMetadata
     is_excerpt: bool = False  # True if time-based extraction was used
@@ -69,6 +76,7 @@ class VideoTranscriptContent:
 @dataclass
 class ArticleContent:
     """Article content with metadata."""
+
     content: str
     metadata: ArticleMetadata
     is_excerpt: bool = False  # True if from/to were used to extract a section
@@ -89,20 +97,20 @@ def _parse_frontmatter_generic(
     Returns:
         Tuple of (metadata_dict, content_without_frontmatter)
     """
-    pattern = r'^---\s*\n(.*?)\n---\s*\n'
+    pattern = r"^---\s*\n(.*?)\n---\s*\n"
     match = re.match(pattern, text, re.DOTALL)
 
     if not match:
         return {}, text
 
     frontmatter_text = match.group(1)
-    content = text[match.end():]
+    content = text[match.end() :]
 
     metadata = {}
-    for line in frontmatter_text.split('\n'):
+    for line in frontmatter_text.split("\n"):
         line = line.strip()
-        if ':' in line:
-            key, value = line.split(':', 1)
+        if ":" in line:
+            key, value = line.split(":", 1)
             key = key.strip()
             value = value.strip().strip('"').strip("'")
             if key in field_mapping:
@@ -342,11 +350,11 @@ WORDS_PER_MINUTE = 200
 def _count_words(text: str) -> int:
     """Count words in text, ignoring markdown syntax."""
     # Remove markdown links [text](url) -> text
-    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
     # Remove markdown images ![alt](url)
-    text = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', text)
+    text = re.sub(r"!\[[^\]]*\]\([^)]+\)", "", text)
     # Remove markdown formatting characters
-    text = re.sub(r'[#*_`~>\-|]', ' ', text)
+    text = re.sub(r"[#*_`~>\-|]", " ", text)
     # Split on whitespace and count non-empty tokens
     return len([w for w in text.split() if w])
 

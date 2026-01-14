@@ -1,7 +1,7 @@
 // web_frontend/src/components/CookieSettings.tsx
-import { useState, useSyncExternalStore, useCallback } from 'react';
-import { optIn, optOut, hasConsent } from '../analytics';
-import { initSentry } from '../errorTracking';
+import { useState, useSyncExternalStore, useCallback } from "react";
+import { optIn, optOut, hasConsent } from "../analytics";
+import { initSentry } from "../errorTracking";
 
 interface CookieSettingsProps {
   isOpen: boolean;
@@ -9,23 +9,30 @@ interface CookieSettingsProps {
 }
 
 // Simple store for consent state that syncs with localStorage
-const CONSENT_KEY = 'analytics-consent';
+const CONSENT_KEY = "analytics-consent";
 
 function subscribeToConsent(callback: () => void) {
   const handleStorage = (e: StorageEvent) => {
     if (e.key === CONSENT_KEY) callback();
   };
-  window.addEventListener('storage', handleStorage);
-  return () => window.removeEventListener('storage', handleStorage);
+  window.addEventListener("storage", handleStorage);
+  return () => window.removeEventListener("storage", handleStorage);
 }
 
 function getConsentSnapshot() {
   return hasConsent();
 }
 
-export default function CookieSettings({ isOpen, onClose }: CookieSettingsProps) {
+export default function CookieSettings({
+  isOpen,
+  onClose,
+}: CookieSettingsProps) {
   // Use useSyncExternalStore to properly sync with localStorage
-  const consentFromStorage = useSyncExternalStore(subscribeToConsent, getConsentSnapshot, getConsentSnapshot);
+  const consentFromStorage = useSyncExternalStore(
+    subscribeToConsent,
+    getConsentSnapshot,
+    getConsentSnapshot
+  );
 
   // Local optimistic state for immediate UI feedback
   const [localConsent, setLocalConsent] = useState<boolean | null>(null);
@@ -74,34 +81,39 @@ export default function CookieSettings({ isOpen, onClose }: CookieSettingsProps)
           {/* Essential Cookies */}
           <div className="pb-4 border-b border-slate-200">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-slate-900">Essential Cookies</h3>
+              <h3 className="font-semibold text-slate-900">
+                Essential Cookies
+              </h3>
               <span className="text-sm text-slate-500">Always Active</span>
             </div>
             <p className="text-sm text-slate-600">
-              Required for login and core functionality. These cannot be disabled.
+              Required for login and core functionality. These cannot be
+              disabled.
             </p>
           </div>
 
           {/* Analytics Cookies */}
           <div className="pb-4 border-b border-slate-200">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-slate-900">Analytics Cookies</h3>
+              <h3 className="font-semibold text-slate-900">
+                Analytics Cookies
+              </h3>
               <button
                 onClick={() => handleToggle(!analyticsEnabled)}
                 className={`relative w-12 h-6 rounded-full transition-colors ${
-                  analyticsEnabled ? 'bg-blue-600' : 'bg-slate-300'
+                  analyticsEnabled ? "bg-blue-600" : "bg-slate-300"
                 }`}
               >
                 <span
                   className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                    analyticsEnabled ? 'translate-x-6' : 'translate-x-0'
+                    analyticsEnabled ? "translate-x-6" : "translate-x-0"
                   }`}
                 />
               </button>
             </div>
             <p className="text-sm text-slate-600">
-              Help us understand how users interact with the platform to improve the experience.
-              No marketing, no tracking, no data selling.
+              Help us understand how users interact with the platform to improve
+              the experience. No marketing, no tracking, no data selling.
             </p>
           </div>
 

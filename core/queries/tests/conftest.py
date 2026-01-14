@@ -13,9 +13,10 @@ async def db_conn():
     All changes made during the test are visible within the test,
     but rolled back afterward so DB stays clean.
     """
-    load_dotenv('.env.local')
+    load_dotenv(".env.local")
 
     from core.database import get_engine, close_engine
+
     engine = get_engine()
 
     async with engine.connect() as conn:

@@ -21,7 +21,7 @@ export default function AvailabilityStep({
 }: AvailabilityStepProps) {
   const totalSlots = Object.values(availability).reduce(
     (sum, slots) => sum + slots.length,
-    0,
+    0
   );
 
   return (
@@ -48,7 +48,9 @@ export default function AvailabilityStep({
           className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         >
           {/* Include current timezone if not in common list */}
-          {!COMMON_TIMEZONES.includes(timezone as typeof COMMON_TIMEZONES[number]) && (
+          {!COMMON_TIMEZONES.includes(
+            timezone as (typeof COMMON_TIMEZONES)[number]
+          ) && (
             <option value={timezone}>{formatTimezoneDisplay(timezone)}</option>
           )}
           {COMMON_TIMEZONES.map((tz) => (

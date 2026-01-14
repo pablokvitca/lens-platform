@@ -1,8 +1,8 @@
 // web_frontend/src/components/CookieBanner.tsx
-import { useState, useEffect } from 'react';
-import { detectUserCountry, requiresCookieConsent } from '../geolocation';
-import { optIn, optOut, hasConsentChoice } from '../analytics';
-import { initSentry } from '../errorTracking';
+import { useState, useEffect } from "react";
+import { detectUserCountry, requiresCookieConsent } from "../geolocation";
+import { optIn, optOut, hasConsentChoice } from "../analytics";
+import { initSentry } from "../errorTracking";
 
 export default function CookieBanner() {
   const [showBanner, setShowBanner] = useState(false);
@@ -52,9 +52,15 @@ export default function CookieBanner() {
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex-1">
           <p className="text-sm text-slate-300">
-            We care about AI Safety. We use analytics to understand how to improve this course platform.{' '}
-            <strong className="text-white">No marketing, no data selling.</strong>{' '}
-            <a href="/privacy" className="text-blue-400 hover:text-blue-300 underline">
+            We care about AI Safety. We use analytics to understand how to
+            improve this course platform.{" "}
+            <strong className="text-white">
+              No marketing, no data selling.
+            </strong>{" "}
+            <a
+              href="/privacy"
+              className="text-blue-400 hover:text-blue-300 underline"
+            >
               Learn more
             </a>
           </p>

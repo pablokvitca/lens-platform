@@ -136,7 +136,10 @@ async def check_connection(timeout_seconds: float = 5.0) -> tuple[bool, str]:
                 host_hint = f" (host: {host_part})"
             except IndexError:
                 pass
-        return False, f"Connection timeout after {timeout_seconds}s{host_hint} - is the database running?"
+        return (
+            False,
+            f"Connection timeout after {timeout_seconds}s{host_hint} - is the database running?",
+        )
     except Exception as e:
         error_msg = str(e)
         # Simplify common error messages

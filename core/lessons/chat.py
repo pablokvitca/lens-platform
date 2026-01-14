@@ -71,7 +71,11 @@ Do NOT:
 
     elif isinstance(current_stage, (ArticleStage, VideoStage)):
         # User is consuming content - be helpful but brief
-        content_type = "reading an article" if isinstance(current_stage, ArticleStage) else "watching a video"
+        content_type = (
+            "reading an article"
+            if isinstance(current_stage, ArticleStage)
+            else "watching a video"
+        )
         prompt = f"""You are an AI tutor. The user is currently {content_type}.
 
 Keep responses brief - the user should focus on the content.
@@ -120,7 +124,9 @@ def get_stage_content(stage: Stage) -> ArticleContent | None:
 
             # Get transcript text for the time range
             end_seconds = stage.to_seconds if stage.to_seconds else 9999
-            transcript_text = get_text_at_time(video_id, stage.from_seconds, end_seconds)
+            transcript_text = get_text_at_time(
+                video_id, stage.from_seconds, end_seconds
+            )
 
             # Return as ArticleContent for compatibility
             return ArticleContent(

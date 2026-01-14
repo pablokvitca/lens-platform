@@ -21,10 +21,7 @@ async def get_schedulable_cohorts(
     # Subquery to count pending users per cohort
     # (row exists in signups = awaiting grouping, ungroupable_reason is NULL = not yet processed)
     pending_count = (
-        select(
-            signups.c.cohort_id,
-            func.count().label("pending_users")
-        )
+        select(signups.c.cohort_id, func.count().label("pending_users"))
         .where(signups.c.ungroupable_reason.is_(None))
         .group_by(signups.c.cohort_id)
         .subquery()
@@ -92,10 +89,7 @@ async def get_cohort_by_id(
     cohort_id: int,
 ) -> dict[str, Any] | None:
     """Get a cohort by ID."""
-    query = (
-        select(cohorts)
-        .where(cohorts.c.cohort_id == cohort_id)
-    )
+    query = select(cohorts).where(cohorts.c.cohort_id == cohort_id)
     result = await conn.execute(query)
     row = result.mappings().first()
     return dict(row) if row else None
@@ -155,15 +149,14 @@ async def get_available_cohorts(
         return {"enrolled": [], "available": all_cohorts}
 
     # Get user's signups (pending enrollments)
-    enrollment_query = (
-        select(
-            signups.c.cohort_id,
-            signups.c.role,
-        )
-        .where(signups.c.user_id == user_id)
-    )
+    enrollment_query = select(
+        signups.c.cohort_id,
+        signups.c.role,
+    ).where(signups.c.user_id == user_id)
     enrollment_result = await conn.execute(enrollment_query)
-    enrollments = {row["cohort_id"]: row["role"] for row in enrollment_result.mappings()}
+    enrollments = {
+        row["cohort_id"]: row["role"] for row in enrollment_result.mappings()
+    }
 
     enrolled = []
     available = []

@@ -12,6 +12,7 @@ from discord.ext import commands
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core import (
@@ -43,10 +44,12 @@ class EnrollmentCog(commands.Cog):
 
         await interaction.response.send_message(
             f"Click here to sign up: {link}\n\nThis link expires in 5 minutes.",
-            ephemeral=True
+            ephemeral=True,
         )
 
-    @app_commands.command(name="availability", description="View and edit your availability")
+    @app_commands.command(
+        name="availability", description="View and edit your availability"
+    )
     async def availability(self, interaction: discord.Interaction):
         """Generate a web link with an auth code to edit availability."""
         discord_id = str(interaction.user.id)
@@ -55,11 +58,13 @@ class EnrollmentCog(commands.Cog):
 
         await interaction.response.send_message(
             f"Click here to view and edit your availability: {link}\n\nThis link expires in 5 minutes.",
-            ephemeral=True
+            ephemeral=True,
         )
 
     # TODO: Probably remove this command. I think it is an old trial that presumes facilitator privileges are set within the Discord guild, instead of in our DB.
-    @app_commands.command(name="toggle-facilitator", description="Toggle your facilitator status")
+    @app_commands.command(
+        name="toggle-facilitator", description="Toggle your facilitator status"
+    )
     async def toggle_facilitator_cmd(self, interaction: discord.Interaction):
         """Toggle whether you are marked as a facilitator."""
         user_id = str(interaction.user.id)
@@ -67,8 +72,7 @@ class EnrollmentCog(commands.Cog):
 
         if not user_data:
             await interaction.response.send_message(
-                "You haven't signed up yet! Use `/signup` first.",
-                ephemeral=True
+                "You haven't signed up yet! Use `/signup` first.", ephemeral=True
             )
             return
 
@@ -79,18 +83,22 @@ class EnrollmentCog(commands.Cog):
 
         role_message = ""
         if interaction.guild:
-            facilitator_role = discord.utils.get(interaction.guild.roles, name="Facilitator")
+            facilitator_role = discord.utils.get(
+                interaction.guild.roles, name="Facilitator"
+            )
 
             if not facilitator_role:
                 try:
                     facilitator_role = await interaction.guild.create_role(
                         name="Facilitator",
                         color=discord.Color.gold(),
-                        reason="Created by scheduler bot"
+                        reason="Created by scheduler bot",
                     )
                     role_message = "\n(Created Facilitator role)"
                 except discord.Forbidden:
-                    role_message = "\n(Couldn't create/assign role - missing permissions)"
+                    role_message = (
+                        "\n(Couldn't create/assign role - missing permissions)"
+                    )
                     facilitator_role = None
 
             if facilitator_role:

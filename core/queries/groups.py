@@ -92,10 +92,7 @@ async def get_cohort_groups_for_realization(
         }
     """
     # Get cohort info
-    cohort_query = (
-        select(cohorts)
-        .where(cohorts.c.cohort_id == cohort_id)
-    )
+    cohort_query = select(cohorts).where(cohorts.c.cohort_id == cohort_id)
     cohort_result = await conn.execute(cohort_query)
     cohort_row = cohort_result.mappings().first()
 
@@ -133,17 +130,23 @@ async def get_cohort_groups_for_realization(
         for member_row in members_result.mappings():
             member = dict(member_row)
             # Use nickname if set, otherwise discord_username
-            member["name"] = member.get("nickname") or member.get("discord_username") or f"User {member['user_id']}"
+            member["name"] = (
+                member.get("nickname")
+                or member.get("discord_username")
+                or f"User {member['user_id']}"
+            )
             members.append(member)
 
-        groups_list.append({
-            "group_id": group_data["group_id"],
-            "group_name": group_data["group_name"],
-            "recurring_meeting_time_utc": group_data["recurring_meeting_time_utc"],
-            "discord_text_channel_id": group_data["discord_text_channel_id"],
-            "discord_voice_channel_id": group_data["discord_voice_channel_id"],
-            "members": members,
-        })
+        groups_list.append(
+            {
+                "group_id": group_data["group_id"],
+                "group_name": group_data["group_name"],
+                "recurring_meeting_time_utc": group_data["recurring_meeting_time_utc"],
+                "discord_text_channel_id": group_data["discord_text_channel_id"],
+                "discord_voice_channel_id": group_data["discord_voice_channel_id"],
+                "members": members,
+            }
+        )
 
     # Load course name from YAML
     course = load_course(cohort_row["course_slug"])
@@ -284,7 +287,9 @@ async def get_group_welcome_data(
     members = []
     for member_row in members_result.mappings():
         member = dict(member_row)
-        member["name"] = member.get("nickname") or member.get("discord_username") or "Unknown"
+        member["name"] = (
+            member.get("nickname") or member.get("discord_username") or "Unknown"
+        )
         members.append(member)
 
     return {

@@ -40,22 +40,21 @@ export default function LessonDrawer({
   return (
     <>
       {/* Invisible click area to close drawer */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={onClose}
-        />
-      )}
+      {isOpen && <div className="fixed inset-0 z-40" onClick={onClose} />}
 
       {/* Drawer - no backdrop, just left shadow */}
       <div
         className={`fixed top-0 right-0 h-full w-[40%] max-w-md bg-white z-50 transform transition-transform duration-300 ease-out ${
-          isOpen ? "translate-x-0 shadow-[-8px_0_30px_-5px_rgba(0,0,0,0.2)]" : "translate-x-full"
+          isOpen
+            ? "translate-x-0 shadow-[-8px_0_30px_-5px_rgba(0,0,0,0.2)]"
+            : "translate-x-full"
         }`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
-          <h3 className="text-lg font-medium text-slate-900">Lesson Overview</h3>
+          <h3 className="text-lg font-medium text-slate-900">
+            Lesson Overview
+          </h3>
           <button
             onClick={onClose}
             className="p-2 hover:bg-slate-100 rounded-lg transition-colors"

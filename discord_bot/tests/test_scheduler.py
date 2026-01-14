@@ -21,16 +21,26 @@ balance_groups = cohort_scheduler.balance_groups
 Group = cohort_scheduler.Group
 
 
-def is_group_valid(group, meeting_length, time_increment=30, use_if_needed=True, facilitator_ids=None):
+def is_group_valid(
+    group, meeting_length, time_increment=30, use_if_needed=True, facilitator_ids=None
+):
     """Test helper: check if group is valid (unwraps group.people for cohort_scheduler)."""
     return cohort_scheduler.is_group_valid(
         group.people, meeting_length, time_increment, use_if_needed, facilitator_ids
     )
 
 
-def run_greedy_iteration(people, meeting_length, min_people, max_people, time_increment=30,
-                         randomness=0.5, facilitator_ids=None, facilitator_max_cohorts=None,
-                         use_if_needed=True):
+def run_greedy_iteration(
+    people,
+    meeting_length,
+    min_people,
+    max_people,
+    time_increment=30,
+    randomness=0.5,
+    facilitator_ids=None,
+    facilitator_max_cohorts=None,
+    use_if_needed=True,
+):
     """Test helper: single iteration of scheduling algorithm."""
     result = cohort_scheduler.schedule(
         people=people,
@@ -87,13 +97,13 @@ class TestParseIntervalString:
     def test_all_day_codes(self):
         """Test all day codes parse correctly."""
         intervals = [
-            ("M08:00 M09:00", 0),   # Monday
-            ("T08:00 T09:00", 1),   # Tuesday
-            ("W08:00 W09:00", 2),   # Wednesday
-            ("R08:00 R09:00", 3),   # Thursday
-            ("F08:00 F09:00", 4),   # Friday
-            ("S08:00 S09:00", 5),   # Saturday
-            ("U08:00 U09:00", 6),   # Sunday
+            ("M08:00 M09:00", 0),  # Monday
+            ("T08:00 T09:00", 1),  # Tuesday
+            ("W08:00 W09:00", 2),  # Wednesday
+            ("R08:00 R09:00", 3),  # Thursday
+            ("F08:00 F09:00", 4),  # Friday
+            ("S08:00 S09:00", 5),  # Saturday
+            ("U08:00 U09:00", 6),  # Sunday
         ]
         for interval_str, expected_day in intervals:
             result = parse_interval_string(interval_str)
@@ -120,7 +130,7 @@ class TestCalculateTotalAvailableTime:
         person = Person(
             id="1",
             name="Test",
-            intervals=[(540, 600)]  # 1 hour
+            intervals=[(540, 600)],  # 1 hour
         )
         result = calculate_total_available_time(person)
         assert result == 60
@@ -130,7 +140,7 @@ class TestCalculateTotalAvailableTime:
         person = Person(
             id="1",
             name="Test",
-            intervals=[(540, 600), (2280, 2400)]  # 1 hour + 2 hours
+            intervals=[(540, 600), (2280, 2400)],  # 1 hour + 2 hours
         )
         result = calculate_total_available_time(person)
         assert result == 180
@@ -141,18 +151,14 @@ class TestCalculateTotalAvailableTime:
             id="1",
             name="Test",
             intervals=[(540, 600)],  # 1 hour
-            if_needed_intervals=[(2280, 2340)]  # 1 hour
+            if_needed_intervals=[(2280, 2340)],  # 1 hour
         )
         result = calculate_total_available_time(person)
         assert result == 120
 
     def test_empty_intervals(self):
         """Calculate time with no intervals."""
-        person = Person(
-            id="1",
-            name="Test",
-            intervals=[]
-        )
+        person = Person(id="1", name="Test", intervals=[])
         result = calculate_total_available_time(person)
         assert result == 0
 
@@ -170,7 +176,7 @@ class TestIsGroupValid:
         person = Person(
             id="1",
             name="Test",
-            intervals=[(540, 660)]  # 2 hour block
+            intervals=[(540, 660)],  # 2 hour block
         )
         group = Group(id="1", name="Test", people=[person])
         assert is_group_valid(group, meeting_length=60)
@@ -180,12 +186,12 @@ class TestIsGroupValid:
         person1 = Person(
             id="1",
             name="Person 1",
-            intervals=[(540, 720)]  # Mon 9am-12pm
+            intervals=[(540, 720)],  # Mon 9am-12pm
         )
         person2 = Person(
             id="2",
             name="Person 2",
-            intervals=[(600, 780)]  # Mon 10am-1pm
+            intervals=[(600, 780)],  # Mon 10am-1pm
         )
         group = Group(id="1", name="Test", people=[person1, person2])
         # They overlap from 10am-12pm (2 hours)
@@ -196,12 +202,12 @@ class TestIsGroupValid:
         person1 = Person(
             id="1",
             name="Person 1",
-            intervals=[(540, 600)]  # Mon 9-10am
+            intervals=[(540, 600)],  # Mon 9-10am
         )
         person2 = Person(
             id="2",
             name="Person 2",
-            intervals=[(660, 720)]  # Mon 11am-12pm
+            intervals=[(660, 720)],  # Mon 11am-12pm
         )
         group = Group(id="1", name="Test", people=[person1, person2])
         assert not is_group_valid(group, meeting_length=60)
@@ -211,12 +217,12 @@ class TestIsGroupValid:
         person1 = Person(
             id="1",
             name="Person 1",
-            intervals=[(540, 600)]  # Mon 9-10am (1 hour)
+            intervals=[(540, 600)],  # Mon 9-10am (1 hour)
         )
         person2 = Person(
             id="2",
             name="Person 2",
-            intervals=[(540, 600)]  # Mon 9-10am (1 hour)
+            intervals=[(540, 600)],  # Mon 9-10am (1 hour)
         )
         group = Group(id="1", name="Test", people=[person1, person2])
         # They only overlap for 1 hour, but need 2 hours
@@ -237,12 +243,12 @@ class TestIsGroupValid:
             id="1",
             name="Person 1",
             intervals=[(540, 600)],  # Mon 9-10am
-            if_needed_intervals=[(600, 720)]  # Mon 10am-12pm if needed
+            if_needed_intervals=[(600, 720)],  # Mon 10am-12pm if needed
         )
         person2 = Person(
             id="2",
             name="Person 2",
-            intervals=[(600, 720)]  # Mon 10am-12pm
+            intervals=[(600, 720)],  # Mon 10am-12pm
         )
         group = Group(id="1", name="Test", people=[person1, person2])
         # With if-needed, they overlap 10am-12pm
@@ -259,7 +265,7 @@ class TestFindCohortTimeOptions:
         person = Person(
             id="1",
             name="Test",
-            intervals=[(540, 720)]  # Mon 9am-12pm (3 hours)
+            intervals=[(540, 720)],  # Mon 9am-12pm (3 hours)
         )
         options = find_meeting_times([person], meeting_length=60, time_increment=30)
         # Should have multiple 1-hour slots within the 3-hour window
@@ -271,7 +277,9 @@ class TestFindCohortTimeOptions:
         """Find options for two overlapping people."""
         person1 = Person(id="1", name="P1", intervals=[(540, 720)])  # 9am-12pm
         person2 = Person(id="2", name="P2", intervals=[(600, 780)])  # 10am-1pm
-        options = find_meeting_times([person1, person2], meeting_length=60, time_increment=30)
+        options = find_meeting_times(
+            [person1, person2], meeting_length=60, time_increment=30
+        )
         # Overlap is 10am-12pm, so should find options there
         assert len(options) > 0
         # First option should start at 10am (600 minutes)
@@ -281,7 +289,9 @@ class TestFindCohortTimeOptions:
         """No options when people don't overlap."""
         person1 = Person(id="1", name="P1", intervals=[(540, 600)])  # 9-10am
         person2 = Person(id="2", name="P2", intervals=[(660, 720)])  # 11am-12pm
-        options = find_meeting_times([person1, person2], meeting_length=60, time_increment=30)
+        options = find_meeting_times(
+            [person1, person2], meeting_length=60, time_increment=30
+        )
         assert len(options) == 0
 
 
@@ -314,17 +324,9 @@ class TestRunGreedyIteration:
 
     def test_single_person(self):
         """Single person should form their own group."""
-        person = Person(
-            id="1",
-            name="Test",
-            intervals=[(540, 720)]
-        )
+        person = Person(id="1", name="Test", intervals=[(540, 720)])
         result = run_greedy_iteration(
-            [person],
-            meeting_length=60,
-            min_people=1,
-            max_people=8,
-            randomness=0
+            [person], meeting_length=60, min_people=1, max_people=8, randomness=0
         )
         assert len(result) == 1
         assert len(result[0].people) == 1
@@ -338,7 +340,7 @@ class TestRunGreedyIteration:
             meeting_length=60,
             min_people=1,
             max_people=8,
-            randomness=0
+            randomness=0,
         )
         # Both should be in same group
         total_people = sum(len(g.people) for g in result)
@@ -353,7 +355,7 @@ class TestRunGreedyIteration:
             meeting_length=60,
             min_people=1,
             max_people=8,
-            randomness=0
+            randomness=0,
         )
         # Should be in separate groups
         assert len(result) == 2
@@ -366,7 +368,7 @@ class TestRunGreedyIteration:
             meeting_length=60,
             min_people=2,  # Requires 2 people
             max_people=8,
-            randomness=0
+            randomness=0,
         )
         # Single person group should be filtered
         assert len(result) == 0
@@ -374,15 +376,10 @@ class TestRunGreedyIteration:
     def test_max_people_limit(self):
         """Groups should not exceed max_people."""
         people = [
-            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)])
-            for i in range(10)
+            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(10)
         ]
         result = run_greedy_iteration(
-            people,
-            meeting_length=60,
-            min_people=1,
-            max_people=4,
-            randomness=0
+            people, meeting_length=60, min_people=1, max_people=4, randomness=0
         )
         # No group should have more than 4 people
         for group in result:
@@ -391,19 +388,14 @@ class TestRunGreedyIteration:
     def test_randomness_produces_variation(self):
         """Different randomness values should produce different results."""
         people = [
-            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)])
-            for i in range(6)
+            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(6)
         ]
 
         # Run multiple times with randomness
         results = []
         for _ in range(10):
             result = run_greedy_iteration(
-                people,
-                meeting_length=60,
-                min_people=2,
-                max_people=4,
-                randomness=0.8
+                people, meeting_length=60, min_people=2, max_people=4, randomness=0.8
             )
             # Store configuration of groups
             config = tuple(sorted([len(g.people) for g in result]))
@@ -422,20 +414,40 @@ class TestIntegration:
         """Test a realistic scheduling scenario."""
         # Create people with varied availability
         people = [
-            Person(id="1", name="Alice", intervals=parse_interval_string("M09:00 M12:00, W09:00 W12:00")),
-            Person(id="2", name="Bob", intervals=parse_interval_string("M10:00 M13:00, W10:00 W13:00")),
-            Person(id="3", name="Carol", intervals=parse_interval_string("M09:00 M11:00, T14:00 T17:00")),
-            Person(id="4", name="Dave", intervals=parse_interval_string("M10:00 M12:00, W10:00 W12:00")),
-            Person(id="5", name="Eve", intervals=parse_interval_string("T14:00 T17:00, R14:00 R17:00")),
-            Person(id="6", name="Frank", intervals=parse_interval_string("T15:00 T18:00, R15:00 R18:00")),
+            Person(
+                id="1",
+                name="Alice",
+                intervals=parse_interval_string("M09:00 M12:00, W09:00 W12:00"),
+            ),
+            Person(
+                id="2",
+                name="Bob",
+                intervals=parse_interval_string("M10:00 M13:00, W10:00 W13:00"),
+            ),
+            Person(
+                id="3",
+                name="Carol",
+                intervals=parse_interval_string("M09:00 M11:00, T14:00 T17:00"),
+            ),
+            Person(
+                id="4",
+                name="Dave",
+                intervals=parse_interval_string("M10:00 M12:00, W10:00 W12:00"),
+            ),
+            Person(
+                id="5",
+                name="Eve",
+                intervals=parse_interval_string("T14:00 T17:00, R14:00 R17:00"),
+            ),
+            Person(
+                id="6",
+                name="Frank",
+                intervals=parse_interval_string("T15:00 T18:00, R15:00 R18:00"),
+            ),
         ]
 
         result = run_greedy_iteration(
-            people,
-            meeting_length=60,
-            min_people=2,
-            max_people=4,
-            randomness=0
+            people, meeting_length=60, min_people=2, max_people=4, randomness=0
         )
 
         # Should create some valid groups
@@ -458,13 +470,20 @@ class TestIntegration:
         availability_data = {
             "Monday": ["09:00", "10:00", "14:00"],
             "Tuesday": ["10:00", "11:00"],
-            "Wednesday": ["13:00", "15:00", "16:00"]
+            "Wednesday": ["13:00", "15:00", "16:00"],
         }
 
         # Convert to interval string format (as done in the cog)
         intervals = []
-        day_code_map = {'Monday': 'M', 'Tuesday': 'T', 'Wednesday': 'W',
-                       'Thursday': 'R', 'Friday': 'F', 'Saturday': 'S', 'Sunday': 'U'}
+        day_code_map = {
+            "Monday": "M",
+            "Tuesday": "T",
+            "Wednesday": "W",
+            "Thursday": "R",
+            "Friday": "F",
+            "Saturday": "S",
+            "Sunday": "U",
+        }
 
         for day, slots in availability_data.items():
             day_code = day_code_map[day]
@@ -510,16 +529,11 @@ class TestEdgeCases:
     def test_many_people_same_availability(self):
         """Test with many people having identical availability."""
         people = [
-            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)])
-            for i in range(20)
+            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(20)
         ]
 
         result = run_greedy_iteration(
-            people,
-            meeting_length=60,
-            min_people=4,
-            max_people=8,
-            randomness=0
+            people, meeting_length=60, min_people=4, max_people=8, randomness=0
         )
 
         # Should create multiple groups
@@ -532,12 +546,17 @@ class TestBalanceCohorts:
 
     def test_already_balanced(self):
         """Groups that are already balanced should not change."""
-        people1 = [Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(4)]
-        people2 = [Person(id=str(i+4), name=f"P{i+4}", intervals=[(540, 720)]) for i in range(4)]
+        people1 = [
+            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(4)
+        ]
+        people2 = [
+            Person(id=str(i + 4), name=f"P{i + 4}", intervals=[(540, 720)])
+            for i in range(4)
+        ]
 
         groups = [
             Group(id="1", name="G1", people=people1),
-            Group(id="2", name="G2", people=people2)
+            Group(id="2", name="G2", people=people2),
         ]
 
         moves = balance_groups(groups, meeting_length=60)
@@ -545,12 +564,17 @@ class TestBalanceCohorts:
 
     def test_balance_uneven_groups(self):
         """Should move people from larger to smaller groups."""
-        people1 = [Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(6)]
-        people2 = [Person(id=str(i+6), name=f"P{i+6}", intervals=[(540, 720)]) for i in range(2)]
+        people1 = [
+            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(6)
+        ]
+        people2 = [
+            Person(id=str(i + 6), name=f"P{i + 6}", intervals=[(540, 720)])
+            for i in range(2)
+        ]
 
         groups = [
             Group(id="1", name="G1", people=people1),
-            Group(id="2", name="G2", people=people2)
+            Group(id="2", name="G2", people=people2),
         ]
 
         moves = balance_groups(groups, meeting_length=60)
@@ -561,7 +585,9 @@ class TestBalanceCohorts:
 
     def test_single_group_no_change(self):
         """Single group should not be modified."""
-        people = [Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(5)]
+        people = [
+            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(5)
+        ]
         groups = [Group(id="1", name="G1", people=people)]
 
         moves = balance_groups(groups, meeting_length=60)
@@ -571,13 +597,18 @@ class TestBalanceCohorts:
     def test_incompatible_no_move(self):
         """Should not move people if they're incompatible with target group."""
         # Group 1: available 9-10am
-        people1 = [Person(id=str(i), name=f"P{i}", intervals=[(540, 600)]) for i in range(5)]
+        people1 = [
+            Person(id=str(i), name=f"P{i}", intervals=[(540, 600)]) for i in range(5)
+        ]
         # Group 2: available 2-3pm (different time)
-        people2 = [Person(id=str(i+5), name=f"P{i+5}", intervals=[(840, 900)]) for i in range(2)]
+        people2 = [
+            Person(id=str(i + 5), name=f"P{i + 5}", intervals=[(840, 900)])
+            for i in range(2)
+        ]
 
         groups = [
             Group(id="1", name="G1", people=people1),
-            Group(id="2", name="G2", people=people2)
+            Group(id="2", name="G2", people=people2),
         ]
 
         moves = balance_groups(groups, meeting_length=60)
@@ -586,14 +617,22 @@ class TestBalanceCohorts:
 
     def test_three_groups_balance(self):
         """Balance across three groups."""
-        people1 = [Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(7)]
-        people2 = [Person(id=str(i+7), name=f"P{i+7}", intervals=[(540, 720)]) for i in range(3)]
-        people3 = [Person(id=str(i+10), name=f"P{i+10}", intervals=[(540, 720)]) for i in range(2)]
+        people1 = [
+            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(7)
+        ]
+        people2 = [
+            Person(id=str(i + 7), name=f"P{i + 7}", intervals=[(540, 720)])
+            for i in range(3)
+        ]
+        people3 = [
+            Person(id=str(i + 10), name=f"P{i + 10}", intervals=[(540, 720)])
+            for i in range(2)
+        ]
 
         groups = [
             Group(id="1", name="G1", people=people1),
             Group(id="2", name="G2", people=people2),
-            Group(id="3", name="G3", people=people3)
+            Group(id="3", name="G3", people=people3),
         ]
 
         moves = balance_groups(groups, meeting_length=60)
@@ -623,7 +662,9 @@ class TestFacilitatorMode:
         group = Group(id="1", name="Test", people=[person1, person2])
         facilitator_ids = {"f1"}  # No one in group is a facilitator
 
-        assert not is_group_valid(group, meeting_length=60, facilitator_ids=facilitator_ids)
+        assert not is_group_valid(
+            group, meeting_length=60, facilitator_ids=facilitator_ids
+        )
 
     def test_group_invalid_two_facilitators(self):
         """Group with two facilitators should be invalid."""
@@ -633,17 +674,18 @@ class TestFacilitatorMode:
         group = Group(id="1", name="Test", people=[facilitator1, facilitator2])
         facilitator_ids = {"f1", "f2"}
 
-        assert not is_group_valid(group, meeting_length=60, facilitator_ids=facilitator_ids)
+        assert not is_group_valid(
+            group, meeting_length=60, facilitator_ids=facilitator_ids
+        )
 
     def test_greedy_iteration_with_facilitators(self):
         """Greedy iteration should create groups with one facilitator each."""
         facilitators = [
             Person(id="f1", name="F1", intervals=[(540, 720)]),
-            Person(id="f2", name="F2", intervals=[(540, 720)])
+            Person(id="f2", name="F2", intervals=[(540, 720)]),
         ]
         participants = [
-            Person(id=f"p{i}", name=f"P{i}", intervals=[(540, 720)])
-            for i in range(6)
+            Person(id=f"p{i}", name=f"P{i}", intervals=[(540, 720)]) for i in range(6)
         ]
 
         all_people = facilitators + participants
@@ -656,7 +698,7 @@ class TestFacilitatorMode:
             max_people=4,
             randomness=0,
             facilitator_ids=facilitator_ids,
-            facilitator_max_cohorts={"f1": 1, "f2": 1}
+            facilitator_max_cohorts={"f1": 1, "f2": 1},
         )
 
         # Each group should have exactly one facilitator
@@ -673,8 +715,7 @@ class TestFacilitatorMode:
         ]
         # 15 students - more than 2 facilitators can handle
         students = [
-            Person(id=f"s{i}", name=f"S{i}", intervals=[(540, 720)])
-            for i in range(15)
+            Person(id=f"s{i}", name=f"S{i}", intervals=[(540, 720)]) for i in range(15)
         ]
 
         all_people = facilitators + students
@@ -711,7 +752,9 @@ class TestFacilitatorMode:
     def test_facilitator_no_overlap_with_students(self):
         """When facilitator availability doesn't overlap with students, no groups form."""
         # Facilitator available Tuesday
-        facilitator = Person(id="f1", name="F1", intervals=[(1980, 2160)])  # Tue 9am-12pm
+        facilitator = Person(
+            id="f1", name="F1", intervals=[(1980, 2160)]
+        )  # Tue 9am-12pm
         # Students available Monday only
         students = [
             Person(id=f"s{i}", name=f"S{i}", intervals=[(540, 720)])  # Mon 9am-12pm
@@ -739,12 +782,10 @@ class TestFacilitatorMode:
         """When there are more facilitators than needed, excess are unassigned."""
         # 5 facilitators but only 8 students (enough for ~2 groups)
         facilitators = [
-            Person(id=f"f{i}", name=f"F{i}", intervals=[(540, 720)])
-            for i in range(5)
+            Person(id=f"f{i}", name=f"F{i}", intervals=[(540, 720)]) for i in range(5)
         ]
         students = [
-            Person(id=f"s{i}", name=f"S{i}", intervals=[(540, 720)])
-            for i in range(8)
+            Person(id=f"s{i}", name=f"S{i}", intervals=[(540, 720)]) for i in range(8)
         ]
 
         all_people = facilitators + students
@@ -816,8 +857,7 @@ class TestFacilitatorMode:
         facilitator = Person(id="f1", name="F1", intervals=[(540, 720)])
         # 20 students - could form 4-5 groups but facilitator limited to 2
         students = [
-            Person(id=f"s{i}", name=f"S{i}", intervals=[(540, 720)])
-            for i in range(20)
+            Person(id=f"s{i}", name=f"S{i}", intervals=[(540, 720)]) for i in range(20)
         ]
 
         all_people = [facilitator] + students
@@ -849,8 +889,7 @@ class TestFacilitatorMode:
         """When no facilitators exist, scheduler runs without facilitator constraint."""
         # Use 10 students so they can form 2 groups of 5
         students = [
-            Person(id=f"s{i}", name=f"S{i}", intervals=[(540, 720)])
-            for i in range(10)
+            Person(id=f"s{i}", name=f"S{i}", intervals=[(540, 720)]) for i in range(10)
         ]
 
         # Empty facilitator_ids - scheduler should NOT enforce facilitator constraint
@@ -871,8 +910,7 @@ class TestFacilitatorMode:
     def test_empty_facilitator_set_same_as_none(self):
         """Empty facilitator set should behave same as None (no constraint)."""
         students = [
-            Person(id=f"s{i}", name=f"S{i}", intervals=[(540, 720)])
-            for i in range(10)
+            Person(id=f"s{i}", name=f"S{i}", intervals=[(540, 720)]) for i in range(10)
         ]
 
         # Empty set should also disable facilitator mode
@@ -1028,20 +1066,24 @@ class TestFindCohortTimeOptionsExtended:
             id="1",
             name="P1",
             intervals=[(540, 600)],  # Regular: 9-10am
-            if_needed_intervals=[(600, 720)]  # If needed: 10am-12pm
+            if_needed_intervals=[(600, 720)],  # If needed: 10am-12pm
         )
         person2 = Person(
             id="2",
             name="P2",
-            intervals=[(600, 720)]  # Regular: 10am-12pm
+            intervals=[(600, 720)],  # Regular: 10am-12pm
         )
 
         # With if-needed
-        options = find_meeting_times([person1, person2], meeting_length=60, use_if_needed=True)
+        options = find_meeting_times(
+            [person1, person2], meeting_length=60, use_if_needed=True
+        )
         assert len(options) > 0
 
         # Without if-needed
-        options_no_if = find_meeting_times([person1, person2], meeting_length=60, use_if_needed=False)
+        options_no_if = find_meeting_times(
+            [person1, person2], meeting_length=60, use_if_needed=False
+        )
         assert len(options_no_if) == 0
 
     def test_multiple_day_options(self):
@@ -1049,12 +1091,12 @@ class TestFindCohortTimeOptionsExtended:
         person1 = Person(
             id="1",
             name="P1",
-            intervals=[(540, 720), (1980, 2160)]  # Mon 9-12, Tue 9-12
+            intervals=[(540, 720), (1980, 2160)],  # Mon 9-12, Tue 9-12
         )
         person2 = Person(
             id="2",
             name="P2",
-            intervals=[(540, 720), (1980, 2160)]  # Same
+            intervals=[(540, 720), (1980, 2160)],  # Same
         )
 
         options = find_meeting_times([person1, person2], meeting_length=60)
@@ -1066,7 +1108,7 @@ class TestFindCohortTimeOptionsExtended:
         person = Person(
             id="1",
             name="P1",
-            intervals=[(540, 600)]  # Exactly 1 hour
+            intervals=[(540, 600)],  # Exactly 1 hour
         )
 
         options = find_meeting_times([person], meeting_length=60, time_increment=30)
@@ -1080,20 +1122,16 @@ class TestMoreEdgeCases:
     def test_empty_people_list(self):
         """Scheduling with no people should return empty."""
         result = run_greedy_iteration(
-            [],
-            meeting_length=60,
-            min_people=1,
-            max_people=8,
-            randomness=0
+            [], meeting_length=60, min_people=1, max_people=8, randomness=0
         )
         assert result == []
 
     def test_all_people_incompatible(self):
         """When no one can be grouped together."""
         people = [
-            Person(id="1", name="P1", intervals=[(540, 600)]),    # 9-10am
-            Person(id="2", name="P2", intervals=[(660, 720)]),    # 11-12pm
-            Person(id="3", name="P3", intervals=[(780, 840)]),    # 1-2pm
+            Person(id="1", name="P1", intervals=[(540, 600)]),  # 9-10am
+            Person(id="2", name="P2", intervals=[(660, 720)]),  # 11-12pm
+            Person(id="3", name="P3", intervals=[(780, 840)]),  # 1-2pm
         ]
 
         result = run_greedy_iteration(
@@ -1101,7 +1139,7 @@ class TestMoreEdgeCases:
             meeting_length=60,
             min_people=2,  # Need 2 people per group
             max_people=8,
-            randomness=0
+            randomness=0,
         )
         # No valid groups can form
         assert len(result) == 0
@@ -1109,8 +1147,7 @@ class TestMoreEdgeCases:
     def test_exact_max_people_boundary(self):
         """Test group at exactly max_people."""
         people = [
-            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)])
-            for i in range(4)
+            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(4)
         ]
 
         result = run_greedy_iteration(
@@ -1118,7 +1155,7 @@ class TestMoreEdgeCases:
             meeting_length=60,
             min_people=1,
             max_people=4,  # Exactly 4 people
-            randomness=0
+            randomness=0,
         )
 
         # All 4 should fit in one group
@@ -1129,7 +1166,7 @@ class TestMoreEdgeCases:
         """Test group at exactly min_people."""
         people = [
             Person(id="1", name="P1", intervals=[(540, 720)]),
-            Person(id="2", name="P2", intervals=[(540, 720)])
+            Person(id="2", name="P2", intervals=[(540, 720)]),
         ]
 
         result = run_greedy_iteration(
@@ -1137,7 +1174,7 @@ class TestMoreEdgeCases:
             meeting_length=60,
             min_people=2,  # Need exactly 2
             max_people=8,
-            randomness=0
+            randomness=0,
         )
 
         assert len(result) == 1
@@ -1145,9 +1182,9 @@ class TestMoreEdgeCases:
 
     def test_partial_overlap_three_people(self):
         """Three people where only pairs overlap."""
-        person1 = Person(id="1", name="P1", intervals=[(540, 660)])   # 9-11am
-        person2 = Person(id="2", name="P2", intervals=[(600, 720)])   # 10-12pm
-        person3 = Person(id="3", name="P3", intervals=[(660, 780)])   # 11am-1pm
+        person1 = Person(id="1", name="P1", intervals=[(540, 660)])  # 9-11am
+        person2 = Person(id="2", name="P2", intervals=[(600, 720)])  # 10-12pm
+        person3 = Person(id="3", name="P3", intervals=[(660, 780)])  # 11am-1pm
 
         # P1-P2 overlap 10-11, P2-P3 overlap 11-12, but all three don't overlap
         group = Group(id="1", name="Test", people=[person1, person2, person3])
@@ -1159,7 +1196,7 @@ class TestMoreEdgeCases:
 
     def test_long_meeting_requirement(self):
         """Test with longer meeting requirements."""
-        person1 = Person(id="1", name="P1", intervals=[(540, 720)])   # 3 hours
+        person1 = Person(id="1", name="P1", intervals=[(540, 720)])  # 3 hours
         person2 = Person(id="2", name="P2", intervals=[(540, 720)])
 
         group = Group(id="1", name="Test", people=[person1, person2])
@@ -1203,26 +1240,20 @@ class TestMultipleCoursesScenario:
             for i in range(4)
         ]
         tech_people = [
-            Person(id=f"t{i}", name=f"Tech-{i}", intervals=[(840, 1020)])  # Different time
+            Person(
+                id=f"t{i}", name=f"Tech-{i}", intervals=[(840, 1020)]
+            )  # Different time
             for i in range(4)
         ]
 
         # Schedule AGISF
         agisf_result = run_greedy_iteration(
-            agisf_people,
-            meeting_length=60,
-            min_people=2,
-            max_people=8,
-            randomness=0
+            agisf_people, meeting_length=60, min_people=2, max_people=8, randomness=0
         )
 
         # Schedule Technical
         tech_result = run_greedy_iteration(
-            tech_people,
-            meeting_length=60,
-            min_people=2,
-            max_people=8,
-            randomness=0
+            tech_people, meeting_length=60, min_people=2, max_people=8, randomness=0
         )
 
         # Both should create valid groups
@@ -1245,7 +1276,7 @@ class TestIfNeededOnlyUsers:
             id="1",
             name="Test",
             intervals=[],  # No regular availability
-            if_needed_intervals=[(540, 720)]  # Only if-needed
+            if_needed_intervals=[(540, 720)],  # Only if-needed
         )
         result = calculate_total_available_time(person)
         assert result == 180  # 3 hours
@@ -1255,13 +1286,13 @@ class TestIfNeededOnlyUsers:
         person1 = Person(
             id="1",
             name="P1",
-            intervals=[(540, 720)]  # Regular availability
+            intervals=[(540, 720)],  # Regular availability
         )
         person2 = Person(
             id="2",
             name="P2",
             intervals=[],  # No regular availability
-            if_needed_intervals=[(540, 720)]  # Only if-needed
+            if_needed_intervals=[(540, 720)],  # Only if-needed
         )
 
         group = Group(id="1", name="Test", people=[person1, person2])
@@ -1288,7 +1319,7 @@ class TestIfNeededOnlyUsers:
             min_people=2,
             max_people=8,
             randomness=0,
-            use_if_needed=True
+            use_if_needed=True,
         )
 
         # All 4 should be scheduled together
@@ -1297,22 +1328,16 @@ class TestIfNeededOnlyUsers:
 
     def test_find_options_with_if_needed_only(self):
         """Find time options when one person has only if-needed times."""
-        person1 = Person(
-            id="1",
-            name="P1",
-            intervals=[(540, 720)]
-        )
+        person1 = Person(id="1", name="P1", intervals=[(540, 720)])
         person2 = Person(
             id="2",
             name="P2",
             intervals=[],
-            if_needed_intervals=[(600, 720)]  # Overlaps with person1
+            if_needed_intervals=[(600, 720)],  # Overlaps with person1
         )
 
         options = find_meeting_times(
-            [person1, person2],
-            meeting_length=60,
-            use_if_needed=True
+            [person1, person2], meeting_length=60, use_if_needed=True
         )
 
         # Should find overlap at 10am-12pm
@@ -1332,7 +1357,7 @@ class TestIfNeededOnlyUsers:
                 "name": "If-Needed Only User",
                 "availability": {},
                 "if_needed": {"Monday": ["09:00", "10:00"]},
-            }
+            },
         }
 
         # Manually convert like the cog does
@@ -1341,9 +1366,15 @@ class TestIfNeededOnlyUsers:
             if not data.get("availability") and not data.get("if_needed"):
                 continue
 
-            day_code_map = {'Monday': 'M', 'Tuesday': 'T', 'Wednesday': 'W',
-                           'Thursday': 'R', 'Friday': 'F', 'Saturday': 'S',
-                           'Sunday': 'U'}
+            day_code_map = {
+                "Monday": "M",
+                "Tuesday": "T",
+                "Wednesday": "W",
+                "Thursday": "R",
+                "Friday": "F",
+                "Saturday": "S",
+                "Sunday": "U",
+            }
 
             intervals = []
             for day, slots in data.get("availability", {}).items():
@@ -1389,23 +1420,29 @@ class TestIfNeededOnlyUsers:
         """Balance cohorts should work with if-needed only users."""
         # Large group with mixed availability
         people1 = [
-            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)])
-            for i in range(4)
+            Person(id=str(i), name=f"P{i}", intervals=[(540, 720)]) for i in range(4)
         ]
-        people1.extend([
-            Person(id=str(i+4), name=f"P{i+4}", intervals=[], if_needed_intervals=[(540, 720)])
-            for i in range(2)
-        ])
+        people1.extend(
+            [
+                Person(
+                    id=str(i + 4),
+                    name=f"P{i + 4}",
+                    intervals=[],
+                    if_needed_intervals=[(540, 720)],
+                )
+                for i in range(2)
+            ]
+        )
 
         # Small group
         people2 = [
-            Person(id=str(i+6), name=f"P{i+6}", intervals=[(540, 720)])
+            Person(id=str(i + 6), name=f"P{i + 6}", intervals=[(540, 720)])
             for i in range(2)
         ]
 
         groups = [
             Group(id="1", name="G1", people=people1),
-            Group(id="2", name="G2", people=people2)
+            Group(id="2", name="G2", people=people2),
         ]
 
         moves = balance_groups(groups, meeting_length=60, use_if_needed=True)

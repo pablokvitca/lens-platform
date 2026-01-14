@@ -9,6 +9,7 @@ from sqlalchemy import select, delete
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.queries.cohorts import (
@@ -167,10 +168,14 @@ class TestGetCohortGroupsForRealization:
     async def test_returns_structured_data(self, db_conn):
         """Should return cohort with groups and members."""
         # Setup
-        cohort = await create_test_cohort(db_conn, course_slug="default", name="Jan 2025", num_meetings=8)
+        cohort = await create_test_cohort(
+            db_conn, course_slug="default", name="Jan 2025", num_meetings=8
+        )
         user = await create_test_user(db_conn, cohort["cohort_id"], "123")
         group = await create_test_group(db_conn, cohort["cohort_id"], "Group 1")
-        await add_user_to_group(db_conn, group["group_id"], user["user_id"], "participant")
+        await add_user_to_group(
+            db_conn, group["group_id"], user["user_id"], "participant"
+        )
 
         # Execute
         result = await get_cohort_groups_for_realization(db_conn, cohort["cohort_id"])
@@ -211,9 +216,11 @@ class TestScheduleCohort:
                 result = await schedule_cohort(...)
         """
         from dotenv import load_dotenv
-        load_dotenv('.env.local')
+
+        load_dotenv(".env.local")
 
         from core.database import get_engine, close_engine
+
         engine = get_engine()
 
         # Track IDs for cleanup
@@ -240,9 +247,15 @@ class TestScheduleCohort:
             # Cleanup: delete in reverse dependency order using a new connection
             async with engine.begin() as cleanup_conn:
                 for user_id in created_user_ids:
-                    await cleanup_conn.execute(delete(groups_users).where(groups_users.c.user_id == user_id))
-                    await cleanup_conn.execute(delete(signups).where(signups.c.user_id == user_id))
-                    await cleanup_conn.execute(delete(users).where(users.c.user_id == user_id))
+                    await cleanup_conn.execute(
+                        delete(groups_users).where(groups_users.c.user_id == user_id)
+                    )
+                    await cleanup_conn.execute(
+                        delete(signups).where(signups.c.user_id == user_id)
+                    )
+                    await cleanup_conn.execute(
+                        delete(users).where(users.c.user_id == user_id)
+                    )
 
                 for cohort_id in created_cohort_ids:
                     # Delete groups and their memberships
@@ -251,9 +264,17 @@ class TestScheduleCohort:
                     )
                     group_ids = [row[0] for row in group_result.fetchall()]
                     for group_id in group_ids:
-                        await cleanup_conn.execute(delete(groups_users).where(groups_users.c.group_id == group_id))
-                    await cleanup_conn.execute(delete(groups).where(groups.c.cohort_id == cohort_id))
-                    await cleanup_conn.execute(delete(cohorts).where(cohorts.c.cohort_id == cohort_id))
+                        await cleanup_conn.execute(
+                            delete(groups_users).where(
+                                groups_users.c.group_id == group_id
+                            )
+                        )
+                    await cleanup_conn.execute(
+                        delete(groups).where(groups.c.cohort_id == cohort_id)
+                    )
+                    await cleanup_conn.execute(
+                        delete(cohorts).where(cohorts.c.cohort_id == cohort_id)
+                    )
 
             # Close engine so next test gets a fresh one in its event loop
             await close_engine()
@@ -318,7 +339,9 @@ class TestScheduleCohort:
         assert result.groups == []
 
     @pytest.mark.asyncio
-    async def test_schedule_cohort_raises_error_for_invalid_cohort(self, committed_db_conn):
+    async def test_schedule_cohort_raises_error_for_invalid_cohort(
+        self, committed_db_conn
+    ):
         """Should raise ValueError for non-existent cohort."""
         # Use fixture to ensure engine cleanup even though we don't need data
         _ = committed_db_conn
@@ -374,7 +397,9 @@ class TestScheduleCohort:
         assert len(result.groups) >= 1
 
     @pytest.mark.asyncio
-    async def test_schedule_cohort_more_students_than_facilitator_capacity(self, committed_db_conn):
+    async def test_schedule_cohort_more_students_than_facilitator_capacity(
+        self, committed_db_conn
+    ):
         """When students exceed facilitator capacity, excess are marked ungroupable."""
         conn, user_ids, cohort_ids, commit = committed_db_conn
 
@@ -417,7 +442,9 @@ class TestScheduleCohort:
         assert result.groups_created >= 1
 
     @pytest.mark.asyncio
-    async def test_schedule_cohort_facilitator_no_overlap_with_students(self, committed_db_conn):
+    async def test_schedule_cohort_facilitator_no_overlap_with_students(
+        self, committed_db_conn
+    ):
         """When facilitator availability doesn't overlap with students, no groups form."""
         conn, user_ids, cohort_ids, commit = committed_db_conn
 
@@ -459,7 +486,9 @@ class TestScheduleCohort:
         assert result.users_ungroupable == 7
 
     @pytest.mark.asyncio
-    async def test_schedule_cohort_no_facilitators_creates_groups(self, committed_db_conn):
+    async def test_schedule_cohort_no_facilitators_creates_groups(
+        self, committed_db_conn
+    ):
         """When no facilitators exist, groups form without facilitator constraint."""
         conn, user_ids, cohort_ids, commit = committed_db_conn
 
@@ -492,7 +521,9 @@ class TestScheduleCohort:
         assert result.users_ungroupable == 0
 
     @pytest.mark.asyncio
-    async def test_schedule_cohort_verifies_facilitator_in_groups_users(self, committed_db_conn):
+    async def test_schedule_cohort_verifies_facilitator_in_groups_users(
+        self, committed_db_conn
+    ):
         """Verify groups_users table has correct role for facilitator."""
         conn, user_ids, cohort_ids, commit = committed_db_conn
 
@@ -529,11 +560,11 @@ class TestScheduleCohort:
 
         # Verify roles in groups_users by querying the database
         from sqlalchemy import select
+
         group_id = result.groups[0]["group_id"]
 
-        role_query = (
-            select(groups_users.c.user_id, groups_users.c.role)
-            .where(groups_users.c.group_id == group_id)
+        role_query = select(groups_users.c.user_id, groups_users.c.role).where(
+            groups_users.c.group_id == group_id
         )
         role_result = await conn.execute(role_query)
         roles = {row.user_id: row.role for row in role_result.fetchall()}
@@ -591,6 +622,7 @@ class TestScheduleCohort:
 
         # Check that reasons are populated
         from core.scheduling import UngroupableReason
+
         reasons = {d.reason for d in result.ungroupable_details}
         # Students should have NO_FACILITATOR_OVERLAP reason
         assert UngroupableReason.NO_FACILITATOR_OVERLAP in reasons

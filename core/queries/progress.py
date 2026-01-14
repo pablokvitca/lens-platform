@@ -79,8 +79,7 @@ async def get_group_members_summary(
         .outerjoin(heartbeat_counts, users.c.user_id == heartbeat_counts.c.user_id)
         .outerjoin(completed_lessons, users.c.user_id == completed_lessons.c.user_id)
         .where(
-            (groups_users.c.group_id == group_id)
-            & (groups_users.c.status == "active")
+            (groups_users.c.group_id == group_id) & (groups_users.c.status == "active")
         )
         .order_by(users.c.discord_username)
     )
@@ -88,13 +87,17 @@ async def get_group_members_summary(
     result = await conn.execute(query)
     rows = []
     for row in result.mappings():
-        rows.append({
-            "user_id": row["user_id"],
-            "name": row["nickname"] or row["discord_username"],
-            "lessons_completed": row["lessons_completed"],
-            "total_time_seconds": row["total_time_seconds"],
-            "last_active_at": row["last_active_at"].isoformat() if row["last_active_at"] else None,
-        })
+        rows.append(
+            {
+                "user_id": row["user_id"],
+                "name": row["nickname"] or row["discord_username"],
+                "lessons_completed": row["lessons_completed"],
+                "total_time_seconds": row["total_time_seconds"],
+                "last_active_at": row["last_active_at"].isoformat()
+                if row["last_active_at"]
+                else None,
+            }
+        )
     return rows
 
 
@@ -164,11 +167,15 @@ async def get_user_progress_for_group(
             }
 
         lessons_map[lesson_slug]["time_spent_seconds"] += stage_time
-        lessons_map[lesson_slug]["stages"].append({
-            "stage_index": row["stage_index"],
-            "stage_type": row["stage_type"].value if hasattr(row["stage_type"], "value") else row["stage_type"],
-            "time_spent_seconds": stage_time,
-        })
+        lessons_map[lesson_slug]["stages"].append(
+            {
+                "stage_index": row["stage_index"],
+                "stage_type": row["stage_type"].value
+                if hasattr(row["stage_type"], "value")
+                else row["stage_type"],
+                "time_spent_seconds": stage_time,
+            }
+        )
 
     # Sort stages within each lesson
     for lesson in lessons_map.values():
@@ -222,13 +229,19 @@ async def get_user_chat_sessions(
         )
         heartbeat_count = duration_result.scalar() or 0
 
-        sessions.append({
-            "session_id": row["session_id"],
-            "lesson_slug": row["lesson_slug"],
-            "messages": row["messages"] or [],
-            "started_at": row["started_at"].isoformat() if row["started_at"] else None,
-            "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
-            "duration_seconds": heartbeat_count * HEARTBEAT_INTERVAL_SECONDS,
-        })
+        sessions.append(
+            {
+                "session_id": row["session_id"],
+                "lesson_slug": row["lesson_slug"],
+                "messages": row["messages"] or [],
+                "started_at": row["started_at"].isoformat()
+                if row["started_at"]
+                else None,
+                "completed_at": row["completed_at"].isoformat()
+                if row["completed_at"]
+                else None,
+                "duration_seconds": heartbeat_count * HEARTBEAT_INTERVAL_SECONDS,
+            }
+        )
 
     return sessions

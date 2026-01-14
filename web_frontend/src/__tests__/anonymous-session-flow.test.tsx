@@ -45,7 +45,9 @@ describe("Anonymous Session Flow", () => {
       login: vi.fn(),
     });
 
-    (lessonsApi.createSession as ReturnType<typeof vi.fn>).mockResolvedValue(123);
+    (lessonsApi.createSession as ReturnType<typeof vi.fn>).mockResolvedValue(
+      123
+    );
     (lessonsApi.getSession as ReturnType<typeof vi.fn>).mockResolvedValue({
       session_id: 123,
       user_id: null,
@@ -54,8 +56,20 @@ describe("Anonymous Session Flow", () => {
       current_stage_index: 0,
       total_stages: 1,
       messages: [],
-      stages: [{ type: "chat", instructions: "", showUserPreviousContent: false, showTutorPreviousContent: false }],
-      current_stage: { type: "chat", instructions: "", showUserPreviousContent: false, showTutorPreviousContent: false },
+      stages: [
+        {
+          type: "chat",
+          instructions: "",
+          showUserPreviousContent: false,
+          showTutorPreviousContent: false,
+        },
+      ],
+      current_stage: {
+        type: "chat",
+        instructions: "",
+        showUserPreviousContent: false,
+        showTutorPreviousContent: false,
+      },
       completed: false,
       article: null,
       previous_article: null,
@@ -64,9 +78,11 @@ describe("Anonymous Session Flow", () => {
     });
 
     // Mock sendMessage as an async generator for auto-initiation
-    (lessonsApi.sendMessage as ReturnType<typeof vi.fn>).mockImplementation(async function* () {
-      yield { type: "text", content: "Hello! How can I help you?" };
-    });
+    (lessonsApi.sendMessage as ReturnType<typeof vi.fn>).mockImplementation(
+      async function* () {
+        yield { type: "text", content: "Hello! How can I help you?" };
+      }
+    );
 
     renderWithRouter("test");
 
@@ -96,8 +112,20 @@ describe("Anonymous Session Flow", () => {
       current_stage_index: 0,
       total_stages: 1,
       messages: [{ role: "user", content: "hello" }],
-      stages: [{ type: "chat", instructions: "", showUserPreviousContent: false, showTutorPreviousContent: false }],
-      current_stage: { type: "chat", instructions: "", showUserPreviousContent: false, showTutorPreviousContent: false },
+      stages: [
+        {
+          type: "chat",
+          instructions: "",
+          showUserPreviousContent: false,
+          showTutorPreviousContent: false,
+        },
+      ],
+      current_stage: {
+        type: "chat",
+        instructions: "",
+        showUserPreviousContent: false,
+        showTutorPreviousContent: false,
+      },
       completed: false,
       article: null,
       previous_article: null,
@@ -105,12 +133,16 @@ describe("Anonymous Session Flow", () => {
       show_user_previous_content: false,
     });
 
-    (lessonsApi.claimSession as ReturnType<typeof vi.fn>).mockResolvedValue({ claimed: true });
+    (lessonsApi.claimSession as ReturnType<typeof vi.fn>).mockResolvedValue({
+      claimed: true,
+    });
 
     // Mock sendMessage as an async generator for auto-initiation
-    (lessonsApi.sendMessage as ReturnType<typeof vi.fn>).mockImplementation(async function* () {
-      yield { type: "text", content: "Welcome back!" };
-    });
+    (lessonsApi.sendMessage as ReturnType<typeof vi.fn>).mockImplementation(
+      async function* () {
+        yield { type: "text", content: "Welcome back!" };
+      }
+    );
 
     renderWithRouter("test");
 
@@ -126,7 +158,9 @@ describe("Anonymous Session Flow", () => {
       login: vi.fn(),
     });
 
-    (lessonsApi.createSession as ReturnType<typeof vi.fn>).mockResolvedValue(123);
+    (lessonsApi.createSession as ReturnType<typeof vi.fn>).mockResolvedValue(
+      123
+    );
     (lessonsApi.getSession as ReturnType<typeof vi.fn>).mockResolvedValue({
       session_id: 123,
       user_id: null,
@@ -136,10 +170,20 @@ describe("Anonymous Session Flow", () => {
       total_stages: 2,
       messages: [],
       stages: [
-        { type: "chat", instructions: "", showUserPreviousContent: false, showTutorPreviousContent: false },
-        { type: "article", source: "test-source", from: null, to: null }
+        {
+          type: "chat",
+          instructions: "",
+          showUserPreviousContent: false,
+          showTutorPreviousContent: false,
+        },
+        { type: "article", source: "test-source", from: null, to: null },
       ],
-      current_stage: { type: "article", source: "test-source", from: null, to: null },
+      current_stage: {
+        type: "article",
+        source: "test-source",
+        from: null,
+        to: null,
+      },
       completed: false,
       article: { content: "Test article content", title: "Test Article" },
       previous_article: null,
@@ -160,7 +204,9 @@ describe("Anonymous Session Flow", () => {
 
     // Auth prompt should appear (check for the heading specifically)
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /save your progress/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: /save your progress/i })
+      ).toBeInTheDocument();
     });
   });
 });

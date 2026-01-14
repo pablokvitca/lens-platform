@@ -4,7 +4,11 @@
 import json
 import pytest
 from pathlib import Path
-from core.transcripts import find_transcript_timestamps, get_text_at_time, get_time_from_text
+from core.transcripts import (
+    find_transcript_timestamps,
+    get_text_at_time,
+    get_time_from_text,
+)
 
 
 class TestFindTranscriptTimestamps:
@@ -94,7 +98,7 @@ class TestGetTextAtTime:
         result = get_text_at_time("pYXy-A4siMw", start=611, end=732)
 
         # Verify boundaries - text before/after should NOT be included
-        assert "Stuart Russell" not in result      # comes before 611s
+        assert "Stuart Russell" not in result  # comes before 611s
         assert "now it values the vase" not in result  # comes after 732s
 
         # Verify content at boundaries IS included
@@ -127,7 +131,7 @@ class TestGetTimeFromText:
         )
 
         assert result["start"] == 2.0  # "world" starts at 2.0
-        assert result["end"] == 5.0    # "you" starts at 5.0
+        assert result["end"] == 5.0  # "you" starts at 5.0
 
     def test_handles_punctuation_differences(self, tmp_path):
         """Matches despite punctuation differences."""
@@ -223,4 +227,4 @@ class TestGetTimeFromText:
 
         # Should match 10:11 (611s) to 12:11 (731s)
         assert 610 < result["start"] < 613  # ~611.60s
-        assert 730 < result["end"] < 733    # ~731.20s
+        assert 730 < result["end"] < 733  # ~731.20s

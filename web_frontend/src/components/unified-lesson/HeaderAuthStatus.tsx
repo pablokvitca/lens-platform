@@ -6,7 +6,13 @@ interface Props {
 }
 
 export default function HeaderAuthStatus({ onLoginClick }: Props) {
-  const { isAuthenticated, isLoading, discordUsername, discordAvatarUrl, logout } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading,
+    discordUsername,
+    discordAvatarUrl,
+    logout,
+  } = useAuth();
 
   if (isLoading) return null;
 
@@ -47,8 +53,18 @@ export default function HeaderAuthStatus({ onLoginClick }: Props) {
           <div className="w-6 h-6 rounded-full bg-gray-300" />
         )}
         <span>{discordUsername}</span>
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </button>
     </Popover>

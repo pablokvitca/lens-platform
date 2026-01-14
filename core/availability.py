@@ -39,7 +39,7 @@ def get_dst_transitions(timezone_str: str, weeks_ahead: int = 12) -> list[dateti
     # Note: Using pytz private attribute _utc_transition_times.
     # This is necessary because pytz doesn't expose a public API for DST transitions.
     # If this breaks in a future pytz version, consider migrating to python-dateutil.
-    if not hasattr(tz, '_utc_transition_times') or not tz._utc_transition_times:
+    if not hasattr(tz, "_utc_transition_times") or not tz._utc_transition_times:
         return []  # No DST for this timezone
 
     now = datetime.now(pytz.UTC)
@@ -110,6 +110,7 @@ def check_dst_warnings(
             )
 
     return warnings
+
 
 # Reverse mapping: day code -> day name
 DAY_CODE_TO_NAME = {v: k for k, v in DAY_CODES.items()}
@@ -228,7 +229,9 @@ def availability_json_to_intervals(
 
         for start_local, end_local in merged:
             # Convert start and end times from local to UTC
-            start_day_code, start_utc = local_time_to_utc(day, start_local, timezone_str)
+            start_day_code, start_utc = local_time_to_utc(
+                day, start_local, timezone_str
+            )
             end_day_code, end_utc = local_time_to_utc(day, end_local, timezone_str)
 
             interval_strs.append(f"{start_day_code}{start_utc} {end_day_code}{end_utc}")

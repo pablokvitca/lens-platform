@@ -3,17 +3,44 @@
 // GDPR regions: EU (27) + EEA (3) + UK + Switzerland + Brazil (LGPD)
 const GDPR_COUNTRIES = [
   // EU Member States
-  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR',
-  'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL',
-  'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE',
+  "AT",
+  "BE",
+  "BG",
+  "HR",
+  "CY",
+  "CZ",
+  "DK",
+  "EE",
+  "FI",
+  "FR",
+  "DE",
+  "GR",
+  "HU",
+  "IE",
+  "IT",
+  "LV",
+  "LT",
+  "LU",
+  "MT",
+  "NL",
+  "PL",
+  "PT",
+  "RO",
+  "SK",
+  "SI",
+  "ES",
+  "SE",
   // EEA (not in EU)
-  'IS', 'LI', 'NO',
+  "IS",
+  "LI",
+  "NO",
   // UK GDPR
-  'GB', 'UK',
+  "GB",
+  "UK",
   // Switzerland
-  'CH',
+  "CH",
   // Brazil LGPD
-  'BR',
+  "BR",
 ];
 
 interface GeolocationResponse {
@@ -25,17 +52,17 @@ interface GeolocationResponse {
  */
 export async function detectUserCountry(): Promise<string | null> {
   try {
-    const response = await fetch('https://ipapi.co/json/', {
+    const response = await fetch("https://ipapi.co/json/", {
       signal: AbortSignal.timeout(5000), // 5s timeout
     });
     if (!response.ok) {
-      console.warn('[geolocation] API error:', response.status);
+      console.warn("[geolocation] API error:", response.status);
       return null;
     }
     const data: GeolocationResponse = await response.json();
     return data.country || null;
   } catch (error) {
-    console.warn('[geolocation] Failed to detect country:', error);
+    console.warn("[geolocation] Failed to detect country:", error);
     return null;
   }
 }

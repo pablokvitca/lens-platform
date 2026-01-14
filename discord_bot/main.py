@@ -45,7 +45,9 @@ COGS = [
 
 
 @bot.tree.error
-async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+async def on_app_command_error(
+    interaction: discord.Interaction, error: discord.app_commands.AppCommandError
+):
     """Global error handler for slash commands."""
     if isinstance(error, discord.app_commands.MissingPermissions):
         msg = f"❌ You need **{', '.join(error.missing_permissions)}** permission(s) to use this command."
@@ -88,7 +90,7 @@ def main():
     load_dotenv()
 
     # Get token from environment
-    token = os.getenv('DISCORD_BOT_TOKEN')
+    token = os.getenv("DISCORD_BOT_TOKEN")
 
     if not token:
         print("Error: DISCORD_BOT_TOKEN environment variable not set!")

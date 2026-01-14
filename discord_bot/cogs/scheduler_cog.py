@@ -8,6 +8,7 @@ from discord.ext import commands
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core import (
@@ -35,10 +36,14 @@ class SchedulerCog(commands.Cog):
 
         choices = []
         for cohort in cohorts[:25]:  # Discord limit
-            display_name = f"{cohort['cohort_name']} ({cohort['pending_users']} pending)"
+            display_name = (
+                f"{cohort['cohort_name']} ({cohort['pending_users']} pending)"
+            )
             if current.lower() in display_name.lower():
                 choices.append(
-                    app_commands.Choice(name=display_name[:100], value=cohort["cohort_id"])
+                    app_commands.Choice(
+                        name=display_name[:100], value=cohort["cohort_id"]
+                    )
                 )
 
         return choices[:25]
@@ -71,16 +76,15 @@ class SchedulerCog(commands.Cog):
 
         # Progress message
         progress_msg = await interaction.followup.send(
-            "Running scheduling algorithm...",
-            ephemeral=False
+            "Running scheduling algorithm...", ephemeral=False
         )
 
         async def update_progress(current, total, best_score, total_people):
             try:
                 await progress_msg.edit(
                     content=f"Scheduling...\n"
-                            f"Iteration: {current}/{total} | "
-                            f"Best: {best_score}/{total_people}"
+                    f"Iteration: {current}/{total} | "
+                    f"Best: {best_score}/{total_people}"
                 )
             except discord.HTTPException:
                 pass  # Rate limited or message deleted, expected
@@ -105,20 +109,24 @@ class SchedulerCog(commands.Cog):
 
         # Build results embed
         total_users = result.users_grouped + result.users_ungroupable
-        placement_rate = (result.users_grouped * 100 // total_users) if total_users else 0
+        placement_rate = (
+            (result.users_grouped * 100 // total_users) if total_users else 0
+        )
 
         embed = discord.Embed(
             title=f"Scheduling Complete: {result.cohort_name}",
-            color=discord.Color.green() if placement_rate >= 80 else discord.Color.yellow()
+            color=discord.Color.green()
+            if placement_rate >= 80
+            else discord.Color.yellow(),
         )
 
         embed.add_field(
             name="Summary",
             value=f"**Groups created:** {result.groups_created}\n"
-                  f"**Users grouped:** {result.users_grouped}\n"
-                  f"**Ungroupable:** {result.users_ungroupable}\n"
-                  f"**Placement rate:** {placement_rate}%",
-            inline=False
+            f"**Users grouped:** {result.users_grouped}\n"
+            f"**Ungroupable:** {result.users_ungroupable}\n"
+            f"**Placement rate:** {placement_rate}%",
+            inline=False,
         )
 
         # List groups
@@ -126,17 +134,13 @@ class SchedulerCog(commands.Cog):
             embed.add_field(
                 name=f"{group['group_name']} ({group['member_count']} members)",
                 value=f"**Meeting time:** {group['meeting_time']}",
-                inline=True
+                inline=True,
             )
 
         # Show DST warnings if any
         if result.warnings:
             warnings_text = "\n".join(f"⚠️ {w}" for w in result.warnings)
-            embed.add_field(
-                name="⏰ DST Warnings",
-                value=warnings_text,
-                inline=False
-            )
+            embed.add_field(name="⏰ DST Warnings", value=warnings_text, inline=False)
 
         embed.set_footer(text="Use /realize-groups to create Discord channels")
 

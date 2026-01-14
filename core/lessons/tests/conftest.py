@@ -7,7 +7,7 @@ from sqlalchemy import text
 from dotenv import load_dotenv
 
 # Load env vars at module import time
-load_dotenv('.env.local')
+load_dotenv(".env.local")
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -15,6 +15,7 @@ async def cleanup_engine():
     """Clean up the database engine after each test to avoid connection pool issues."""
     yield
     from core.database import close_engine
+
     await close_engine()
 
 
@@ -33,7 +34,7 @@ async def test_user_id():
                 VALUES (:discord_id, :username)
                 RETURNING user_id
             """),
-            {"discord_id": discord_id, "username": f"test_user_{unique_id}"}
+            {"discord_id": discord_id, "username": f"test_user_{unique_id}"},
         )
         row = result.fetchone()
         user_id = row[0]
@@ -43,8 +44,7 @@ async def test_user_id():
     # Cleanup: delete the test user (cascades to lesson_sessions)
     async with get_transaction() as conn:
         await conn.execute(
-            text("DELETE FROM users WHERE user_id = :user_id"),
-            {"user_id": user_id}
+            text("DELETE FROM users WHERE user_id = :user_id"), {"user_id": user_id}
         )
 
 
@@ -63,7 +63,7 @@ async def another_test_user_id():
                 VALUES (:discord_id, :username)
                 RETURNING user_id
             """),
-            {"discord_id": discord_id, "username": f"another_test_user_{unique_id}"}
+            {"discord_id": discord_id, "username": f"another_test_user_{unique_id}"},
         )
         row = result.fetchone()
         user_id = row[0]
@@ -73,6 +73,5 @@ async def another_test_user_id():
     # Cleanup: delete the test user (cascades to lesson_sessions)
     async with get_transaction() as conn:
         await conn.execute(
-            text("DELETE FROM users WHERE user_id = :user_id"),
-            {"user_id": user_id}
+            text("DELETE FROM users WHERE user_id = :user_id"), {"user_id": user_id}
         )

@@ -12,6 +12,7 @@ import pytz
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.database import get_connection, get_transaction
@@ -71,12 +72,17 @@ class GroupsCog(commands.Cog):
             display_name = f"{cohort['cohort_name']} - {cohort['course_name']}"
             if current.lower() in display_name.lower():
                 choices.append(
-                    app_commands.Choice(name=display_name[:100], value=cohort["cohort_id"])
+                    app_commands.Choice(
+                        name=display_name[:100], value=cohort["cohort_id"]
+                    )
                 )
 
         return choices[:25]
 
-    @app_commands.command(name="realize-groups", description="Create Discord channels for a cohort's groups")
+    @app_commands.command(
+        name="realize-groups",
+        description="Create Discord channels for a cohort's groups",
+    )
     @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(cohort="The cohort to create Discord channels for")
     @app_commands.autocomplete(cohort=cohort_autocomplete)
@@ -89,8 +95,7 @@ class GroupsCog(commands.Cog):
         await interaction.response.defer()
 
         progress_msg = await interaction.followup.send(
-            "Loading cohort data...",
-            ephemeral=False
+            "Loading cohort data...", ephemeral=False
         )
 
         # Get cohort groups data
@@ -102,26 +107,33 @@ class GroupsCog(commands.Cog):
             return
 
         if not cohort_data["groups"]:
-            await progress_msg.edit(content="No groups found for this cohort. Run /schedule first.")
+            await progress_msg.edit(
+                content="No groups found for this cohort. Run /schedule first."
+            )
             return
 
         # Create category if it doesn't exist
         category = None
         if cohort_data["discord_category_id"]:
             try:
-                category = await interaction.guild.fetch_channel(int(cohort_data["discord_category_id"]))
+                category = await interaction.guild.fetch_channel(
+                    int(cohort_data["discord_category_id"])
+                )
             except discord.NotFound:
                 category = None
 
         if not category:
             await progress_msg.edit(content="Creating category...")
-            category_name = f"{cohort_data['course_name']} - {cohort_data['cohort_name']}"[:100]
+            category_name = (
+                f"{cohort_data['course_name']} - {cohort_data['cohort_name']}"[:100]
+            )
             category = await interaction.guild.create_category(
-                name=category_name,
-                reason=f"Realizing cohort {cohort}"
+                name=category_name, reason=f"Realizing cohort {cohort}"
             )
             # Hide from everyone by default
-            await category.set_permissions(interaction.guild.default_role, view_channel=False)
+            await category.set_permissions(
+                interaction.guild.default_role, view_channel=False
+            )
 
             # Save category ID
             async with get_transaction() as conn:
@@ -135,20 +147,22 @@ class GroupsCog(commands.Cog):
             if group_data["discord_text_channel_id"]:
                 continue
 
-            await progress_msg.edit(content=f"Creating channels for {group_data['group_name']}...")
+            await progress_msg.edit(
+                content=f"Creating channels for {group_data['group_name']}..."
+            )
 
             # Create text channel
             text_channel = await interaction.guild.create_text_channel(
                 name=group_data["group_name"].lower().replace(" ", "-"),
                 category=category,
-                reason=f"Group channel for {group_data['group_name']}"
+                reason=f"Group channel for {group_data['group_name']}",
             )
 
             # Create voice channel
             voice_channel = await interaction.guild.create_voice_channel(
                 name=f"{group_data['group_name']} Voice",
                 category=category,
-                reason=f"Voice channel for {group_data['group_name']}"
+                reason=f"Voice channel for {group_data['group_name']}",
             )
 
             # Set member permissions (channels inherit @everyone denial from category)
@@ -162,13 +176,17 @@ class GroupsCog(commands.Cog):
                         )
                     except discord.NotFound:
                         # Member not in guild - track for reporting
-                        skipped_members.append({
-                            "discord_id": discord_id,
-                            "group_name": group_data["group_name"],
-                        })
+                        skipped_members.append(
+                            {
+                                "discord_id": discord_id,
+                                "group_name": group_data["group_name"],
+                            }
+                        )
 
             # Create scheduled events
-            await progress_msg.edit(content=f"Creating events for {group_data['group_name']}...")
+            await progress_msg.edit(
+                content=f"Creating events for {group_data['group_name']}..."
+            )
 
             events, first_meeting = await self._create_scheduled_events(
                 interaction.guild,
@@ -237,14 +255,16 @@ class GroupsCog(commands.Cog):
         # Summary
         embed = discord.Embed(
             title=f"Groups Realized: {cohort_data['cohort_name']}",
-            color=discord.Color.green() if not skipped_members else discord.Color.yellow()
+            color=discord.Color.green()
+            if not skipped_members
+            else discord.Color.yellow(),
         )
         embed.add_field(
             name="Summary",
             value=f"**Category:** {category.name}\n"
-                  f"**Groups created:** {created_count}\n"
-                  f"**Total groups:** {len(cohort_data['groups'])}",
-            inline=False
+            f"**Groups created:** {created_count}\n"
+            f"**Total groups:** {len(cohort_data['groups'])}",
+            inline=False,
         )
 
         if skipped_members:
@@ -263,9 +283,11 @@ class GroupsCog(commands.Cog):
             embed.add_field(
                 name=f"⚠️ Members Not in Guild ({len(skipped_members)})",
                 value="\n".join(skipped_lines)[:1024],  # Discord field limit
-                inline=False
+                inline=False,
             )
-            embed.set_footer(text="These members will get access automatically when they join the server.")
+            embed.set_footer(
+                text="These members will get access automatically when they join the server."
+            )
 
         await progress_msg.edit(content=None, embed=embed)
 
@@ -289,7 +311,15 @@ class GroupsCog(commands.Cog):
             return events, None
 
         # Extract day and hour from format like "Wednesday 15:00-16:00"
-        day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        day_names = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ]
         day_num = None
         hour = None
 
@@ -381,16 +411,16 @@ class GroupsCog(commands.Cog):
 
         event_line = f"\n**First event:** {first_event_url}" if first_event_url else ""
 
-        message = f"""**Welcome to {group_data['group_name']}!**
+        message = f"""**Welcome to {group_data["group_name"]}!**
 
-**Course:** {cohort_data['course_name']}
-**Cohort:** {cohort_data['cohort_name']}
+**Course:** {cohort_data["course_name"]}
+**Cohort:** {cohort_data["cohort_name"]}
 
 **Your group:**
 {chr(10).join(member_lines)}
 
 **Meeting time (UTC):** {meeting_time}
-**Number of meetings:** {cohort_data.get('number_of_group_meetings', 8)}{event_line}
+**Number of meetings:** {cohort_data.get("number_of_group_meetings", 8)}{event_line}
 
 **Getting started:**
 1. Introduce yourself!
@@ -416,7 +446,10 @@ Questions? Ask in this channel. We're here to help each other learn!
         try:
             # Build member names list
             member_names = [
-                m.get("name") or m.get("nickname") or m.get("discord_username") or f"User {m['user_id']}"
+                m.get("name")
+                or m.get("nickname")
+                or m.get("discord_username")
+                or f"User {m['user_id']}"
                 for m in group_data["members"]
             ]
 
@@ -438,7 +471,9 @@ Questions? Ask in this channel. We're here to help each other learn!
                         discord_channel_id=discord_channel_id,
                     )
                 except Exception as e:
-                    print(f"[Notifications] Failed to notify user {user_id} of group assignment: {e}")
+                    print(
+                        f"[Notifications] Failed to notify user {user_id} of group assignment: {e}"
+                    )
 
         except Exception as e:
             print(f"[Notifications] Error in _send_group_notifications: {e}")
@@ -453,7 +488,9 @@ Questions? Ask in this channel. We're here to help each other learn!
         """
         # Check if this user has any realized groups
         async with get_connection() as conn:
-            user_groups = await get_realized_groups_for_discord_user(conn, str(member.id))
+            user_groups = await get_realized_groups_for_discord_user(
+                conn, str(member.id)
+            )
 
         if not user_groups:
             return
@@ -462,8 +499,12 @@ Questions? Ask in this channel. We're here to help each other learn!
         granted_groups = []
         for group in user_groups:
             try:
-                text_channel = member.guild.get_channel(int(group["discord_text_channel_id"]))
-                voice_channel = member.guild.get_channel(int(group["discord_voice_channel_id"]))
+                text_channel = member.guild.get_channel(
+                    int(group["discord_text_channel_id"])
+                )
+                voice_channel = member.guild.get_channel(
+                    int(group["discord_voice_channel_id"])
+                )
 
                 if text_channel and voice_channel:
                     await self._grant_channel_permissions(
@@ -482,7 +523,9 @@ Questions? Ask in this channel. We're here to help each other learn!
                 pass  # Channel may have been deleted
 
         if granted_groups:
-            print(f"[GroupsCog] Granted {member} access to groups: {', '.join(granted_groups)}")
+            print(
+                f"[GroupsCog] Granted {member} access to groups: {', '.join(granted_groups)}"
+            )
 
 
 async def setup(bot):

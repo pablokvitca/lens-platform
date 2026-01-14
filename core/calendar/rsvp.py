@@ -33,8 +33,9 @@ async def sync_meeting_rsvps(meeting_id: int) -> dict[str, int]:
     async with get_connection() as conn:
         # Get meeting's Google event ID
         result = await conn.execute(
-            select(meetings.c.google_calendar_event_id)
-            .where(meetings.c.meeting_id == meeting_id)
+            select(meetings.c.google_calendar_event_id).where(
+                meetings.c.meeting_id == meeting_id
+            )
         )
         row = result.first()
 

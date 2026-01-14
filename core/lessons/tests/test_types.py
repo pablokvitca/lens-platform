@@ -32,6 +32,6 @@ def test_course_with_progression():
             LessonRef(slug="lesson-1"),
             LessonRef(slug="lesson-2", optional=True),
             Meeting(number=1),
-        ]
+        ],
     )
     assert len(course.progression) == 3

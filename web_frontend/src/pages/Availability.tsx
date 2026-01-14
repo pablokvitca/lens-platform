@@ -119,7 +119,9 @@ export default function Availability() {
             {!COMMON_TIMEZONES.includes(
               timezone as (typeof COMMON_TIMEZONES)[number]
             ) && (
-              <option value={timezone}>{formatTimezoneDisplay(timezone)}</option>
+              <option value={timezone}>
+                {formatTimezoneDisplay(timezone)}
+              </option>
             )}
             {COMMON_TIMEZONES.map((tz) => (
               <option key={tz} value={tz}>

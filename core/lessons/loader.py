@@ -9,6 +9,7 @@ from .types import Lesson, ArticleStage, VideoStage, ChatStage, Stage
 
 class LessonNotFoundError(Exception):
     """Raised when a lesson cannot be found."""
+
     pass
 
 

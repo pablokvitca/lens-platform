@@ -20,7 +20,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
-load_dotenv('.env.local')
+
+load_dotenv(".env.local")
 
 from sqlalchemy import text
 from core.database import get_connection
@@ -58,7 +59,9 @@ async def delete_test_data():
             print("  No test data found to delete.")
             return
 
-        print(f"  Found: {users_n} users, {groups_n} groups, {cohorts_n} cohorts, {courses_n} courses")
+        print(
+            f"  Found: {users_n} users, {groups_n} groups, {cohorts_n} cohorts, {courses_n} courses"
+        )
 
         # Delete in order (respecting foreign keys)
         # content_events cascade from lesson_sessions
@@ -93,9 +96,7 @@ async def delete_test_data():
         print("  Deleted groups_users")
 
         # 4. Delete test users
-        await conn.execute(
-            text(f"DELETE FROM users WHERE discord_id LIKE '{PREFIX}%'")
-        )
+        await conn.execute(text(f"DELETE FROM users WHERE discord_id LIKE '{PREFIX}%'"))
         print(f"  Deleted {users_n} users")
 
         # 5. Delete test groups

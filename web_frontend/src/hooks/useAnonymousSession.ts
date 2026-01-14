@@ -13,9 +13,12 @@ export function useAnonymousSession(lessonId: string) {
     return Number.isNaN(parsed) ? null : parsed;
   }, [storageKey]);
 
-  const storeSessionId = useCallback((sessionId: number) => {
-    localStorage.setItem(storageKey, sessionId.toString());
-  }, [storageKey]);
+  const storeSessionId = useCallback(
+    (sessionId: number) => {
+      localStorage.setItem(storageKey, sessionId.toString());
+    },
+    [storageKey]
+  );
 
   const clearSessionId = useCallback(() => {
     localStorage.removeItem(storageKey);

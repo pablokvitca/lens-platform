@@ -4,7 +4,13 @@ Can be used by Discord bot, web API, or any other interface.
 """
 
 # Database (SQLAlchemy) - user data migrated to database, courses removed
-from .database import get_connection, get_transaction, get_engine, close_engine, is_configured
+from .database import (
+    get_connection,
+    get_transaction,
+    get_engine,
+    close_engine,
+    is_configured,
+)
 
 # Constants
 from .constants import DAY_CODES, DAY_NAMES, TIMEZONES
@@ -21,7 +27,8 @@ from .cohort_names import CohortNameGenerator, COHORT_NAMES
 # Scheduling algorithm
 import cohort_scheduler
 from .scheduling import (
-    Person, DAY_MAP,
+    Person,
+    DAY_MAP,
     CohortSchedulingResult,
     UngroupableReason,
     UngroupableDetail,
@@ -33,9 +40,15 @@ from .scheduling import (
 
 # User management (async functions - must be awaited)
 from .users import (
-    get_user_profile, save_user_profile, update_user_profile,
-    get_users_with_availability, get_facilitators, toggle_facilitator, is_facilitator,
-    become_facilitator, enroll_in_cohort,
+    get_user_profile,
+    save_user_profile,
+    update_user_profile,
+    get_users_with_availability,
+    get_facilitators,
+    toggle_facilitator,
+    is_facilitator,
+    become_facilitator,
+    enroll_in_cohort,
 )
 
 # Nickname sync (async functions)
@@ -47,9 +60,7 @@ from .nickname_sync import (
 )
 
 # Cohorts / Availability
-from .cohorts import (
-    find_availability_overlap, format_local_time, get_timezone_abbrev
-)
+from .cohorts import find_availability_overlap, format_local_time, get_timezone_abbrev
 
 # Availability format conversion
 from .availability import (
@@ -92,45 +103,79 @@ from .meetings import (
 
 __all__ = [
     # Database (SQLAlchemy)
-    'get_connection', 'get_transaction', 'get_engine', 'close_engine', 'is_configured',
+    "get_connection",
+    "get_transaction",
+    "get_engine",
+    "close_engine",
+    "is_configured",
     # Constants
-    'DAY_CODES', 'DAY_NAMES', 'TIMEZONES',
+    "DAY_CODES",
+    "DAY_NAMES",
+    "TIMEZONES",
     # Timezone
-    'local_to_utc_time', 'utc_to_local_time',
+    "local_to_utc_time",
+    "utc_to_local_time",
     # Google Docs
-    'extract_doc_id', 'fetch_google_doc', 'parse_doc_tabs', 'make_tab_url',
+    "extract_doc_id",
+    "fetch_google_doc",
+    "parse_doc_tabs",
+    "make_tab_url",
     # Cohort names
-    'CohortNameGenerator', 'COHORT_NAMES',
+    "CohortNameGenerator",
+    "COHORT_NAMES",
     # Scheduling (cohort_scheduler package for Group, parse_interval_string, etc.)
-    'cohort_scheduler',
+    "cohort_scheduler",
     # Scheduling (platform-specific)
-    'Person', 'DAY_MAP',
-    'CohortSchedulingResult',
-    'calculate_total_available_time',
-    'schedule_cohort',
+    "Person",
+    "DAY_MAP",
+    "CohortSchedulingResult",
+    "calculate_total_available_time",
+    "schedule_cohort",
     # User management (async)
-    'get_user_profile', 'save_user_profile', 'update_user_profile',
-    'get_users_with_availability', 'get_facilitators', 'toggle_facilitator', 'is_facilitator',
-    'become_facilitator', 'enroll_in_cohort',
+    "get_user_profile",
+    "save_user_profile",
+    "update_user_profile",
+    "get_users_with_availability",
+    "get_facilitators",
+    "toggle_facilitator",
+    "is_facilitator",
+    "become_facilitator",
+    "enroll_in_cohort",
     # Nickname sync (async)
-    'get_user_nickname', 'update_user_nickname',
-    'register_nickname_callback', 'unregister_nickname_callback', 'update_nickname_in_discord',
+    "get_user_nickname",
+    "update_user_nickname",
+    "register_nickname_callback",
+    "unregister_nickname_callback",
+    "update_nickname_in_discord",
     # Cohorts / Availability
-    'find_availability_overlap', 'format_local_time', 'get_timezone_abbrev',
+    "find_availability_overlap",
+    "format_local_time",
+    "get_timezone_abbrev",
     # Availability format conversion
-    'merge_adjacent_slots', 'availability_json_to_intervals', 'availability_json_to_interval_string',
+    "merge_adjacent_slots",
+    "availability_json_to_intervals",
+    "availability_json_to_interval_string",
     # Auth
-    'create_auth_code', 'get_or_create_user', 'validate_and_use_auth_code',
+    "create_auth_code",
+    "get_or_create_user",
+    "validate_and_use_auth_code",
     # Stampy
-    'stampy',
+    "stampy",
     # Configuration
-    'is_dev_mode', 'is_production',
-    'get_api_port', 'get_vite_port',
-    'get_frontend_url', 'get_allowed_origins',
+    "is_dev_mode",
+    "is_production",
+    "get_api_port",
+    "get_vite_port",
+    "get_frontend_url",
+    "get_allowed_origins",
     # Notifications
-    'notify_welcome', 'notify_group_assigned',
-    'schedule_meeting_reminders', 'cancel_meeting_reminders',
+    "notify_welcome",
+    "notify_group_assigned",
+    "schedule_meeting_reminders",
+    "cancel_meeting_reminders",
     # Meetings
-    'create_meetings_for_group', 'send_calendar_invites_for_group',
-    'schedule_reminders_for_group', 'reschedule_meeting',
+    "create_meetings_for_group",
+    "send_calendar_invites_for_group",
+    "schedule_reminders_for_group",
+    "reschedule_meeting",
 ]

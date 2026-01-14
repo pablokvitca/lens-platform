@@ -5,7 +5,10 @@ type OptionalBannerProps = {
   onSkip: () => void;
 };
 
-export default function OptionalBanner({ stageType, onSkip }: OptionalBannerProps) {
+export default function OptionalBanner({
+  stageType,
+  onSkip,
+}: OptionalBannerProps) {
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex items-center justify-between gap-4">
       <div className="flex items-center gap-2">
@@ -20,7 +23,9 @@ export default function OptionalBanner({ stageType, onSkip }: OptionalBannerProp
             clipRule="evenodd"
           />
         </svg>
-        <span className="text-sm text-blue-700">This {stageType} is optional.</span>
+        <span className="text-sm text-blue-700">
+          This {stageType} is optional.
+        </span>
       </div>
       <button
         onClick={onSkip}

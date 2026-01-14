@@ -10,11 +10,13 @@ from core.tables import lesson_sessions
 
 class SessionNotFoundError(Exception):
     """Raised when a session cannot be found."""
+
     pass
 
 
 class SessionAlreadyClaimedError(Exception):
     """Raised when trying to claim a session that already has a user."""
+
     pass
 
 
@@ -88,7 +90,9 @@ async def get_user_sessions(user_id: int) -> list[dict]:
         return [dict(row) for row in result.mappings().all()]
 
 
-async def add_message(session_id: int, role: str, content: str, icon: str | None = None) -> dict:
+async def add_message(
+    session_id: int, role: str, content: str, icon: str | None = None
+) -> dict:
     """
     Add a message to session history.
 

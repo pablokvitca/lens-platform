@@ -10,6 +10,7 @@ from .loader import load_lesson, LessonNotFoundError
 
 class CourseNotFoundError(Exception):
     """Raised when a course cannot be found."""
+
     pass
 
 
@@ -30,10 +31,12 @@ def load_course(course_slug: str) -> Course:
     progression: list[LessonRef | Meeting] = []
     for item in data["progression"]:
         if "lesson" in item:
-            progression.append(LessonRef(
-                slug=item["lesson"],
-                optional=item.get("optional", False),
-            ))
+            progression.append(
+                LessonRef(
+                    slug=item["lesson"],
+                    optional=item.get("optional", False),
+                )
+            )
         elif "meeting" in item:
             progression.append(Meeting(number=item["meeting"]))
 
@@ -97,7 +100,8 @@ def get_required_lessons(course: Course) -> list[LessonRef]:
         List of non-optional LessonRef objects in progression order.
     """
     return [
-        item for item in course.progression
+        item
+        for item in course.progression
         if isinstance(item, LessonRef) and not item.optional
     ]
 

@@ -128,7 +128,9 @@ groups = Table(
         ForeignKey("cohorts.cohort_id", ondelete="CASCADE"),
         nullable=False,
     ),
-    Column("course_slug_override", Text),  # NULL = use cohort's course_slug, set = A/B test variant
+    Column(
+        "course_slug_override", Text
+    ),  # NULL = use cohort's course_slug, set = A/B test variant
     Column("discord_category_id", Text),
     Column("discord_text_channel_id", Text),
     Column("discord_voice_channel_id", Text),
@@ -276,7 +278,9 @@ notification_log = Table(
         ForeignKey("users.user_id", ondelete="SET NULL"),
     ),
     Column("channel_id", Text),  # Discord channel ID (for channel messages)
-    Column("message_type", Text, nullable=False),  # e.g., "welcome", "meeting_reminder_24h"
+    Column(
+        "message_type", Text, nullable=False
+    ),  # e.g., "welcome", "meeting_reminder_24h"
     Column("channel", Text, nullable=False),  # "email", "discord_dm", "discord_channel"
     Column("status", Text, nullable=False),  # "sent", "failed"
     Column("error_message", Text),  # Why it failed (if applicable)

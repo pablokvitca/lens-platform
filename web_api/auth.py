@@ -19,7 +19,9 @@ JWT_EXPIRATION_HOURS = 24
 
 # Validate JWT_SECRET at startup in production
 if not JWT_SECRET and os.environ.get("RAILWAY_ENVIRONMENT"):
-    raise RuntimeError("JWT_SECRET must be set in production (RAILWAY_ENVIRONMENT detected)")
+    raise RuntimeError(
+        "JWT_SECRET must be set in production (RAILWAY_ENVIRONMENT detected)"
+    )
 
 
 def create_jwt(discord_user_id: str, discord_username: str) -> str:

@@ -7,6 +7,7 @@ from sqlalchemy import insert
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.tables import cohorts, signups, users
@@ -23,13 +24,15 @@ class TestGetAvailableCohorts:
         # Create future cohort
         future_date = date.today() + timedelta(days=30)
         cohort_result = await db_conn.execute(
-            insert(cohorts).values(
+            insert(cohorts)
+            .values(
                 cohort_name="Future Cohort",
                 course_slug="default",
                 cohort_start_date=future_date,
                 duration_days=56,
                 number_of_group_meetings=8,
-            ).returning(cohorts)
+            )
+            .returning(cohorts)
         )
         future_cohort = dict(cohort_result.mappings().first())
 
@@ -53,7 +56,9 @@ class TestGetAvailableCohorts:
 
         # Find our future cohort in results and verify data
         our_cohort = next(
-            c for c in result["available"] if c["cohort_id"] == future_cohort["cohort_id"]
+            c
+            for c in result["available"]
+            if c["cohort_id"] == future_cohort["cohort_id"]
         )
         assert our_cohort["cohort_name"] == "Future Cohort"
         assert result["enrolled"] == []
@@ -67,34 +72,40 @@ class TestGetAvailableCohorts:
         """Should separate enrolled cohorts from available ones."""
         # Create user
         user_result = await db_conn.execute(
-            insert(users).values(
+            insert(users)
+            .values(
                 discord_id="test_user_123",
                 discord_username="testuser",
-            ).returning(users)
+            )
+            .returning(users)
         )
         user = dict(user_result.mappings().first())
 
         # Create two future cohorts
         future_date = date.today() + timedelta(days=30)
         cohort1_result = await db_conn.execute(
-            insert(cohorts).values(
+            insert(cohorts)
+            .values(
                 cohort_name="Enrolled Cohort",
                 course_slug="default",
                 cohort_start_date=future_date,
                 duration_days=56,
                 number_of_group_meetings=8,
-            ).returning(cohorts)
+            )
+            .returning(cohorts)
         )
         cohort1 = dict(cohort1_result.mappings().first())
 
         cohort2_result = await db_conn.execute(
-            insert(cohorts).values(
+            insert(cohorts)
+            .values(
                 cohort_name="Available Cohort",
                 course_slug="default",
                 cohort_start_date=future_date + timedelta(days=30),
                 duration_days=56,
                 number_of_group_meetings=8,
-            ).returning(cohorts)
+            )
+            .returning(cohorts)
         )
         cohort2 = dict(cohort2_result.mappings().first())
 
@@ -137,10 +148,12 @@ class TestIsFacilitatorByUserId:
     async def test_returns_false_when_not_facilitator(self, db_conn):
         """Should return False for regular user."""
         user_result = await db_conn.execute(
-            insert(users).values(
+            insert(users)
+            .values(
                 discord_id="regular_user",
                 discord_username="regular",
-            ).returning(users)
+            )
+            .returning(users)
         )
         user = dict(user_result.mappings().first())
 
@@ -154,16 +167,16 @@ class TestIsFacilitatorByUserId:
         from core.tables import facilitators
 
         user_result = await db_conn.execute(
-            insert(users).values(
+            insert(users)
+            .values(
                 discord_id="fac_user",
                 discord_username="facilitator",
-            ).returning(users)
+            )
+            .returning(users)
         )
         user = dict(user_result.mappings().first())
 
-        await db_conn.execute(
-            insert(facilitators).values(user_id=user["user_id"])
-        )
+        await db_conn.execute(insert(facilitators).values(user_id=user["user_id"]))
 
         result = await is_facilitator_by_user_id(db_conn, user["user_id"])
 
@@ -179,10 +192,12 @@ class TestBecomeFacilitator:
         from core.tables import facilitators
 
         user_result = await db_conn.execute(
-            insert(users).values(
+            insert(users)
+            .values(
                 discord_id="new_fac",
                 discord_username="newfac",
-            ).returning(users)
+            )
+            .returning(users)
         )
         user = dict(user_result.mappings().first())
 
@@ -199,16 +214,16 @@ class TestBecomeFacilitator:
         from core.tables import facilitators
 
         user_result = await db_conn.execute(
-            insert(users).values(
+            insert(users)
+            .values(
                 discord_id="existing_fac",
                 discord_username="existingfac",
-            ).returning(users)
+            )
+            .returning(users)
         )
         user = dict(user_result.mappings().first())
 
-        await db_conn.execute(
-            insert(facilitators).values(user_id=user["user_id"])
-        )
+        await db_conn.execute(insert(facilitators).values(user_id=user["user_id"]))
         await db_conn.commit()
 
         result = await become_facilitator("existing_fac")
@@ -234,26 +249,32 @@ class TestEnrollInCohort:
         """Should create signup record."""
         # Setup
         cohort_result = await db_conn.execute(
-            insert(cohorts).values(
+            insert(cohorts)
+            .values(
                 cohort_name="Test Cohort",
                 course_slug="default",
                 cohort_start_date=date.today() + timedelta(days=30),
                 duration_days=56,
                 number_of_group_meetings=8,
-            ).returning(cohorts)
+            )
+            .returning(cohorts)
         )
         cohort = dict(cohort_result.mappings().first())
 
         user_result = await db_conn.execute(
-            insert(users).values(
+            insert(users)
+            .values(
                 discord_id="enroll_user",
                 discord_username="enrolluser",
-            ).returning(users)
+            )
+            .returning(users)
         )
         await db_conn.commit()
 
         # Act
-        result = await enroll_in_cohort("enroll_user", cohort["cohort_id"], "participant")
+        result = await enroll_in_cohort(
+            "enroll_user", cohort["cohort_id"], "participant"
+        )
 
         # Assert
         assert result is not None
@@ -265,26 +286,32 @@ class TestEnrollInCohort:
         """Should create enrollment record with facilitator role."""
         # Setup
         cohort_result = await db_conn.execute(
-            insert(cohorts).values(
+            insert(cohorts)
+            .values(
                 cohort_name="Facilitator Cohort",
                 course_slug="default",
                 cohort_start_date=date.today() + timedelta(days=30),
                 duration_days=56,
                 number_of_group_meetings=8,
-            ).returning(cohorts)
+            )
+            .returning(cohorts)
         )
         cohort = dict(cohort_result.mappings().first())
 
         await db_conn.execute(
-            insert(users).values(
+            insert(users)
+            .values(
                 discord_id="fac_enroll_user",
                 discord_username="facenrolluser",
-            ).returning(users)
+            )
+            .returning(users)
         )
         await db_conn.commit()
 
         # Act
-        result = await enroll_in_cohort("fac_enroll_user", cohort["cohort_id"], "facilitator")
+        result = await enroll_in_cohort(
+            "fac_enroll_user", cohort["cohort_id"], "facilitator"
+        )
 
         # Assert
         assert result is not None
@@ -294,10 +321,12 @@ class TestEnrollInCohort:
     async def test_returns_none_for_invalid_cohort(self, db_conn):
         """Should return None if cohort doesn't exist."""
         await db_conn.execute(
-            insert(users).values(
+            insert(users)
+            .values(
                 discord_id="bad_cohort_user",
                 discord_username="badcohort",
-            ).returning(users)
+            )
+            .returning(users)
         )
         await db_conn.commit()
 
@@ -310,17 +339,21 @@ class TestEnrollInCohort:
         """Should return None if user doesn't exist."""
         # Setup - create a cohort but no user
         cohort_result = await db_conn.execute(
-            insert(cohorts).values(
+            insert(cohorts)
+            .values(
                 cohort_name="No User Cohort",
                 course_slug="default",
                 cohort_start_date=date.today() + timedelta(days=30),
                 duration_days=56,
                 number_of_group_meetings=8,
-            ).returning(cohorts)
+            )
+            .returning(cohorts)
         )
         cohort = dict(cohort_result.mappings().first())
         await db_conn.commit()
 
-        result = await enroll_in_cohort("nonexistent_discord_id_12345", cohort["cohort_id"], "participant")
+        result = await enroll_in_cohort(
+            "nonexistent_discord_id_12345", cohort["cohort_id"], "participant"
+        )
 
         assert result is None

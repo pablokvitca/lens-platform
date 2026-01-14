@@ -10,20 +10,30 @@ from sqlalchemy import insert
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from sqlalchemy import update
 
 from core.tables import (
-    users, cohorts, groups, groups_users,
-    lesson_sessions, content_events,
+    users,
+    cohorts,
+    groups,
+    groups_users,
+    lesson_sessions,
+    content_events,
 )
 from core.enums import GroupUserRole, GroupUserStatus, StageType, ContentEventType
 from core.queries.facilitator import (
-    is_admin, get_facilitator_group_ids, get_accessible_groups, can_access_group
+    is_admin,
+    get_facilitator_group_ids,
+    get_accessible_groups,
+    can_access_group,
 )
 from core.queries.progress import (
-    get_group_members_summary, get_user_progress_for_group, get_user_chat_sessions
+    get_group_members_summary,
+    get_user_progress_for_group,
+    get_user_chat_sessions,
 )
 
 
@@ -31,27 +41,34 @@ from core.queries.progress import (
 # Test Fixtures - Helpers for creating test data
 # ============================================================================
 
+
 async def create_test_user(conn, discord_id: str, username: str = None) -> dict:
     """Create a test user and return the row."""
     result = await conn.execute(
-        insert(users).values(
+        insert(users)
+        .values(
             discord_id=discord_id,
             discord_username=username or f"user_{discord_id}",
-        ).returning(users)
+        )
+        .returning(users)
     )
     return dict(result.mappings().first())
 
 
-async def create_test_cohort(conn, name: str = "Test Cohort", course_slug: str = "test-course") -> dict:
+async def create_test_cohort(
+    conn, name: str = "Test Cohort", course_slug: str = "test-course"
+) -> dict:
     """Create a test cohort and return the row."""
     result = await conn.execute(
-        insert(cohorts).values(
+        insert(cohorts)
+        .values(
             cohort_name=name,
             course_slug=course_slug,
             cohort_start_date=date.today() + timedelta(days=30),
             duration_days=56,
             number_of_group_meetings=8,
-        ).returning(cohorts)
+        )
+        .returning(cohorts)
     )
     return dict(result.mappings().first())
 
@@ -59,11 +76,13 @@ async def create_test_cohort(conn, name: str = "Test Cohort", course_slug: str =
 async def create_test_group(conn, cohort_id: int, name: str = "Test Group") -> dict:
     """Create a test group and return the row."""
     result = await conn.execute(
-        insert(groups).values(
+        insert(groups)
+        .values(
             cohort_id=cohort_id,
             group_name=name,
             status="active",
-        ).returning(groups)
+        )
+        .returning(groups)
     )
     return dict(result.mappings().first())
 
@@ -73,12 +92,14 @@ async def add_user_to_group(
 ) -> dict:
     """Add a user to a group with specified role."""
     result = await conn.execute(
-        insert(groups_users).values(
+        insert(groups_users)
+        .values(
             user_id=user_id,
             group_id=group_id,
             role=role,
             status="active",
-        ).returning(groups_users)
+        )
+        .returning(groups_users)
     )
     return dict(result.mappings().first())
 
@@ -95,6 +116,7 @@ async def create_lesson_session(
 ) -> dict:
     """Create a lesson session for a user."""
     from datetime import datetime, timezone
+
     values = {
         "user_id": user_id,
         "lesson_slug": lesson_slug,
@@ -111,19 +133,25 @@ async def create_lesson_session(
 
 
 async def create_heartbeat(
-    conn, user_id: int, session_id: int, lesson_slug: str,
-    stage_index: int, stage_type: str
+    conn,
+    user_id: int,
+    session_id: int,
+    lesson_slug: str,
+    stage_index: int,
+    stage_type: str,
 ) -> dict:
     """Create a heartbeat event."""
     result = await conn.execute(
-        insert(content_events).values(
+        insert(content_events)
+        .values(
             user_id=user_id,
             session_id=session_id,
             lesson_slug=lesson_slug,
             stage_index=stage_index,
             stage_type=stage_type,
             event_type=ContentEventType.heartbeat,
-        ).returning(content_events)
+        )
+        .returning(content_events)
     )
     return dict(result.mappings().first())
 
@@ -131,6 +159,7 @@ async def create_heartbeat(
 # ============================================================================
 # Access Control Tests
 # ============================================================================
+
 
 class TestIsAdmin:
     """Tests for is_admin query."""
@@ -183,8 +212,12 @@ class TestGetFacilitatorGroupIds:
         group2 = await create_test_group(db_conn, cohort["cohort_id"], "Group B")
 
         # Make user facilitator of both groups
-        await add_user_to_group(db_conn, user["user_id"], group1["group_id"], "facilitator")
-        await add_user_to_group(db_conn, user["user_id"], group2["group_id"], "facilitator")
+        await add_user_to_group(
+            db_conn, user["user_id"], group1["group_id"], "facilitator"
+        )
+        await add_user_to_group(
+            db_conn, user["user_id"], group2["group_id"], "facilitator"
+        )
 
         result = await get_facilitator_group_ids(db_conn, user["user_id"])
 
@@ -195,11 +228,19 @@ class TestGetFacilitatorGroupIds:
         """Should not include groups where user is participant, not facilitator."""
         user = await create_test_user(db_conn, "mixed_role_user")
         cohort = await create_test_cohort(db_conn)
-        fac_group = await create_test_group(db_conn, cohort["cohort_id"], "Facilitating")
-        part_group = await create_test_group(db_conn, cohort["cohort_id"], "Participating")
+        fac_group = await create_test_group(
+            db_conn, cohort["cohort_id"], "Facilitating"
+        )
+        part_group = await create_test_group(
+            db_conn, cohort["cohort_id"], "Participating"
+        )
 
-        await add_user_to_group(db_conn, user["user_id"], fac_group["group_id"], "facilitator")
-        await add_user_to_group(db_conn, user["user_id"], part_group["group_id"], "participant")
+        await add_user_to_group(
+            db_conn, user["user_id"], fac_group["group_id"], "facilitator"
+        )
+        await add_user_to_group(
+            db_conn, user["user_id"], part_group["group_id"], "participant"
+        )
 
         result = await get_facilitator_group_ids(db_conn, user["user_id"])
 
@@ -228,7 +269,9 @@ class TestCanAccessGroup:
         user = await create_test_user(db_conn, "fac_access_own")
         cohort = await create_test_cohort(db_conn)
         group = await create_test_group(db_conn, cohort["cohort_id"])
-        await add_user_to_group(db_conn, user["user_id"], group["group_id"], "facilitator")
+        await add_user_to_group(
+            db_conn, user["user_id"], group["group_id"], "facilitator"
+        )
 
         result = await can_access_group(db_conn, user["user_id"], group["group_id"])
 
@@ -240,10 +283,16 @@ class TestCanAccessGroup:
         user = await create_test_user(db_conn, "fac_no_access")
         cohort = await create_test_cohort(db_conn)
         own_group = await create_test_group(db_conn, cohort["cohort_id"], "Own Group")
-        other_group = await create_test_group(db_conn, cohort["cohort_id"], "Other Group")
-        await add_user_to_group(db_conn, user["user_id"], own_group["group_id"], "facilitator")
+        other_group = await create_test_group(
+            db_conn, cohort["cohort_id"], "Other Group"
+        )
+        await add_user_to_group(
+            db_conn, user["user_id"], own_group["group_id"], "facilitator"
+        )
 
-        result = await can_access_group(db_conn, user["user_id"], other_group["group_id"])
+        result = await can_access_group(
+            db_conn, user["user_id"], other_group["group_id"]
+        )
 
         assert result is False
 
@@ -253,7 +302,9 @@ class TestCanAccessGroup:
         user = await create_test_user(db_conn, "participant_no_fac_access")
         cohort = await create_test_cohort(db_conn)
         group = await create_test_group(db_conn, cohort["cohort_id"])
-        await add_user_to_group(db_conn, user["user_id"], group["group_id"], "participant")
+        await add_user_to_group(
+            db_conn, user["user_id"], group["group_id"], "participant"
+        )
 
         result = await can_access_group(db_conn, user["user_id"], group["group_id"])
 
@@ -286,7 +337,9 @@ class TestGetAccessibleGroups:
         cohort = await create_test_cohort(db_conn)
         own_group = await create_test_group(db_conn, cohort["cohort_id"], "Own")
         other_group = await create_test_group(db_conn, cohort["cohort_id"], "Other")
-        await add_user_to_group(db_conn, fac["user_id"], own_group["group_id"], "facilitator")
+        await add_user_to_group(
+            db_conn, fac["user_id"], own_group["group_id"], "facilitator"
+        )
 
         result = await get_accessible_groups(db_conn, fac["user_id"])
 
@@ -299,6 +352,7 @@ class TestGetAccessibleGroups:
 # Progress Aggregation Tests
 # ============================================================================
 
+
 class TestGetGroupMembersSummary:
     """Tests for get_group_members_summary query."""
 
@@ -308,7 +362,9 @@ class TestGetGroupMembersSummary:
         user = await create_test_user(db_conn, "member_no_progress", "Alice")
         cohort = await create_test_cohort(db_conn)
         group = await create_test_group(db_conn, cohort["cohort_id"])
-        await add_user_to_group(db_conn, user["user_id"], group["group_id"], "participant")
+        await add_user_to_group(
+            db_conn, user["user_id"], group["group_id"], "participant"
+        )
 
         result = await get_group_members_summary(db_conn, group["group_id"])
 
@@ -324,12 +380,20 @@ class TestGetGroupMembersSummary:
         user = await create_test_user(db_conn, "member_completed")
         cohort = await create_test_cohort(db_conn)
         group = await create_test_group(db_conn, cohort["cohort_id"])
-        await add_user_to_group(db_conn, user["user_id"], group["group_id"], "participant")
+        await add_user_to_group(
+            db_conn, user["user_id"], group["group_id"], "participant"
+        )
 
         # Create completed and incomplete sessions
-        await create_lesson_session(db_conn, user["user_id"], "lesson-1", completed=True)
-        await create_lesson_session(db_conn, user["user_id"], "lesson-2", completed=True)
-        await create_lesson_session(db_conn, user["user_id"], "lesson-3", completed=False)
+        await create_lesson_session(
+            db_conn, user["user_id"], "lesson-1", completed=True
+        )
+        await create_lesson_session(
+            db_conn, user["user_id"], "lesson-2", completed=True
+        )
+        await create_lesson_session(
+            db_conn, user["user_id"], "lesson-3", completed=False
+        )
 
         result = await get_group_members_summary(db_conn, group["group_id"])
 
@@ -341,15 +405,21 @@ class TestGetGroupMembersSummary:
         user = await create_test_user(db_conn, "member_heartbeats")
         cohort = await create_test_cohort(db_conn)
         group = await create_test_group(db_conn, cohort["cohort_id"])
-        await add_user_to_group(db_conn, user["user_id"], group["group_id"], "participant")
+        await add_user_to_group(
+            db_conn, user["user_id"], group["group_id"], "participant"
+        )
 
         session = await create_lesson_session(db_conn, user["user_id"], "lesson-1")
 
         # Create 4 heartbeats = 120 seconds
         for _ in range(4):
             await create_heartbeat(
-                db_conn, user["user_id"], session["session_id"],
-                "lesson-1", 0, "article"
+                db_conn,
+                user["user_id"],
+                session["session_id"],
+                "lesson-1",
+                0,
+                "article",
             )
 
         result = await get_group_members_summary(db_conn, group["group_id"])
@@ -367,7 +437,9 @@ class TestGetUserProgressForGroup:
         cohort = await create_test_cohort(db_conn)
         group = await create_test_group(db_conn, cohort["cohort_id"])
 
-        result = await get_user_progress_for_group(db_conn, user["user_id"], group["group_id"])
+        result = await get_user_progress_for_group(
+            db_conn, user["user_id"], group["group_id"]
+        )
 
         assert result["lessons"] == []
         assert result["total_time_seconds"] == 0
@@ -382,15 +454,37 @@ class TestGetUserProgressForGroup:
         session = await create_lesson_session(db_conn, user["user_id"], "intro-lesson")
 
         # Article stage: 2 heartbeats = 60 sec
-        await create_heartbeat(db_conn, user["user_id"], session["session_id"], "intro-lesson", 0, "article")
-        await create_heartbeat(db_conn, user["user_id"], session["session_id"], "intro-lesson", 0, "article")
+        await create_heartbeat(
+            db_conn,
+            user["user_id"],
+            session["session_id"],
+            "intro-lesson",
+            0,
+            "article",
+        )
+        await create_heartbeat(
+            db_conn,
+            user["user_id"],
+            session["session_id"],
+            "intro-lesson",
+            0,
+            "article",
+        )
 
         # Chat stage: 3 heartbeats = 90 sec
-        await create_heartbeat(db_conn, user["user_id"], session["session_id"], "intro-lesson", 1, "chat")
-        await create_heartbeat(db_conn, user["user_id"], session["session_id"], "intro-lesson", 1, "chat")
-        await create_heartbeat(db_conn, user["user_id"], session["session_id"], "intro-lesson", 1, "chat")
+        await create_heartbeat(
+            db_conn, user["user_id"], session["session_id"], "intro-lesson", 1, "chat"
+        )
+        await create_heartbeat(
+            db_conn, user["user_id"], session["session_id"], "intro-lesson", 1, "chat"
+        )
+        await create_heartbeat(
+            db_conn, user["user_id"], session["session_id"], "intro-lesson", 1, "chat"
+        )
 
-        result = await get_user_progress_for_group(db_conn, user["user_id"], group["group_id"])
+        result = await get_user_progress_for_group(
+            db_conn, user["user_id"], group["group_id"]
+        )
 
         assert len(result["lessons"]) == 1
         lesson = result["lessons"][0]
@@ -418,7 +512,8 @@ class TestGetUserChatSessions:
 
         # Create session with messages
         result = await db_conn.execute(
-            insert(lesson_sessions).values(
+            insert(lesson_sessions)
+            .values(
                 user_id=user["user_id"],
                 lesson_slug="chat-lesson",
                 current_stage_index=0,
@@ -426,11 +521,14 @@ class TestGetUserChatSessions:
                     {"role": "user", "content": "Hello"},
                     {"role": "assistant", "content": "Hi there!"},
                 ],
-            ).returning(lesson_sessions)
+            )
+            .returning(lesson_sessions)
         )
         session = dict(result.mappings().first())
 
-        result = await get_user_chat_sessions(db_conn, user["user_id"], group["group_id"])
+        result = await get_user_chat_sessions(
+            db_conn, user["user_id"], group["group_id"]
+        )
 
         assert len(result) == 1
         assert result[0]["lesson_slug"] == "chat-lesson"

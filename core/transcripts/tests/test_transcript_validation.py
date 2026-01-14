@@ -9,7 +9,11 @@ import yaml
 from core.lessons.content import extract_video_id_from_url
 
 
-TRANSCRIPTS_DIR = Path(__file__).parent.parent.parent.parent / "educational_content" / "video_transcripts"
+TRANSCRIPTS_DIR = (
+    Path(__file__).parent.parent.parent.parent
+    / "educational_content"
+    / "video_transcripts"
+)
 
 REQUIRED_FRONTMATTER_FIELDS = ["title", "url"]
 
@@ -49,7 +53,9 @@ def test_transcript_has_valid_frontmatter(md_path: Path):
 
     # Check required fields
     for field in REQUIRED_FRONTMATTER_FIELDS:
-        assert field in frontmatter, f"{md_path.name} is missing required field: {field}"
+        assert field in frontmatter, (
+            f"{md_path.name} is missing required field: {field}"
+        )
         assert frontmatter[field], f"{md_path.name} has empty {field} field"
 
 
@@ -83,7 +89,9 @@ def test_transcript_url_is_parseable(md_path: Path):
 def test_transcript_has_timestamps_file(md_path: Path):
     """Each transcript markdown should have a corresponding .timestamps.json file."""
     timestamps_path = md_path.with_suffix(".timestamps.json")
-    assert timestamps_path.exists(), f"Missing timestamps file for {md_path.name}: expected {timestamps_path.name}"
+    assert timestamps_path.exists(), (
+        f"Missing timestamps file for {md_path.name}: expected {timestamps_path.name}"
+    )
 
 
 @pytest.mark.parametrize("md_path", get_transcript_md_files(), ids=lambda p: p.name)
@@ -103,7 +111,9 @@ def test_timestamps_file_has_valid_format(md_path: Path):
         pytest.fail(f"{timestamps_path.name} is not valid JSON: {e}")
 
     # Should be a list
-    assert isinstance(data, list), f"{timestamps_path.name} should be a JSON array, got {type(data).__name__}"
+    assert isinstance(data, list), (
+        f"{timestamps_path.name} should be a JSON array, got {type(data).__name__}"
+    )
 
     # Should have at least some entries
     assert len(data) > 0, f"{timestamps_path.name} is empty"
@@ -111,14 +121,22 @@ def test_timestamps_file_has_valid_format(md_path: Path):
     # Each entry should have 'text' and 'start' fields
     for i, entry in enumerate(data[:10]):  # Check first 10 entries
         assert "text" in entry, f"{timestamps_path.name} entry {i} missing 'text' field"
-        assert "start" in entry, f"{timestamps_path.name} entry {i} missing 'start' field"
-        assert isinstance(entry["text"], str), f"{timestamps_path.name} entry {i} 'text' should be string"
-        assert isinstance(entry["start"], (int, float)), f"{timestamps_path.name} entry {i} 'start' should be number"
+        assert "start" in entry, (
+            f"{timestamps_path.name} entry {i} missing 'start' field"
+        )
+        assert isinstance(entry["text"], str), (
+            f"{timestamps_path.name} entry {i} 'text' should be string"
+        )
+        assert isinstance(entry["start"], (int, float)), (
+            f"{timestamps_path.name} entry {i} 'start' should be number"
+        )
 
 
 def test_transcripts_directory_exists():
     """Transcripts directory should exist."""
-    assert TRANSCRIPTS_DIR.exists(), f"Transcripts directory not found: {TRANSCRIPTS_DIR}"
+    assert TRANSCRIPTS_DIR.exists(), (
+        f"Transcripts directory not found: {TRANSCRIPTS_DIR}"
+    )
 
 
 def test_at_least_one_transcript_exists():

@@ -19,10 +19,17 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core import get_or_create_user, get_user_profile, validate_and_use_auth_code
-from core import is_dev_mode, is_production, get_api_port, get_vite_port, get_allowed_origins
+from core import (
+    is_dev_mode,
+    is_production,
+    get_api_port,
+    get_vite_port,
+    get_allowed_origins,
+)
 from web_api.auth import create_jwt, get_optional_user, set_session_cookie
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -41,8 +48,12 @@ if is_dev_mode():
     FRONTEND_URL = f"http://localhost:{_vite_port}"
 elif is_production():
     # Production: use explicit env vars
-    DISCORD_REDIRECT_URI = os.environ.get("DISCORD_REDIRECT_URI", f"http://localhost:{_api_port}/auth/discord/callback")
-    FRONTEND_URL = os.environ.get("FRONTEND_URL", f"http://localhost:{_api_port}").rstrip("/")
+    DISCORD_REDIRECT_URI = os.environ.get(
+        "DISCORD_REDIRECT_URI", f"http://localhost:{_api_port}/auth/discord/callback"
+    )
+    FRONTEND_URL = os.environ.get(
+        "FRONTEND_URL", f"http://localhost:{_api_port}"
+    ).rstrip("/")
 else:
     # Local production mode (single-service): calculate from API_PORT
     DISCORD_REDIRECT_URI = f"http://localhost:{_api_port}/auth/discord/callback"
@@ -97,7 +108,11 @@ async def discord_oauth_start(
     # Generate state for CSRF protection
     _cleanup_expired_oauth_states()  # Prevent memory leak
     state = secrets.token_urlsafe(32)
-    _oauth_states[state] = {"next": next, "origin": validated_origin, "created_at": time.time()}
+    _oauth_states[state] = {
+        "next": next,
+        "origin": validated_origin,
+        "created_at": time.time(),
+    }
 
     # Build Discord OAuth URL
     params = {
@@ -183,7 +198,9 @@ async def discord_oauth_callback(
     email_verified = discord_user.get("verified", False)
 
     # Create or update user in database
-    await get_or_create_user(discord_id, discord_username, discord_avatar, email, email_verified)
+    await get_or_create_user(
+        discord_id, discord_username, discord_avatar, email, email_verified
+    )
 
     # Create JWT and set cookie
     token = create_jwt(discord_id, discord_username)
@@ -299,10 +316,7 @@ async def get_me(request: Request):
         # User has valid token but no DB record - treat as unauthenticated
         return {"authenticated": False}
 
-    avatar_url = _get_discord_avatar_url(
-        user["sub"],
-        db_user.get("discord_avatar")
-    )
+    avatar_url = _get_discord_avatar_url(user["sub"], db_user.get("discord_avatar"))
 
     return {
         "authenticated": True,
