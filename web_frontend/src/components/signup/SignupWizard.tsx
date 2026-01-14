@@ -244,6 +244,7 @@ export default function SignupWizard() {
           }
           onBack={() => setCurrentStep(2)}
           onSubmit={handleSubmit}
+          cohort={availableCohorts.find(c => c.cohort_id === formData.selectedCohortId) ?? null}
         />
       )}
     </div>

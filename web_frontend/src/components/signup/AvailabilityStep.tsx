@@ -9,6 +9,7 @@ interface AvailabilityStepProps {
   onTimezoneChange: (timezone: string) => void;
   onBack: () => void;
   onSubmit: () => void;
+  cohort: { cohort_start_date: string; duration_days: number } | null;
 }
 
 export default function AvailabilityStep({
@@ -18,6 +19,7 @@ export default function AvailabilityStep({
   onTimezoneChange,
   onBack,
   onSubmit,
+  cohort,
 }: AvailabilityStepProps) {
   const totalSlots = Object.values(availability).reduce(
     (sum, slots) => sum + slots.length,
