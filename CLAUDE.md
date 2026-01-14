@@ -181,3 +181,15 @@ from core import (
 
 Single Railway service running the unified backend (`uvicorn main:app`).
 Database: PostgreSQL (Supabase-hosted, accessed via SQLAlchemy).
+
+**Railway CLI:**
+
+```bash
+# Link to staging (default for development)
+railway link -p 779edcd4-bb95-40ad-836f-0bf4113c4453 -e 0cadba59-5e24-4d9f-8620-c8fc2722a2de -s lensacademy
+
+# View logs
+railway logs -n 100
+```
+
+For production access, go to Railway Dashboard → production environment and copy the URL.
