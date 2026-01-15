@@ -55,7 +55,7 @@ export default function VideoPlayer({
   const [isFading, setIsFading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isPaused, setIsPaused] = useState(true);
   const [isFullVideo, setIsFullVideo] = useState(false);
 
   // Keep ref in sync with state for event callbacks
@@ -79,7 +79,7 @@ export default function VideoPlayer({
 
     const handleLoadedMetadata = () => {
       video.currentTime = start;
-      video.play();
+      // Don't auto-play - wait for user to click play
     };
 
     const handlePlay = () => {

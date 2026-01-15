@@ -40,7 +40,7 @@ stages:
   - type: video
     source: video_transcripts/9i1WlcCudpU_10_Reasons_to_Ignore_AI_Safety.md
     introduction: >
-      We conclude the mandatory part with a review of the main objections
+      This video reviews the main objections to AI Safety
       and the responses to them.
 
   - type: chat
@@ -60,6 +60,8 @@ stages:
       could become an event with enormous stakes, and why, in the author's opinion,
       there is already meaningful work being done today that increases the chance
       of a positive outcome.
+      The author identifies four key premises that underpin his entire perspective on the prospects of AI.
+
 
   # Additional reading 2: Worst-case thinking - Buck Shlegeris
   - type: article
