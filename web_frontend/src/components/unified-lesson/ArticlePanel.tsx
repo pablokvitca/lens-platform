@@ -2,6 +2,7 @@ import { useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { ArticleData } from "../../types/unified-lesson";
+import IntroductionBlock from "./IntroductionBlock";
 
 type ArticlePanelProps = {
   article: ArticleData;
@@ -9,6 +10,7 @@ type ArticlePanelProps = {
   onScrolledToBottom?: () => void;
   afterContent?: React.ReactNode; // Content to render after article (e.g., button)
   onContentFitsChange?: (fits: boolean) => void; // Called when content fit status changes
+  introduction?: string; // Lens Academy intro note
 };
 
 export default function ArticlePanel({
@@ -17,6 +19,7 @@ export default function ArticlePanel({
   onScrolledToBottom,
   afterContent,
   onContentFitsChange,
+  introduction,
 }: ArticlePanelProps) {
   const { content, title, author, sourceUrl, isExcerpt } = article;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,6 +77,10 @@ export default function ArticlePanel({
         <article
           className={`prose prose-gray max-w-[620px] mx-auto p-6 ${blurred ? "blur-sm select-none" : ""}`}
         >
+          {/* Introduction comes first, before the article header */}
+          {introduction && (
+            <IntroductionBlock text={introduction} />
+          )}
           {title && <h1 className="text-2xl font-bold mb-2">{title}</h1>}
           {isExcerpt && (
             <div className="text-sm text-gray-500 mb-1">

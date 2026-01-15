@@ -288,7 +288,6 @@ export default function VideoPlayer({
           <youtube-video
             src={youtubeUrl}
             controls
-            autoplay
             className="w-full h-full"
           />
 

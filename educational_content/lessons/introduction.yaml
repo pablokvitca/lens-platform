@@ -5,6 +5,9 @@ stages:
   # Core reading 1: Video - A.I. ‐ Humanity's Final Invention?
   - type: video
     source: video_transcripts/fa8k8IQ1_X0_A.I._‐_Humanity's_Final_Invention.md
+    introduction: >
+      We begin by examining the potential of AI and the risks and opportunities
+      that the characteristics of this technology present to humanity.
 
   - type: chat
     instructions: >
@@ -19,6 +22,11 @@ stages:
     source: articles/wikipedia-existential-risk-from-ai.md
     from: "Existential risk from artificial intelligence"
     to: "Two sources of concern stem from the problems of AI"
+    introduction: >
+      We continue with an overview of the main concepts regarding AI as a source
+      of existential threat: what capabilities of this technology are considered
+      first and foremost, and why the task of eliminating AI risks differs from
+      similar tasks for other impressive technologies created by humanity.
 
   - type: chat
     instructions: >
@@ -31,6 +39,9 @@ stages:
   # Core reading 3: Video - 10 Reasons to Ignore AI Safety
   - type: video
     source: video_transcripts/9i1WlcCudpU_10_Reasons_to_Ignore_AI_Safety.md
+    introduction: >
+      We conclude the mandatory part with a review of the main objections
+      and the responses to them.
 
   - type: chat
     instructions: >
@@ -44,8 +55,19 @@ stages:
   - type: article
     source: articles/nate-soares-four-background-claims.md
     optional: true
+    introduction: >
+      This text explains exactly how the emergence of AI smarter than humans
+      could become an event with enormous stakes, and why, in the author's opinion,
+      there is already meaningful work being done today that increases the chance
+      of a positive outcome.
 
   # Additional reading 2: Worst-case thinking - Buck Shlegeris
   - type: article
     source: articles/buck-worst-case-thinking-in-ai-alignment.md
     optional: true
+    introduction: >
+      In discussions of AI safety, people often propose the assumption that
+      something will go as badly as possible. Different people may do this for
+      different reasons; in this essay, the author reviews some of the most common
+      reasons and writes about how this difference might manifest itself and what
+      it means.

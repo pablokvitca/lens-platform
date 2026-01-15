@@ -775,6 +775,11 @@ export default function UnifiedLesson() {
             onRetryContent={
               viewedStageError ? handleRetryContent : () => window.location.reload()
             }
+            introduction={
+              displayedStage && "introduction" in displayedStage
+                ? displayedStage.introduction
+                : undefined
+            }
           />
         </div>
 

@@ -5,7 +5,7 @@ date: 2015-05-01
 source_url: https://en.wikipedia.org/wiki/Existential_risk_from_artificial_intelligence
 ---
 
-*We continue with an overview of the main concepts regarding AI as a source of existential threat: what capabilities of this technology are considered first and foremost, and why the task of eliminating AI risks differs from similar tasks for other impressive technologies created by humanity.*
+*Lens Academy: We continue with an overview of the main concepts regarding AI as a source of existential threat: what capabilities of this technology are considered first and foremost, and why the task of eliminating AI risks differs from similar tasks for other impressive technologies created by humanity.*
 
 # Existential risk from artificial intelligence
 

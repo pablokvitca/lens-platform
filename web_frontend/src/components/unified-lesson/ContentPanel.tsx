@@ -18,6 +18,7 @@ import type {
 import ArticlePanel from "./ArticlePanel";
 import VideoPlayer from "./VideoPlayer";
 import OptionalBanner from "./OptionalBanner";
+import IntroductionBlock from "./IntroductionBlock";
 
 function BlurredVideoThumbnail({ videoId }: { videoId: string }) {
   const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
@@ -83,6 +84,8 @@ type ContentPanelProps = {
   // Error state for content loading
   contentError?: string | null;
   onRetryContent?: () => void;
+  // Introduction note (Lens Academy context)
+  introduction?: string;
 };
 
 export default function ContentPanel({
@@ -101,6 +104,7 @@ export default function ContentPanel({
   onVideoTimeUpdate,
   contentError,
   onRetryContent,
+  introduction,
 }: ContentPanelProps) {
   // Track if user has scrolled to bottom of article
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
@@ -305,26 +309,39 @@ export default function ContentPanel({
           articleShowButton ? handleContentFitsChange : undefined
         }
         afterContent={afterContent}
+        introduction={isArticleStage ? introduction : undefined}
       />
     );
   } else if (showVideoContent && videoId) {
     if (videoBlurred) {
       contentArea = <BlurredVideoThumbnail videoId={videoId} />;
     } else {
+      const showVideoIntro = isVideoStage && introduction;
       contentArea = (
-        <div className="flex-1 flex flex-col justify-center">
-          <VideoPlayer
-            videoId={videoId}
-            start={videoStart}
-            end={videoEnd}
-            onEnded={isVideoStage && isCurrentStage ? onVideoEnded : () => {}}
-            hideControls={isChatAfterVideo}
-            onPlay={isVideoStage && isCurrentStage ? onVideoPlay : undefined}
-            onPause={isVideoStage && isCurrentStage ? onVideoPause : undefined}
-            onTimeUpdate={
-              isVideoStage && isCurrentStage ? onVideoTimeUpdate : undefined
-            }
-          />
+        <div className="h-full flex flex-col">
+          {/* Introduction section - scrollable if long */}
+          {showVideoIntro && (
+            <div className="flex-shrink-0 max-h-[30%] overflow-y-auto px-4 pt-4">
+              <div className="max-w-[800px] mx-auto">
+                <IntroductionBlock text={introduction} />
+              </div>
+            </div>
+          )}
+          {/* Video centered in remaining space */}
+          <div className="flex-1 flex flex-col justify-center min-h-0">
+            <VideoPlayer
+              videoId={videoId}
+              start={videoStart}
+              end={videoEnd}
+              onEnded={isVideoStage && isCurrentStage ? onVideoEnded : () => {}}
+              hideControls={isChatAfterVideo}
+              onPlay={isVideoStage && isCurrentStage ? onVideoPlay : undefined}
+              onPause={isVideoStage && isCurrentStage ? onVideoPause : undefined}
+              onTimeUpdate={
+                isVideoStage && isCurrentStage ? onVideoTimeUpdate : undefined
+              }
+            />
+          </div>
         </div>
       );
     }

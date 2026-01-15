@@ -151,6 +151,7 @@ def serialize_video_stage(s: VideoStage) -> dict:
         "from": s.from_seconds,
         "to": s.to_seconds,
         "optional": s.optional,
+        "introduction": s.introduction,
     }
 
 
@@ -171,6 +172,7 @@ async def get_lesson(lesson_slug: str):
                             "from": s.from_text,
                             "to": s.to_text,
                             "optional": s.optional,
+                            "introduction": s.introduction,
                         }
                         if s.type == "article"
                         else {}
@@ -344,6 +346,7 @@ async def get_session_state(
                         "from": current_stage.from_text,
                         "to": current_stage.to_text,
                         "optional": current_stage.optional,
+                        "introduction": current_stage.introduction,
                     }
                     if current_stage and current_stage.type == "article"
                     else {}
@@ -387,7 +390,7 @@ async def get_session_state(
                 "title": get_stage_title(s),
                 "duration": get_stage_duration(s),
                 **(
-                    {"source": s.source, "optional": s.optional}
+                    {"source": s.source, "optional": s.optional, "introduction": s.introduction}
                     if s.type == "article"
                     else {}
                 ),

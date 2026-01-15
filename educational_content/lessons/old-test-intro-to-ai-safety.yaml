@@ -6,6 +6,10 @@ stages:
     source: articles/nate-soares-four-background-claims.md
     from: "MIRI's mission is to ensure"
     to: "build powerful generally intelligent AI systems."
+    introduction: >
+      We begin with an overview of the main concepts regarding AI as a source of existential threat:
+      what capabilities of this technology are considered first and foremost, and why the task of
+      eliminating AI risks differs from similar tasks for other impressive technologies created by humanity.
 
   - type: article
     source: articles/nate-soares-four-background-claims.md
@@ -25,6 +29,9 @@ stages:
     source: video_transcripts/pYXy-A4siMw_Intro_to_AI_Safety,_Remastered.md
     from: "1:00"
     to: "2:00"
+    introduction: >
+      This video from Robert Miles provides a visual introduction to the core concepts of AI safety.
+      Pay attention to the examples used to illustrate potential risks.
 
   - type: chat
     instructions: >

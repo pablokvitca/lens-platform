@@ -8,6 +8,7 @@ export type ArticleStage = {
   from: string | null;
   to: string | null;
   optional?: boolean;
+  introduction?: string; // Lens Academy intro note
 };
 
 export type VideoStage = {
@@ -16,6 +17,7 @@ export type VideoStage = {
   from: number;
   to: number | null;
   optional?: boolean;
+  introduction?: string; // Lens Academy intro note
 };
 
 export type ChatStage = {

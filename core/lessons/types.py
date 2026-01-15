@@ -18,6 +18,7 @@ class ArticleStage:
     minutes: int | None = (
         None  # Manual override for reading time (auto-calculated if None)
     )
+    introduction: str | None = None  # Lens Academy intro note
 
 
 @dataclass
@@ -29,6 +30,7 @@ class VideoStage:
     from_seconds: int = 0
     to_seconds: int | None = None  # None means to end
     optional: bool = False  # Whether this stage can be skipped
+    introduction: str | None = None  # Lens Academy intro note
 
 
 @dataclass

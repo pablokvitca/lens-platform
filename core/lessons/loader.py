@@ -45,6 +45,7 @@ def _parse_stage(data: dict) -> Stage:
             from_text=data.get("from"),
             to_text=data.get("to"),
             optional=data.get("optional", False),
+            introduction=data.get("introduction"),
         )
     elif stage_type == "video":
         return VideoStage(
@@ -53,6 +54,7 @@ def _parse_stage(data: dict) -> Stage:
             from_seconds=_parse_time(data.get("from", "0:00")),
             to_seconds=_parse_time(data.get("to")),
             optional=data.get("optional", False),
+            introduction=data.get("introduction"),
         )
     elif stage_type == "chat":
         # Support new separate fields, with backwards compat for old includePreviousContent
