@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.16",
+    "@tailwindcss/typography": "^0.5.19",
     "lucide-react": "^0.562.0",
     "next": "16.1.2",
     "posthog-js": "^1.325.0",
