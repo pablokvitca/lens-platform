@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import type {
   ChatMessage,
   PendingMessage,
@@ -371,7 +372,7 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
         <h1 className="text-xl font-semibold text-gray-900">{lesson.title}</h1>
-        <a
+        <Link
           href="/"
           className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
         >
@@ -389,7 +390,7 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
             />
           </svg>
           Exit
-        </a>
+        </Link>
       </header>
 
       {/* Progress sidebar */}

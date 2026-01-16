@@ -3,6 +3,7 @@
 
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import NarrativeLesson from "@/views/NarrativeLesson";
 import type { NarrativeLesson as NarrativeLessonType } from "@/types/narrative-lesson";
 
@@ -53,9 +54,9 @@ export default function NarrativeLessonPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error ?? "Lesson not found"}</p>
-          <a href="/" className="text-blue-600 hover:underline">
+          <Link href="/" className="text-blue-600 hover:underline">
             Go home
-          </a>
+          </Link>
         </div>
       </div>
     );
