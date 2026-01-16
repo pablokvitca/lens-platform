@@ -1,4 +1,5 @@
-// web_frontend/src/components/CookieSettings.tsx
+"use client";
+
 import { useState, useSyncExternalStore, useCallback } from "react";
 import { optIn, optOut, hasConsent } from "../analytics";
 import { initSentry } from "../errorTracking";
