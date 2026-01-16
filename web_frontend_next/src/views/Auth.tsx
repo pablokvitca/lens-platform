@@ -12,8 +12,8 @@ export default function Auth() {
   const router = useRouter();
   const hasValidated = useRef(false);
 
-  const code = searchParams.get("code");
-  const next = searchParams.get("next") || "/signup";
+  const code = searchParams?.get("code") ?? null;
+  const next = searchParams?.get("next") ?? "/signup";
 
   // Derive initial state from whether code exists
   const [status, setStatus] = useState<AuthStatus>(() =>

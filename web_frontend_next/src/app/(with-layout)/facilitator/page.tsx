@@ -1,6 +1,6 @@
 "use client";
 
-import Facilitator from "@/pages/Facilitator";
+import Facilitator from "@/views/Facilitator";
 
 export default function FacilitatorPage() {
   return <Facilitator />;

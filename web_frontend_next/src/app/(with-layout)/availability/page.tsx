@@ -1,6 +1,6 @@
 "use client";
 
-import Availability from "@/pages/Availability";
+import Availability from "@/views/Availability";
 
 export default function AvailabilityPage() {
   return <Availability />;

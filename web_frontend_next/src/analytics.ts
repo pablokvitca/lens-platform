@@ -35,7 +35,7 @@ export function initPostHog(): void {
 
   if (initialized) return;
 
-  posthog.init(POSTHOG_KEY, {
+  posthog.init(POSTHOG_KEY!, {
     api_host: POSTHOG_HOST,
     capture_pageview: false, // We'll capture manually for SPA
     capture_pageleave: true,
@@ -111,6 +111,7 @@ export function optOut(): void {
  * Check if user has consented
  */
 export function hasConsent(): boolean {
+  if (typeof window === "undefined") return false;
   return localStorage.getItem(CONSENT_KEY) === "accepted";
 }
 
@@ -118,6 +119,7 @@ export function hasConsent(): boolean {
  * Check if user has made a consent choice (either way)
  */
 export function hasConsentChoice(): boolean {
+  if (typeof window === "undefined") return false;
   const consent = localStorage.getItem(CONSENT_KEY);
   return consent === "accepted" || consent === "declined";
 }

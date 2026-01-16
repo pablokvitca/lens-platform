@@ -1,4 +1,6 @@
-import { Link } from "react-router-dom";
+"use client";
+
+import Link from "next/link";
 
 interface NextLesson {
   slug: string;
@@ -52,8 +54,8 @@ export default function LessonCompleteModal({
   //   - Enrolled + has next: "Next Lesson" → next lesson URL, "Return to Course" → /course/:id
   //   - Enrolled + no next: "Return to Course" → /course/:id
 
-  let primaryCta: { label: string; to: string };
-  let secondaryCta: { label: string; to: string } | null = null;
+  let primaryCta: { label: string; href: string };
+  let secondaryCta: { label: string; href: string } | null = null;
   let completionMessage: string;
 
   if (!isInCourseContext) {
@@ -62,10 +64,10 @@ export default function LessonCompleteModal({
       ? `You've finished "${lessonTitle}".`
       : "Great work!";
     if (!isEnrolled) {
-      primaryCta = { label: "Join the Full Course", to: "/signup" };
-      secondaryCta = { label: "View Course", to: "/course" };
+      primaryCta = { label: "Join the Full Course", href: "/signup" };
+      secondaryCta = { label: "View Course", href: "/course" };
     } else {
-      primaryCta = { label: "View Course", to: "/course" };
+      primaryCta = { label: "View Course", href: "/course" };
     }
   } else {
     // Course lesson context
@@ -74,32 +76,32 @@ export default function LessonCompleteModal({
     if (hasCompletedUnit && !isEnrolled) {
       // Unit completion + not enrolled - prompt to join
       completionMessage = `This was the last lesson of Unit ${completedUnit}.`;
-      primaryCta = { label: "Join the Full Course", to: "/signup" };
-      secondaryCta = { label: "Return to Course", to: courseUrl };
+      primaryCta = { label: "Join the Full Course", href: "/signup" };
+      secondaryCta = { label: "Return to Course", href: courseUrl };
     } else if (hasCompletedUnit) {
       // Unit completion + enrolled - just show return
       completionMessage = `This was the last lesson of Unit ${completedUnit}.`;
-      primaryCta = { label: "Return to Course", to: courseUrl };
+      primaryCta = { label: "Return to Course", href: courseUrl };
       // No secondary CTA - don't prompt them to go to next unit yet
     } else if (!isEnrolled) {
       completionMessage = lessonTitle
         ? `You've finished "${lessonTitle}".`
         : "Great work!";
-      primaryCta = { label: "Join the Full Course", to: "/signup" };
-      secondaryCta = { label: "Return to Course", to: courseUrl };
+      primaryCta = { label: "Join the Full Course", href: "/signup" };
+      secondaryCta = { label: "Return to Course", href: courseUrl };
     } else if (hasNextLesson) {
       completionMessage = lessonTitle
         ? `You've finished "${lessonTitle}".`
         : "Great work!";
       const nextLessonUrl = `/course/${courseId}/lesson/${nextLesson!.slug}`;
-      primaryCta = { label: `Next: ${nextLesson!.title}`, to: nextLessonUrl };
-      secondaryCta = { label: "Return to Course", to: courseUrl };
+      primaryCta = { label: `Next: ${nextLesson!.title}`, href: nextLessonUrl };
+      secondaryCta = { label: "Return to Course", href: courseUrl };
     } else {
       // End of course
       completionMessage = lessonTitle
         ? `You've finished "${lessonTitle}".`
         : "Great work!";
-      primaryCta = { label: "Return to Course", to: courseUrl };
+      primaryCta = { label: "Return to Course", href: courseUrl };
     }
   }
 
@@ -126,14 +128,14 @@ export default function LessonCompleteModal({
         </p>
         <div className="flex flex-col gap-3">
           <Link
-            to={primaryCta.to}
+            href={primaryCta.href}
             className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
           >
             {primaryCta.label}
           </Link>
           {secondaryCta && (
             <Link
-              to={secondaryCta.to}
+              href={secondaryCta.href}
               className="w-full text-gray-600 py-2 px-4 hover:text-gray-800 transition-colors"
             >
               {secondaryCta.label}

@@ -13,9 +13,12 @@ export async function apiFetch<T>(
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get("session");
 
-  const headers: HeadersInit = {
-    ...options.headers,
-  };
+  const headers: Record<string, string> = {};
+
+  // Copy existing headers if they're a plain object
+  if (options.headers && typeof options.headers === "object" && !Array.isArray(options.headers)) {
+    Object.assign(headers, options.headers);
+  }
 
   if (sessionCookie) {
     headers["Cookie"] = `session=${sessionCookie.value}`;

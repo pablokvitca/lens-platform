@@ -18,7 +18,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   // Track page views on route change
   useEffect(() => {
-    capturePageView(pathname);
+    if (pathname) {
+      capturePageView(pathname);
+    }
   }, [pathname]);
 
   return <>{children}</>;
