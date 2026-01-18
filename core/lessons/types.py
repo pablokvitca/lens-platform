@@ -48,6 +48,88 @@ class ChatStage:
 Stage = ArticleStage | VideoStage | ChatStage
 
 
+# --- Narrative Lesson Types ---
+
+
+@dataclass
+class TextSegment:
+    """Standalone authored text."""
+
+    type: Literal["text"]
+    content: str
+
+
+@dataclass
+class ArticleExcerptSegment:
+    """Extract from parent article."""
+
+    type: Literal["article-excerpt"]
+    from_text: str
+    to_text: str
+
+
+@dataclass
+class VideoExcerptSegment:
+    """Extract from parent video."""
+
+    type: Literal["video-excerpt"]
+    from_seconds: int
+    to_seconds: int
+
+
+@dataclass
+class ChatSegment:
+    """Interactive chat within a section."""
+
+    type: Literal["chat"]
+    instructions: str
+    show_user_previous_content: bool = True
+    show_tutor_previous_content: bool = True
+
+
+NarrativeSegment = (
+    TextSegment | ArticleExcerptSegment | VideoExcerptSegment | ChatSegment
+)
+
+
+@dataclass
+class TextSection:
+    """Standalone text section (no child segments)."""
+
+    type: Literal["text"]
+    content: str
+
+
+@dataclass
+class ArticleSection:
+    """Article section with segments."""
+
+    type: Literal["article"]
+    source: str
+    segments: list[NarrativeSegment]
+
+
+@dataclass
+class VideoSection:
+    """Video section with segments."""
+
+    type: Literal["video"]
+    source: str
+    segments: list[NarrativeSegment]
+
+
+NarrativeSection = TextSection | ArticleSection | VideoSection
+
+
+@dataclass
+class NarrativeLesson:
+    """A narrative-format lesson definition."""
+
+    slug: str
+    title: str
+    sections: list[NarrativeSection]
+
+
 @dataclass
 class Lesson:
     """A complete lesson definition."""
