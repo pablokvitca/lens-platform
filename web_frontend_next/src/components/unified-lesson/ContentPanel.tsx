@@ -19,6 +19,7 @@ import ArticlePanel from "./ArticlePanel";
 import VideoPlayer from "./VideoPlayer";
 import OptionalBanner from "./OptionalBanner";
 import IntroductionBlock from "./IntroductionBlock";
+import SectionDivider from "./SectionDivider";
 
 function BlurredVideoThumbnail({ videoId }: { videoId: string }) {
   const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
@@ -361,6 +362,7 @@ export default function ContentPanel({
   // Single return with consistent structure
   return (
     <div className="h-full flex flex-col">
+      <SectionDivider type={stage.type} />
       {showOptionalBanner && (
         <div className="px-4 pt-4 max-w-[620px] mx-auto w-full">
           <OptionalBanner

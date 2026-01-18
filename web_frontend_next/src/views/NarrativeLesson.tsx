@@ -20,6 +20,7 @@ import ArticleEmbed from "@/components/narrative-lesson/ArticleEmbed";
 import VideoEmbed from "@/components/narrative-lesson/VideoEmbed";
 import NarrativeChatSection from "@/components/narrative-lesson/NarrativeChatSection";
 import ProgressSidebar from "@/components/narrative-lesson/ProgressSidebar";
+import SectionDivider from "@/components/unified-lesson/SectionDivider";
 
 type NarrativeLessonProps = {
   lesson: NarrativeLessonType;
@@ -327,11 +328,17 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
             className="py-8"
           >
             {section.type === "text" ? (
-              <AuthoredText content={section.content} />
+              <>
+                <SectionDivider type="article" />
+                <AuthoredText content={section.content} />
+              </>
             ) : (
-              section.segments.map((segment, segmentIndex) =>
-                renderSegment(segment, section, sectionIndex, segmentIndex),
-              )
+              <>
+                <SectionDivider type={section.type} />
+                {section.segments.map((segment, segmentIndex) =>
+                  renderSegment(segment, section, sectionIndex, segmentIndex),
+                )}
+              </>
             )}
           </div>
         ))}

@@ -78,7 +78,7 @@ export default function ProgressSidebar({
               `}
               title={getSectionLabel(section, index)}
             >
-              <StageIcon type={section.type} />
+              <StageIcon type={section.type === "text" ? "article" : section.type} />
             </button>
           </div>
         );
