@@ -12,7 +12,6 @@ import type {
   NarrativeLesson as NarrativeLessonType,
   NarrativeSection,
   NarrativeSegment,
-  NarrativeArticleSection,
 } from "@/types/narrative-lesson";
 import { sendMessage, createSession, getSession } from "@/api/lessons";
 import { useAnonymousSession } from "@/hooks/useAnonymousSession";
@@ -76,16 +75,6 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const sectionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // Article content cache
-  const [articleContent, setArticleContent] = useState<
-    Record<string, ArticleData>
-  >({});
-
-  // Track article fetch error
-  const [articleFetchError, setArticleFetchError] = useState<string | null>(
-    null,
-  );
-
   // Initialize session
   useEffect(() => {
     async function init() {
@@ -109,51 +98,6 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
 
     init();
   }, [lesson.slug, getStoredSessionId, storeSessionId, clearSessionId]);
-
-  // Fetch article content for all article sections
-  useEffect(() => {
-    async function fetchArticles() {
-      setArticleFetchError(null);
-      const articleSources = lesson.sections
-        .filter((s): s is NarrativeArticleSection => s.type === "article")
-        .map((s) => s.source);
-
-      // Deduplicate sources
-      const uniqueSources = [...new Set(articleSources)];
-
-      try {
-        // Fetch all articles in parallel
-        // TODO: This needs a backend endpoint - for now, use placeholder
-        const results = await Promise.all(
-          uniqueSources.map(async (source) => {
-            // Placeholder: In production, fetch from /api/articles/{source}
-            // For now, return empty content to allow UI to render
-            return {
-              source,
-              data: {
-                content: `[Article content from ${source} will appear here]`,
-                title: source.split("/").pop()?.replace(".md", "") ?? "Article",
-                author: null,
-                sourceUrl: null,
-                isExcerpt: true,
-              } as ArticleData,
-            };
-          }),
-        );
-
-        const contentMap: Record<string, ArticleData> = {};
-        results.forEach(({ source, data }) => {
-          contentMap[source] = data;
-        });
-        setArticleContent(contentMap);
-      } catch (error) {
-        console.error("Failed to fetch articles:", error);
-        setArticleFetchError("Failed to load article content. Please refresh.");
-      }
-    }
-
-    fetchArticles();
-  }, [lesson.sections]);
 
   // Send message handler (shared across all chat sections)
   const handleSendMessage = useCallback(
