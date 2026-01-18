@@ -78,10 +78,23 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
     init();
   }, [lesson.slug, getStoredSessionId, storeSessionId, clearSessionId]);
 
+  // Track position for retry
+  const [lastPosition, setLastPosition] = useState<{
+    sectionIndex: number;
+    segmentIndex: number;
+  } | null>(null);
+
   // Send message handler (shared across all chat sections)
   const handleSendMessage = useCallback(
-    async (content: string) => {
+    async (
+      content: string,
+      sectionIndex: number,
+      segmentIndex: number,
+    ) => {
       if (!sessionId) return;
+
+      // Store position for potential retry
+      setLastPosition({ sectionIndex, segmentIndex });
 
       if (content) {
         setPendingMessage({ content, status: "sending" });
@@ -92,7 +105,10 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
       try {
         let assistantContent = "";
 
-        for await (const chunk of sendMessage(sessionId, content)) {
+        for await (const chunk of sendMessage(sessionId, content, {
+          sectionIndex,
+          segmentIndex,
+        })) {
           if (chunk.type === "text" && chunk.content) {
             assistantContent += chunk.content;
             setStreamingContent(assistantContent);
@@ -120,11 +136,12 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
   );
 
   const handleRetryMessage = useCallback(() => {
-    if (!pendingMessage) return;
+    if (!pendingMessage || !lastPosition) return;
     const content = pendingMessage.content;
     setPendingMessage(null);
-    handleSendMessage(content);
-  }, [pendingMessage, handleSendMessage]);
+    handleSendMessage(content, lastPosition.sectionIndex, lastPosition.segmentIndex);
+  }, [pendingMessage, lastPosition, handleSendMessage]);
+
 
   // Scroll tracking with Intersection Observer
   // Use setTimeout to ensure refs are populated after render
@@ -227,7 +244,7 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
           <ArticleEmbed
             key={`article-${keyPrefix}`}
             article={excerptData}
-            showHeader={segmentIndex === 0}
+            showHeader
           />
         );
       }
@@ -244,6 +261,7 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
         );
 
       case "chat":
+        // Chat components stay mounted (no lazy loading) to preserve local state
         return (
           <NarrativeChatSection
             key={`chat-${keyPrefix}`}
@@ -251,7 +269,9 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
             pendingMessage={pendingMessage}
             streamingContent={streamingContent}
             isLoading={isLoading}
-            onSendMessage={handleSendMessage}
+            onSendMessage={(content) =>
+              handleSendMessage(content, sectionIndex, segmentIndex)
+            }
             onRetryMessage={handleRetryMessage}
           />
         );

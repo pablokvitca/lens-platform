@@ -1,6 +1,7 @@
 // web_frontend_next/src/components/narrative-lesson/ArticleEmbed.tsx
 "use client";
 
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -10,63 +11,110 @@ type ArticleEmbedProps = {
   article: ArticleData;
   /** Show article header (title, author, source link) */
   showHeader?: boolean;
+  /** Start collapsed (default: false) */
+  defaultCollapsed?: boolean;
 };
 
 /**
  * Renders article content in an embedded card with gray background.
  * This gives external content a "quoted/embedded" feel.
+ * Content is collapsible for easier navigation.
  *
  * Reuses ReactMarkdown setup from ArticlePanel with card styling added.
  */
 export default function ArticleEmbed({
   article,
   showHeader = true,
+  defaultCollapsed = false,
 }: ArticleEmbedProps) {
   const { content, title, author, sourceUrl, isExcerpt } = article;
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+
+  // Get a preview of the content (first ~100 chars of plain text)
+  const getPreview = () => {
+    const plainText = content.replace(/[#*_`\[\]]/g, "").trim();
+    if (plainText.length <= 120) return plainText;
+    return plainText.slice(0, 120).trim() + "...";
+  };
 
   return (
     <div className="max-w-[700px] mx-auto py-4 px-4">
-      <div className="bg-stone-100 rounded-lg p-6 shadow-sm">
-        <article className="prose prose-gray max-w-none">
-          {showHeader && (
-            <>
-              {title && <h1 className="text-2xl font-bold mb-2">{title}</h1>}
-              {isExcerpt && (
-                <div className="text-sm text-gray-500 mb-1">
-                  You&apos;re reading an excerpt from this article
-                </div>
-              )}
-              {(author || sourceUrl) && (
-                <div className="text-sm text-gray-500 mb-6">
-                  {author && <span>By {author}</span>}
-                  {author && sourceUrl && <span> · </span>}
-                  {sourceUrl && (
-                    <a
-                      href={sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-gray-700 underline decoration-gray-400 hover:decoration-gray-600 inline-flex items-center gap-1"
-                    >
-                      Read original
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                        />
-                      </svg>
-                    </a>
-                  )}
-                </div>
-              )}
-            </>
-          )}
+      <div className="bg-stone-100 rounded-lg shadow-sm overflow-hidden">
+        {/* Collapsible header */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-stone-200/50 transition-colors"
+        >
+          <div className="flex-1 min-w-0">
+            {showHeader && title && (
+              <h2 className="text-lg font-semibold text-gray-900 truncate">
+                {title}
+              </h2>
+            )}
+            {showHeader && (author || isExcerpt) && (
+              <div className="text-sm text-gray-500 mt-0.5">
+                {isExcerpt && <span>Excerpt</span>}
+                {isExcerpt && author && <span> · </span>}
+                {author && <span>By {author}</span>}
+              </div>
+            )}
+            {isCollapsed && (
+              <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                {getPreview()}
+              </p>
+            )}
+          </div>
+          <div className="ml-4 flex-shrink-0">
+            <svg
+              className={`w-5 h-5 text-gray-500 transition-transform ${
+                isCollapsed ? "" : "rotate-180"
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </div>
+        </button>
+
+        {/* Expandable content */}
+        {!isCollapsed && (
+          <div className="px-6 pb-6">
+            {/* Source link */}
+            {showHeader && sourceUrl && (
+              <div className="text-sm text-gray-500 mb-4">
+                <a
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-700 underline decoration-gray-400 hover:decoration-gray-600 inline-flex items-center gap-1"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Read original
+                  <svg
+                    className="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                </a>
+              </div>
+            )}
+
+            <article className="prose prose-gray max-w-none">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeRaw]}
@@ -142,7 +190,9 @@ export default function ArticleEmbed({
           >
             {content}
           </ReactMarkdown>
-        </article>
+            </article>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -130,15 +130,24 @@ router = APIRouter(prefix="/api", tags=["lessons"])
 
 @router.get("/lessons")
 async def list_lessons():
-    """List available lessons."""
+    """List available lessons (supports both staged and narrative formats)."""
     lesson_slugs = get_available_lessons()
     lessons = []
     for slug in lesson_slugs:
+        # Try loading as narrative lesson first
+        try:
+            lesson = load_narrative_lesson(slug)
+            lessons.append({"slug": lesson.slug, "title": lesson.title})
+            continue
+        except (LessonNotFoundError, KeyError):
+            pass  # Not a narrative lesson
+
+        # Try loading as staged lesson
         try:
             lesson = load_lesson(slug)
             lessons.append({"slug": lesson.slug, "title": lesson.title})
-        except LessonNotFoundError:
-            pass
+        except (LessonNotFoundError, KeyError):
+            pass  # Skip lessons that fail to load
     return {"lessons": lessons}
 
 
@@ -232,15 +241,23 @@ async def start_session(request_body: CreateSessionRequest, request: Request):
     else:
         user_id = None  # Anonymous session
 
+    # Try loading as narrative lesson first, then staged lesson
+    lesson = None
+    is_narrative = False
     try:
-        lesson = load_lesson(request_body.lesson_slug)
-    except LessonNotFoundError:
-        raise HTTPException(status_code=404, detail="Lesson not found")
+        narrative_lesson = load_narrative_lesson(request_body.lesson_slug)
+        is_narrative = True
+    except (LessonNotFoundError, KeyError):
+        # Not a narrative lesson or missing 'sections' - try staged format
+        try:
+            lesson = load_lesson(request_body.lesson_slug)
+        except LessonNotFoundError:
+            raise HTTPException(status_code=404, detail="Lesson not found")
 
     session = await create_session(user_id, request_body.lesson_slug)
 
-    # Add "Started" system message if stage 0 is article/video
-    if lesson.stages:
+    # Add "Started" system message if stage 0 is article/video (staged lessons only)
+    if lesson and lesson.stages:
         first_stage = lesson.stages[0]
         started_msg = get_started_message(first_stage)
         if started_msg:
@@ -283,8 +300,27 @@ async def get_session_state(
 
     check_session_access(session, user_id)
 
-    # Load lesson to include stage info
-    lesson = load_lesson(session["lesson_slug"])
+    # Try loading as narrative lesson first, then staged lesson
+    narrative_lesson = None
+    lesson = None
+    try:
+        narrative_lesson = load_narrative_lesson(session["lesson_slug"])
+    except (LessonNotFoundError, KeyError):
+        # Not a narrative lesson - try staged format
+        lesson = load_lesson(session["lesson_slug"])
+
+    # For narrative lessons, return simplified response (frontend handles structure)
+    if narrative_lesson:
+        return {
+            "session_id": session["session_id"],
+            "lesson_slug": session["lesson_slug"],
+            "lesson_title": narrative_lesson.title,
+            "messages": session["messages"],
+            "completed": session["completed_at"] is not None,
+            "is_narrative": True,
+        }
+
+    # For staged lessons, continue with existing logic
 
     # Determine which stage to get content for
     content_stage_index = (

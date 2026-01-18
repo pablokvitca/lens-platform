@@ -108,8 +108,8 @@ def _parse_narrative_segment(data: dict) -> NarrativeSegment:
     elif segment_type == "video-excerpt":
         return VideoExcerptSegment(
             type="video-excerpt",
-            from_seconds=data["from"],
-            to_seconds=data["to"],
+            from_seconds=_parse_time(data["from"]),
+            to_seconds=_parse_time(data["to"]),
         )
     elif segment_type == "chat":
         return ChatSegment(

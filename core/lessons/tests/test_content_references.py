@@ -2,28 +2,69 @@
 """Tests that verify all content referenced in lessons actually exists.
 
 These tests catch broken references early - before users encounter missing content.
+Supports both staged lessons and narrative lessons.
 """
 
 import pytest
 from pathlib import Path
+from dataclasses import dataclass
 
-from core.lessons.loader import get_available_lessons, load_lesson, LESSONS_DIR
+from core.lessons.loader import (
+    get_available_lessons,
+    load_lesson,
+    load_narrative_lesson,
+    LESSONS_DIR,
+    LessonNotFoundError,
+)
 from core.lessons.content import CONTENT_DIR
-from core.lessons.types import ArticleStage, VideoStage
+from core.lessons.types import (
+    ArticleStage,
+    VideoStage,
+    ArticleSection,
+    VideoSection,
+    ArticleExcerptSegment,
+    VideoExcerptSegment,
+)
+
+
+@dataclass
+class ArticleReference:
+    """Unified article reference from either staged or narrative lesson."""
+
+    lesson_slug: str
+    location: str  # e.g., "stage:2" or "section:1/segment:3"
+    source: str
+    from_text: str | None
+    to_text: str | None
+
+
+@dataclass
+class VideoReference:
+    """Unified video reference from either staged or narrative lesson."""
+
+    lesson_slug: str
+    location: str
+    source: str
+    from_seconds: int
+    to_seconds: int | None
 
 
 def get_all_stages():
-    """Get all stages from all lessons with their lesson context."""
+    """Get all stages from staged lessons with their lesson context."""
     stages = []
     for lesson_slug in get_available_lessons():
-        lesson = load_lesson(lesson_slug)
-        for i, stage in enumerate(lesson.stages):
-            stages.append((lesson_slug, i, stage))
+        try:
+            lesson = load_lesson(lesson_slug)
+            for i, stage in enumerate(lesson.stages):
+                stages.append((lesson_slug, i, stage))
+        except (LessonNotFoundError, KeyError):
+            # Skip narrative lessons (they don't have stages)
+            pass
     return stages
 
 
 def get_article_stages():
-    """Get all article stages from all lessons."""
+    """Get all article stages from staged lessons."""
     return [
         (lesson_slug, stage_idx, stage)
         for lesson_slug, stage_idx, stage in get_all_stages()
@@ -32,7 +73,7 @@ def get_article_stages():
 
 
 def get_video_stages():
-    """Get all video stages from all lessons."""
+    """Get all video stages from staged lessons."""
     return [
         (lesson_slug, stage_idx, stage)
         for lesson_slug, stage_idx, stage in get_all_stages()
@@ -40,149 +81,288 @@ def get_video_stages():
     ]
 
 
+def get_all_article_references() -> list[ArticleReference]:
+    """Get all article references from both staged and narrative lessons."""
+    refs = []
+
+    for lesson_slug in get_available_lessons():
+        # Try staged lesson first
+        try:
+            lesson = load_lesson(lesson_slug)
+            for i, stage in enumerate(lesson.stages):
+                if isinstance(stage, ArticleStage):
+                    refs.append(
+                        ArticleReference(
+                            lesson_slug=lesson_slug,
+                            location=f"stage:{i}",
+                            source=stage.source,
+                            from_text=stage.from_text,
+                            to_text=stage.to_text,
+                        )
+                    )
+            continue
+        except (LessonNotFoundError, KeyError):
+            pass
+
+        # Try narrative lesson
+        try:
+            lesson = load_narrative_lesson(lesson_slug)
+            for sec_idx, section in enumerate(lesson.sections):
+                if isinstance(section, ArticleSection):
+                    # The section itself references the article
+                    for seg_idx, segment in enumerate(section.segments):
+                        if isinstance(segment, ArticleExcerptSegment):
+                            refs.append(
+                                ArticleReference(
+                                    lesson_slug=lesson_slug,
+                                    location=f"section:{sec_idx}/segment:{seg_idx}",
+                                    source=section.source,
+                                    from_text=segment.from_text,
+                                    to_text=segment.to_text,
+                                )
+                            )
+        except (LessonNotFoundError, KeyError):
+            pass
+
+    return refs
+
+
+def get_all_video_references() -> list[VideoReference]:
+    """Get all video references from both staged and narrative lessons."""
+    refs = []
+
+    for lesson_slug in get_available_lessons():
+        # Try staged lesson first
+        try:
+            lesson = load_lesson(lesson_slug)
+            for i, stage in enumerate(lesson.stages):
+                if isinstance(stage, VideoStage):
+                    refs.append(
+                        VideoReference(
+                            lesson_slug=lesson_slug,
+                            location=f"stage:{i}",
+                            source=stage.source,
+                            from_seconds=stage.from_seconds,
+                            to_seconds=stage.to_seconds,
+                        )
+                    )
+            continue
+        except (LessonNotFoundError, KeyError):
+            pass
+
+        # Try narrative lesson
+        try:
+            lesson = load_narrative_lesson(lesson_slug)
+            for sec_idx, section in enumerate(lesson.sections):
+                if isinstance(section, VideoSection):
+                    for seg_idx, segment in enumerate(section.segments):
+                        if isinstance(segment, VideoExcerptSegment):
+                            refs.append(
+                                VideoReference(
+                                    lesson_slug=lesson_slug,
+                                    location=f"section:{sec_idx}/segment:{seg_idx}",
+                                    source=section.source,
+                                    from_seconds=segment.from_seconds,
+                                    to_seconds=segment.to_seconds,
+                                )
+                            )
+        except (LessonNotFoundError, KeyError):
+            pass
+
+    return refs
+
+
 class TestArticleReferences:
-    """Tests for article content references."""
+    """Tests for article content references (both staged and narrative lessons)."""
 
     @pytest.mark.parametrize(
-        "lesson_slug,stage_idx,stage",
-        get_article_stages(),
-        ids=lambda x: f"{x[0]}:stage{x[1]}" if isinstance(x, tuple) else str(x),
+        "ref",
+        get_all_article_references(),
+        ids=lambda r: f"{r.lesson_slug}:{r.location}" if hasattr(r, "lesson_slug") else str(r),
     )
-    def test_article_file_exists(self, lesson_slug, stage_idx, stage):
+    def test_article_file_exists(self, ref: ArticleReference):
         """Every article source in a lesson should point to an existing file."""
-        article_path = CONTENT_DIR / stage.source
+        article_path = CONTENT_DIR / ref.source
 
         assert article_path.exists(), (
-            f"Lesson '{lesson_slug}' stage {stage_idx} references missing article: "
-            f"'{stage.source}'\n"
+            f"Lesson '{ref.lesson_slug}' {ref.location} references missing article: "
+            f"'{ref.source}'\n"
             f"Expected file at: {article_path}"
         )
 
     @pytest.mark.parametrize(
-        "lesson_slug,stage_idx,stage",
-        get_article_stages(),
-        ids=lambda x: f"{x[0]}:stage{x[1]}" if isinstance(x, tuple) else str(x),
+        "ref",
+        get_all_article_references(),
+        ids=lambda r: f"{r.lesson_slug}:{r.location}" if hasattr(r, "lesson_slug") else str(r),
     )
-    def test_article_from_anchor_exists(self, lesson_slug, stage_idx, stage):
-        """If an article has a 'from' anchor, that text should exist in the file."""
-        if stage.from_text is None:
+    def test_article_from_anchor_exists(self, ref: ArticleReference):
+        """If an article has a 'from' anchor, that text should exist in the file (case-insensitive)."""
+        if ref.from_text is None:
             pytest.skip("No 'from' anchor specified")
 
-        article_path = CONTENT_DIR / stage.source
+        article_path = CONTENT_DIR / ref.source
         if not article_path.exists():
             pytest.skip("Article file doesn't exist (caught by other test)")
 
         content = article_path.read_text()
 
-        assert stage.from_text in content, (
-            f"Lesson '{lesson_slug}' stage {stage_idx}: "
-            f"'from' anchor text not found in article '{stage.source}'\n"
-            f"Looking for: \"{stage.from_text[:80]}...\"\n"
+        assert ref.from_text.lower() in content.lower(), (
+            f"Lesson '{ref.lesson_slug}' {ref.location}: "
+            f"'from' anchor text not found in article '{ref.source}'\n"
+            f"Looking for: \"{ref.from_text[:80]}...\"\n"
             f"This anchor text doesn't appear in the article content."
         )
 
     @pytest.mark.parametrize(
-        "lesson_slug,stage_idx,stage",
-        get_article_stages(),
-        ids=lambda x: f"{x[0]}:stage{x[1]}" if isinstance(x, tuple) else str(x),
+        "ref",
+        get_all_article_references(),
+        ids=lambda r: f"{r.lesson_slug}:{r.location}" if hasattr(r, "lesson_slug") else str(r),
     )
-    def test_article_to_anchor_exists(self, lesson_slug, stage_idx, stage):
-        """If an article has a 'to' anchor, that text should exist in the file."""
-        if stage.to_text is None:
+    def test_article_from_anchor_unique(self, ref: ArticleReference):
+        """The 'from' anchor must be unique in the article (case-insensitive)."""
+        if ref.from_text is None:
+            pytest.skip("No 'from' anchor specified")
+
+        article_path = CONTENT_DIR / ref.source
+        if not article_path.exists():
+            pytest.skip("Article file doesn't exist (caught by other test)")
+
+        content = article_path.read_text()
+        count = content.lower().count(ref.from_text.lower())
+
+        assert count == 1, (
+            f"Lesson '{ref.lesson_slug}' {ref.location}: "
+            f"'from' anchor appears {count} times (case-insensitive) in '{ref.source}'\n"
+            f"Anchor: \"{ref.from_text[:80]}...\"\n"
+            f"Anchors must be unique to avoid ambiguity."
+        )
+
+    @pytest.mark.parametrize(
+        "ref",
+        get_all_article_references(),
+        ids=lambda r: f"{r.lesson_slug}:{r.location}" if hasattr(r, "lesson_slug") else str(r),
+    )
+    def test_article_to_anchor_exists(self, ref: ArticleReference):
+        """If an article has a 'to' anchor, that text should exist in the file (case-insensitive)."""
+        if ref.to_text is None:
             pytest.skip("No 'to' anchor specified")
 
-        article_path = CONTENT_DIR / stage.source
+        article_path = CONTENT_DIR / ref.source
         if not article_path.exists():
             pytest.skip("Article file doesn't exist (caught by other test)")
 
         content = article_path.read_text()
 
-        assert stage.to_text in content, (
-            f"Lesson '{lesson_slug}' stage {stage_idx}: "
-            f"'to' anchor text not found in article '{stage.source}'\n"
-            f"Looking for: \"{stage.to_text[:80]}...\"\n"
+        assert ref.to_text.lower() in content.lower(), (
+            f"Lesson '{ref.lesson_slug}' {ref.location}: "
+            f"'to' anchor text not found in article '{ref.source}'\n"
+            f"Looking for: \"{ref.to_text[:80]}...\"\n"
             f"This anchor text doesn't appear in the article content."
         )
 
     @pytest.mark.parametrize(
-        "lesson_slug,stage_idx,stage",
-        get_article_stages(),
-        ids=lambda x: f"{x[0]}:stage{x[1]}" if isinstance(x, tuple) else str(x),
+        "ref",
+        get_all_article_references(),
+        ids=lambda r: f"{r.lesson_slug}:{r.location}" if hasattr(r, "lesson_slug") else str(r),
     )
-    def test_article_anchor_order(self, lesson_slug, stage_idx, stage):
+    def test_article_to_anchor_unique(self, ref: ArticleReference):
+        """The 'to' anchor must be unique in the article (case-insensitive)."""
+        if ref.to_text is None:
+            pytest.skip("No 'to' anchor specified")
+
+        article_path = CONTENT_DIR / ref.source
+        if not article_path.exists():
+            pytest.skip("Article file doesn't exist (caught by other test)")
+
+        content = article_path.read_text()
+        count = content.lower().count(ref.to_text.lower())
+
+        assert count == 1, (
+            f"Lesson '{ref.lesson_slug}' {ref.location}: "
+            f"'to' anchor appears {count} times (case-insensitive) in '{ref.source}'\n"
+            f"Anchor: \"{ref.to_text[:80]}...\"\n"
+            f"Anchors must be unique to avoid ambiguity."
+        )
+
+    @pytest.mark.parametrize(
+        "ref",
+        get_all_article_references(),
+        ids=lambda r: f"{r.lesson_slug}:{r.location}" if hasattr(r, "lesson_slug") else str(r),
+    )
+    def test_article_anchor_order(self, ref: ArticleReference):
         """The 'from' anchor should appear before the 'to' anchor."""
-        if stage.from_text is None or stage.to_text is None:
+        if ref.from_text is None or ref.to_text is None:
             pytest.skip("Both anchors needed for order test")
 
-        article_path = CONTENT_DIR / stage.source
+        article_path = CONTENT_DIR / ref.source
         if not article_path.exists():
             pytest.skip("Article file doesn't exist (caught by other test)")
 
         content = article_path.read_text()
 
-        from_idx = content.find(stage.from_text)
-        to_idx = content.find(stage.to_text)
+        from_idx = content.find(ref.from_text)
+        to_idx = content.find(ref.to_text)
 
         if from_idx == -1 or to_idx == -1:
             pytest.skip("Anchors don't exist (caught by other tests)")
 
         assert from_idx < to_idx, (
-            f"Lesson '{lesson_slug}' stage {stage_idx}: "
-            f"'from' anchor appears AFTER 'to' anchor in '{stage.source}'\n"
+            f"Lesson '{ref.lesson_slug}' {ref.location}: "
+            f"'from' anchor appears AFTER 'to' anchor in '{ref.source}'\n"
             f"'from' at position {from_idx}, 'to' at position {to_idx}"
         )
 
 
 class TestVideoReferences:
-    """Tests for video transcript references."""
+    """Tests for video transcript references (both staged and narrative lessons)."""
 
     @pytest.mark.parametrize(
-        "lesson_slug,stage_idx,stage",
-        get_video_stages(),
-        ids=lambda x: f"{x[0]}:stage{x[1]}" if isinstance(x, tuple) else str(x),
+        "ref",
+        get_all_video_references(),
+        ids=lambda r: f"{r.lesson_slug}:{r.location}" if hasattr(r, "lesson_slug") else str(r),
     )
-    def test_video_transcript_file_exists(self, lesson_slug, stage_idx, stage):
+    def test_video_transcript_file_exists(self, ref: VideoReference):
         """Every video source in a lesson should point to an existing transcript."""
-        transcript_path = CONTENT_DIR / stage.source
+        transcript_path = CONTENT_DIR / ref.source
 
         assert transcript_path.exists(), (
-            f"Lesson '{lesson_slug}' stage {stage_idx} references missing transcript: "
-            f"'{stage.source}'\n"
+            f"Lesson '{ref.lesson_slug}' {ref.location} references missing transcript: "
+            f"'{ref.source}'\n"
             f"Expected file at: {transcript_path}"
         )
 
     @pytest.mark.parametrize(
-        "lesson_slug,stage_idx,stage",
-        get_video_stages(),
-        ids=lambda x: f"{x[0]}:stage{x[1]}" if isinstance(x, tuple) else str(x),
+        "ref",
+        get_all_video_references(),
+        ids=lambda r: f"{r.lesson_slug}:{r.location}" if hasattr(r, "lesson_slug") else str(r),
     )
-    def test_video_timestamps_file_exists(self, lesson_slug, stage_idx, stage):
+    def test_video_timestamps_file_exists(self, ref: VideoReference):
         """Every video transcript should have a corresponding timestamps JSON file."""
-        transcript_path = CONTENT_DIR / stage.source
+        transcript_path = CONTENT_DIR / ref.source
         if not transcript_path.exists():
             pytest.skip("Transcript file doesn't exist (caught by other test)")
 
         timestamps_path = transcript_path.with_suffix(".timestamps.json")
 
         assert timestamps_path.exists(), (
-            f"Lesson '{lesson_slug}' stage {stage_idx}: "
-            f"Missing timestamps file for '{stage.source}'\n"
+            f"Lesson '{ref.lesson_slug}' {ref.location}: "
+            f"Missing timestamps file for '{ref.source}'\n"
             f"Expected: {timestamps_path.name}"
         )
 
     @pytest.mark.parametrize(
-        "lesson_slug,stage_idx,stage",
-        get_video_stages(),
-        ids=lambda x: f"{x[0]}:stage{x[1]}" if isinstance(x, tuple) else str(x),
+        "ref",
+        get_all_video_references(),
+        ids=lambda r: f"{r.lesson_slug}:{r.location}" if hasattr(r, "lesson_slug") else str(r),
     )
-    def test_video_time_range_valid(self, lesson_slug, stage_idx, stage):
+    def test_video_time_range_valid(self, ref: VideoReference):
         """Video from_seconds should be less than to_seconds when both are set."""
-        if stage.to_seconds is None:
+        if ref.to_seconds is None:
             pytest.skip("No end time specified")
 
-        assert stage.from_seconds < stage.to_seconds, (
-            f"Lesson '{lesson_slug}' stage {stage_idx}: "
-            f"Invalid time range: from={stage.from_seconds}s, to={stage.to_seconds}s\n"
+        assert ref.from_seconds < ref.to_seconds, (
+            f"Lesson '{ref.lesson_slug}' {ref.location}: "
+            f"Invalid time range: from={ref.from_seconds}s, to={ref.to_seconds}s\n"
             f"Start time must be before end time."
         )
 

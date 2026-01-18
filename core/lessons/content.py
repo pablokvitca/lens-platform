@@ -202,6 +202,28 @@ def load_article_with_metadata(
     )
 
 
+class AnchorNotFoundError(Exception):
+    """Raised when an anchor text is not found in the content."""
+
+    pass
+
+
+class AnchorNotUniqueError(Exception):
+    """Raised when an anchor text appears multiple times (case-insensitive)."""
+
+    pass
+
+
+def _find_case_insensitive(content: str, anchor: str, start: int = 0) -> int:
+    """Find anchor in content case-insensitively. Returns -1 if not found."""
+    return content.lower().find(anchor.lower(), start)
+
+
+def _count_case_insensitive(content: str, anchor: str) -> int:
+    """Count occurrences of anchor in content case-insensitively."""
+    return content.lower().count(anchor.lower())
+
+
 def extract_article_section(
     content: str,
     from_text: str | None,
@@ -210,6 +232,9 @@ def extract_article_section(
     """
     Extract a section of text between two anchor phrases.
 
+    Matching is case-insensitive. Anchors must be unique within the content
+    (case-insensitively) to avoid ambiguity.
+
     Args:
         content: Full article content
         from_text: Starting anchor phrase (inclusive), or None for start
@@ -217,6 +242,10 @@ def extract_article_section(
 
     Returns:
         Extracted section including the anchor phrases
+
+    Raises:
+        AnchorNotFoundError: If an anchor is not found in the content
+        AnchorNotUniqueError: If an anchor appears multiple times
     """
     if from_text is None and to_text is None:
         return content
@@ -225,13 +254,26 @@ def extract_article_section(
     end_idx = len(content)
 
     if from_text:
-        idx = content.find(from_text)
-        if idx != -1:
-            start_idx = idx
+        count = _count_case_insensitive(content, from_text)
+        if count == 0:
+            raise AnchorNotFoundError(f"'from' anchor not found: {from_text[:50]}...")
+        if count > 1:
+            raise AnchorNotUniqueError(
+                f"'from' anchor appears {count} times (case-insensitive): {from_text[:50]}..."
+            )
+        idx = _find_case_insensitive(content, from_text)
+        start_idx = idx
 
     if to_text:
+        count = _count_case_insensitive(content, to_text)
+        if count == 0:
+            raise AnchorNotFoundError(f"'to' anchor not found: {to_text[:50]}...")
+        if count > 1:
+            raise AnchorNotUniqueError(
+                f"'to' anchor appears {count} times (case-insensitive): {to_text[:50]}..."
+            )
         # Search from start_idx to find the ending anchor
-        idx = content.find(to_text, start_idx)
+        idx = _find_case_insensitive(content, to_text, start_idx)
         if idx != -1:
             end_idx = idx + len(to_text)
 

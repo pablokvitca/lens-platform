@@ -8,6 +8,8 @@ type VideoPlayerProps = {
   onEnded: () => void;
   /** Hide the continue button (for reviewing previous videos) */
   hideControls?: boolean;
+  /** Auto-play video when loaded */
+  autoplay?: boolean;
   /** Activity tracking callbacks */
   onPlay?: () => void;
   onPause?: () => void;
@@ -38,6 +40,7 @@ export default function VideoPlayer({
   end,
   onEnded,
   hideControls = false,
+  autoplay = false,
   onPlay: onPlayCallback,
   onPause: onPauseCallback,
   onTimeUpdate: onTimeUpdateCallback,
@@ -79,7 +82,9 @@ export default function VideoPlayer({
 
     const handleLoadedMetadata = () => {
       video.currentTime = start;
-      // Don't auto-play - wait for user to click play
+      if (autoplay) {
+        video.play();
+      }
     };
 
     const handlePlay = () => {
@@ -114,7 +119,7 @@ export default function VideoPlayer({
       video.removeEventListener("timeupdate", handleTimeUpdate);
       video.removeEventListener("volumechange", handleVolumeChange);
     };
-  }, [start, onPlayCallback, onPauseCallback, onTimeUpdateCallback]);
+  }, [start, autoplay, onPlayCallback, onPauseCallback, onTimeUpdateCallback]);
 
   // High-frequency polling for smooth progress and fade timing
   useEffect(() => {
@@ -139,10 +144,12 @@ export default function VideoPlayer({
         setProgress(Math.min(elapsed / duration, 1));
       }
 
-      // Start fading audio 500ms before end
+      // Start fading audio 500ms before end (or immediately if seeked past end)
+      // Only check if we're past the start point (guards against incorrect
+      // currentTime values during initial seek)
       const fadeStart = end - 0.5;
 
-      if (currentTime >= fadeStart && !isFading) {
+      if (currentTime >= start && currentTime >= fadeStart && !isFading) {
         setIsFading(true);
       }
     }, 50);

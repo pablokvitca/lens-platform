@@ -153,15 +153,22 @@ export async function advanceStage(
 
 export async function* sendMessage(
   sessionId: number,
-  content: string
+  content: string,
+  position?: { sectionIndex: number; segmentIndex: number }
 ): AsyncGenerator<{ type: string; content?: string; name?: string }> {
+  const body: Record<string, unknown> = { content };
+  if (position) {
+    body.section_index = position.sectionIndex;
+    body.segment_index = position.segmentIndex;
+  }
+
   const res = await fetch(
     `${API_BASE}/api/lesson-sessions/${sessionId}/message`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(body),
     }
   );
 
