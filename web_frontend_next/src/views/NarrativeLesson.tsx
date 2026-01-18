@@ -234,53 +234,24 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
           <AuthoredText key={`text-${keyPrefix}`} content={segment.content} />
         );
 
-      case "article-excerpt":
-        const articleData =
-          articleContent[section.type === "article" ? section.source : ""];
-        if (!articleData) {
-          // Loading skeleton or error
-          return (
-            <div
-              key={`article-${keyPrefix}`}
-              className="max-w-[700px] mx-auto py-4 px-4"
-            >
-              <div className="bg-stone-100 rounded-lg p-6 animate-pulse">
-                {articleFetchError ? (
-                  <p className="text-red-600 text-center">
-                    {articleFetchError}
-                  </p>
-                ) : (
-                  <>
-                    <div className="h-6 bg-gray-200 rounded w-3/4 mb-4" />
-                    <div className="h-4 bg-gray-200 rounded w-full mb-2" />
-                    <div className="h-4 bg-gray-200 rounded w-5/6 mb-2" />
-                    <div className="h-4 bg-gray-200 rounded w-4/5 mb-2" />
-                    <div className="h-4 bg-gray-200 rounded w-full mb-2" />
-                    <div className="h-4 bg-gray-200 rounded w-3/4" />
-                  </>
-                )}
-              </div>
-            </div>
-          );
-        }
-        // Extract content between from/to markers
-        const excerptContent = extractExcerpt(
-          articleData.content,
-          segment.from,
-          segment.to,
-        );
+      case "article-excerpt": {
+        // Content is now bundled directly in the segment
+        const articleMeta = section.type === "article" ? section.meta : null;
         const excerptData: ArticleData = {
-          ...articleData,
-          content: excerptContent,
+          content: segment.content,
+          title: articleMeta?.title ?? null,
+          author: articleMeta?.author ?? null,
+          sourceUrl: articleMeta?.sourceUrl ?? null,
           isExcerpt: true,
         };
         return (
           <ArticleEmbed
             key={`article-${keyPrefix}`}
             article={excerptData}
-            showHeader={segmentIndex === 0} // Only show header for first excerpt
+            showHeader={segmentIndex === 0}
           />
         );
+      }
 
       case "video-excerpt":
         if (section.type !== "video") return null;
@@ -356,8 +327,12 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
             data-section-index={sectionIndex}
             className="py-8"
           >
-            {section.segments.map((segment, segmentIndex) =>
-              renderSegment(segment, section, sectionIndex, segmentIndex),
+            {section.type === "text" ? (
+              <AuthoredText content={section.content} />
+            ) : (
+              section.segments.map((segment, segmentIndex) =>
+                renderSegment(segment, section, sectionIndex, segmentIndex),
+              )
             )}
           </div>
         ))}
