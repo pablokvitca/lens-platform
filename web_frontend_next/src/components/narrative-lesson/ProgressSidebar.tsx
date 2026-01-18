@@ -4,6 +4,18 @@
 import { StageIcon } from "@/components/unified-lesson/StageProgressBar";
 import type { NarrativeSection } from "@/types/narrative-lesson";
 
+/**
+ * Derive a human-readable label for a section.
+ * - Text sections: "Section N"
+ * - Article/Video sections: use meta.title or fallback to "article N" / "video N"
+ */
+function getSectionLabel(section: NarrativeSection, index: number): string {
+  if (section.type === "text") {
+    return `Section ${index + 1}`;
+  }
+  return section.meta.title || `${section.type} ${index + 1}`;
+}
+
 type ProgressSidebarProps = {
   sections: NarrativeSection[];
   currentSectionIndex: number;
@@ -64,7 +76,7 @@ export default function ProgressSidebar({
                 ${isFuture ? "opacity-50" : ""}
                 hover:scale-110
               `}
-              title={section.label}
+              title={getSectionLabel(section, index)}
             >
               <StageIcon type={section.type} />
             </button>
