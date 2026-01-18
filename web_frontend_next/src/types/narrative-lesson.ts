@@ -5,9 +5,10 @@
  *
  * Key difference from unified-lesson: segments within a section allow
  * interleaving of text, content excerpts, and chat.
+ *
+ * The API bundles all content (article excerpts, video transcripts) directly
+ * in the response - no separate fetching needed.
  */
-
-import type { ChatMessage, ArticleData } from "./unified-lesson";
 
 // Segment types within a section
 export type TextSegment = {
@@ -17,18 +18,21 @@ export type TextSegment = {
 
 export type ArticleExcerptSegment = {
   type: "article-excerpt";
-  from: string;
-  to: string;
+  content: string; // Pre-extracted content from API
 };
 
 export type VideoExcerptSegment = {
   type: "video-excerpt";
   from: number; // seconds
-  to: number;   // seconds
+  to: number; // seconds
+  transcript: string; // Transcript text from API
 };
 
 export type ChatSegment = {
   type: "chat";
+  instructions: string;
+  showUserPreviousContent: boolean;
+  showTutorPreviousContent: boolean;
 };
 
 export type NarrativeSegment =
@@ -37,37 +41,46 @@ export type NarrativeSegment =
   | VideoExcerptSegment
   | ChatSegment;
 
+// Metadata for article sections
+export type ArticleMeta = {
+  title: string;
+  author: string | null;
+  sourceUrl: string | null;
+};
+
+// Metadata for video sections
+export type VideoMeta = {
+  title: string;
+  channel: string | null;
+};
+
 // Section types (one progress marker each)
+export type NarrativeTextSection = {
+  type: "text";
+  content: string;
+};
+
 export type NarrativeArticleSection = {
   type: "article";
-  source: string;
-  label: string; // Progress sidebar label
+  meta: ArticleMeta;
   segments: NarrativeSegment[];
 };
 
 export type NarrativeVideoSection = {
   type: "video";
   videoId: string;
-  label: string; // Progress sidebar label
+  meta: VideoMeta;
   segments: NarrativeSegment[];
 };
 
-export type NarrativeSection = NarrativeArticleSection | NarrativeVideoSection;
+export type NarrativeSection =
+  | NarrativeTextSection
+  | NarrativeArticleSection
+  | NarrativeVideoSection;
 
 // Full lesson definition
 export type NarrativeLesson = {
-  format: "narrative";
   slug: string;
   title: string;
   sections: NarrativeSection[];
-};
-
-// Runtime state
-export type NarrativeLessonState = {
-  lesson: NarrativeLesson;
-  messages: ChatMessage[];
-  currentSectionIndex: number; // Derived from scroll position
-  sessionId: number | null;
-  // Article content keyed by source path
-  articleContent: Record<string, ArticleData>;
 };

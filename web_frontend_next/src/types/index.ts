@@ -23,11 +23,13 @@ export type {
   VideoExcerptSegment,
   ChatSegment,
   NarrativeSegment,
+  ArticleMeta,
+  VideoMeta,
+  NarrativeTextSection,
   NarrativeArticleSection,
   NarrativeVideoSection,
   NarrativeSection,
   NarrativeLesson,
-  NarrativeLessonState,
 } from "./narrative-lesson";
 
 // Course types
