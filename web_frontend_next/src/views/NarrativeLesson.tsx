@@ -20,6 +20,7 @@ import ArticleEmbed from "@/components/narrative-lesson/ArticleEmbed";
 import VideoEmbed from "@/components/narrative-lesson/VideoEmbed";
 import NarrativeChatSection from "@/components/narrative-lesson/NarrativeChatSection";
 import ProgressSidebar from "@/components/narrative-lesson/ProgressSidebar";
+import MarkCompleteButton from "@/components/narrative-lesson/MarkCompleteButton";
 import SectionDivider from "@/components/unified-lesson/SectionDivider";
 
 type NarrativeLessonProps = {
@@ -61,6 +62,21 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [scrollProgress, setScrollProgress] = useState(0);
   const sectionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  // Section completion tracking (persisted to localStorage)
+  const [completedSections, setCompletedSections] = useState<Set<number>>(() => {
+    if (typeof window === "undefined") return new Set();
+    const stored = localStorage.getItem(`narrative-completed-${lesson.slug}`);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
+
+  // Persist completion state to localStorage
+  useEffect(() => {
+    localStorage.setItem(
+      `narrative-completed-${lesson.slug}`,
+      JSON.stringify([...completedSections])
+    );
+  }, [completedSections, lesson.slug]);
 
   // Initialize session
   useEffect(() => {
@@ -223,6 +239,14 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
     }
   }, []);
 
+  const handleMarkComplete = useCallback((sectionIndex: number) => {
+    setCompletedSections((prev) => {
+      const next = new Set(prev);
+      next.add(sectionIndex);
+      return next;
+    });
+  }, []);
+
   // Render a segment (sectionIndex included for unique keys)
   const renderSegment = (
     segment: NarrativeSegment,
@@ -354,6 +378,10 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
                 )}
               </>
             )}
+            <MarkCompleteButton
+              isCompleted={completedSections.has(sectionIndex)}
+              onComplete={() => handleMarkComplete(sectionIndex)}
+            />
           </div>
         ))}
       </main>
