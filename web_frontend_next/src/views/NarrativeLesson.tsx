@@ -14,7 +14,12 @@ import type {
   NarrativeSection,
   NarrativeSegment,
 } from "@/types/narrative-lesson";
-import { sendMessage, createSession, getSession } from "@/api/lessons";
+import {
+  sendMessage,
+  createSession,
+  getSession,
+  claimSession,
+} from "@/api/lessons";
 import type { LessonCompletionResult } from "@/api/lessons";
 // Note: getNextLesson can be imported when courseId is available in props
 import { useAnonymousSession } from "@/hooks/useAnonymousSession";
@@ -164,6 +169,15 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
           const state = await getSession(storedId);
           setSessionId(storedId);
           setMessages(state.messages);
+
+          // If user is now authenticated, try to claim the session
+          if (isAuthenticated) {
+            try {
+              await claimSession(storedId);
+            } catch {
+              // Session already claimed or other error - ignore
+            }
+          }
           return;
         } catch {
           clearSessionId();
@@ -177,7 +191,7 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
     }
 
     init();
-  }, [lesson.slug, getStoredSessionId, storeSessionId, clearSessionId]);
+  }, [lesson.slug, getStoredSessionId, storeSessionId, clearSessionId, isAuthenticated]);
 
   // Track position for retry
   const [lastPosition, setLastPosition] = useState<{
