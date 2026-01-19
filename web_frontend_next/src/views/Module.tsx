@@ -98,9 +98,6 @@ export default function Module({ module }: ModuleProps) {
   const { isAuthenticated, isInSignupsTable, isInActiveGroup, login } =
     useAuth();
 
-  // Drawer state
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
   // For stage navigation (viewing non-current section)
   const [viewingStageIndex, setViewingStageIndex] = useState<number | null>(
     null,
@@ -606,7 +603,6 @@ export default function Module({ module }: ModuleProps) {
           onNext={handleNext}
           onReturnToCurrent={() => setViewingStageIndex(null)}
           onSkipSection={handleSkipSection}
-          onDrawerOpen={() => setDrawerOpen(true)}
           onLoginClick={handleLoginClick}
         />
       </div>
@@ -654,8 +650,6 @@ export default function Module({ module }: ModuleProps) {
       </main>
 
       <ModuleDrawer
-        isOpen={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
         moduleTitle={module.title}
         stages={stagesForDrawer}
         currentStageIndex={furthestCompletedIndex + 1}

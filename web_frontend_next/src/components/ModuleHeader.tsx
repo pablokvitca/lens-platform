@@ -1,6 +1,5 @@
 import { useHeaderLayout } from "../hooks/useHeaderLayout";
 import StageProgressBar from "./module/StageProgressBar";
-import { ModuleDrawerToggle } from "./module/ModuleDrawer";
 import HeaderAuthStatus from "./module/HeaderAuthStatus";
 import ViewModeToggle from "./module/ViewModeToggle";
 import type { Stage } from "../types/module";
@@ -21,7 +20,6 @@ interface ModuleHeaderProps {
   onNext: () => void;
   onReturnToCurrent: () => void;
   onSkipSection: () => void;
-  onDrawerOpen: () => void;
   onLoginClick: () => void;
 }
 
@@ -40,7 +38,6 @@ export function ModuleHeader({
   onNext,
   onReturnToCurrent,
   onSkipSection,
-  onDrawerOpen,
   onLoginClick,
 }: ModuleHeaderProps) {
   const [
@@ -127,7 +124,6 @@ export function ModuleHeader({
                 Skip section
               </button>
             )}
-            <ModuleDrawerToggle onClick={onDrawerOpen} />
             <HeaderAuthStatus onLoginClick={onLoginClick} />
           </div>
         </div>
