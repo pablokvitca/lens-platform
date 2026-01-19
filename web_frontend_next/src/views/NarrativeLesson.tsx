@@ -1,13 +1,14 @@
 // web_frontend_next/src/views/NarrativeLesson.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type {
   ChatMessage,
   PendingMessage,
   ArticleData,
+  Stage,
 } from "@/types/unified-lesson";
+import type { StageInfo } from "@/types/course";
 import type {
   NarrativeLesson as NarrativeLessonType,
   NarrativeSection,
@@ -15,6 +16,7 @@ import type {
 } from "@/types/narrative-lesson";
 import { sendMessage, createSession, getSession } from "@/api/lessons";
 import { useAnonymousSession } from "@/hooks/useAnonymousSession";
+import { useAuth } from "@/hooks/useAuth";
 import AuthoredText from "@/components/narrative-lesson/AuthoredText";
 import ArticleEmbed from "@/components/narrative-lesson/ArticleEmbed";
 import VideoEmbed from "@/components/narrative-lesson/VideoEmbed";
@@ -22,17 +24,12 @@ import NarrativeChatSection from "@/components/narrative-lesson/NarrativeChatSec
 import ProgressSidebar from "@/components/narrative-lesson/ProgressSidebar";
 import MarkCompleteButton from "@/components/narrative-lesson/MarkCompleteButton";
 import SectionDivider from "@/components/unified-lesson/SectionDivider";
+import { LessonHeader } from "@/components/LessonHeader";
+import LessonDrawer from "@/components/unified-lesson/LessonDrawer";
 
 type NarrativeLessonProps = {
   lesson: NarrativeLessonType;
 };
-
-function getSectionLabel(section: NarrativeSection, index: number): string {
-  if (section.type === "text") {
-    return `Section ${index + 1}`;
-  }
-  return section.meta.title || `${section.type} ${index + 1}`;
-}
 
 /**
  * Main view for NarrativeLesson format.
@@ -63,19 +60,75 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
   const sectionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Section completion tracking (persisted to localStorage)
-  const [completedSections, setCompletedSections] = useState<Set<number>>(() => {
-    if (typeof window === "undefined") return new Set();
-    const stored = localStorage.getItem(`narrative-completed-${lesson.slug}`);
-    return stored ? new Set(JSON.parse(stored)) : new Set();
-  });
+  const [completedSections, setCompletedSections] = useState<Set<number>>(
+    () => {
+      if (typeof window === "undefined") return new Set();
+      const stored = localStorage.getItem(`narrative-completed-${lesson.slug}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    },
+  );
 
   // Persist completion state to localStorage
   useEffect(() => {
     localStorage.setItem(
       `narrative-completed-${lesson.slug}`,
-      JSON.stringify([...completedSections])
+      JSON.stringify([...completedSections]),
     );
   }, [completedSections, lesson.slug]);
+
+  const { isAuthenticated, isInSignupsTable, isInActiveGroup, login } =
+    useAuth();
+
+  // Drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // For stage navigation (viewing non-current section)
+  const [viewingStageIndex, setViewingStageIndex] = useState<number | null>(
+    null,
+  );
+
+  // Derive furthest completed index for progress bar display
+  // Progress bar shows stages as "reached" based on this, not scroll position
+  const furthestCompletedIndex = useMemo(() => {
+    let max = -1;
+    completedSections.forEach((idx) => {
+      if (idx > max) max = idx;
+    });
+    return max;
+  }, [completedSections]);
+
+  // Convert sections to Stage format for progress bar
+  // StageProgressBar only uses the `type` field for icon display
+  const stages: Stage[] = useMemo(() => {
+    return lesson.sections.map((section): Stage => {
+      const stageType = section.type === "text" ? "article" : section.type;
+      if (stageType === "article") {
+        return { type: "article", source: "", from: null, to: null };
+      } else if (stageType === "video" && section.type === "video") {
+        return { type: "video", videoId: section.videoId, from: 0, to: null };
+      } else {
+        return {
+          type: "chat",
+          instructions: "",
+          showUserPreviousContent: false,
+          showTutorPreviousContent: false,
+        };
+      }
+    });
+  }, [lesson.sections]);
+
+  // Convert to StageInfo format for drawer
+  const stagesForDrawer: StageInfo[] = useMemo(() => {
+    return lesson.sections.map((section, index) => ({
+      type: section.type === "text" ? "article" : section.type,
+      title:
+        section.type === "text"
+          ? `Section ${index + 1}`
+          : section.meta.title || `${section.type} ${index + 1}`,
+      duration: null,
+      optional: false,
+    }));
+  }, [lesson.sections]);
 
   // Initialize session
   useEffect(() => {
@@ -109,11 +162,7 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
 
   // Send message handler (shared across all chat sections)
   const handleSendMessage = useCallback(
-    async (
-      content: string,
-      sectionIndex: number,
-      segmentIndex: number,
-    ) => {
+    async (content: string, sectionIndex: number, segmentIndex: number) => {
       if (!sessionId) return;
 
       // Store position for potential retry
@@ -162,9 +211,12 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
     if (!pendingMessage || !lastPosition) return;
     const content = pendingMessage.content;
     setPendingMessage(null);
-    handleSendMessage(content, lastPosition.sectionIndex, lastPosition.segmentIndex);
+    handleSendMessage(
+      content,
+      lastPosition.sectionIndex,
+      lastPosition.segmentIndex,
+    );
   }, [pendingMessage, lastPosition, handleSendMessage]);
-
 
   // Scroll tracking with hybrid rule: >50% viewport OR fully visible, topmost wins
   useEffect(() => {
@@ -247,6 +299,36 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
     }
   }, []);
 
+  const handleLoginClick = useCallback(() => {
+    sessionStorage.setItem("returnToLesson", lesson.slug);
+    login();
+  }, [lesson.slug, login]);
+
+  const handleStageClick = useCallback(
+    (index: number) => {
+      // Scroll to section
+      const el = sectionRefs.current.get(index);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+      setViewingStageIndex(index === currentSectionIndex ? null : index);
+    },
+    [currentSectionIndex],
+  );
+
+  const handlePrevious = useCallback(() => {
+    const prevIndex = Math.max(0, currentSectionIndex - 1);
+    handleStageClick(prevIndex);
+  }, [currentSectionIndex, handleStageClick]);
+
+  const handleNext = useCallback(() => {
+    const nextIndex = Math.min(
+      lesson.sections.length - 1,
+      currentSectionIndex + 1,
+    );
+    handleStageClick(nextIndex);
+  }, [currentSectionIndex, lesson.sections.length, handleStageClick]);
+
   const handleMarkComplete = useCallback((sectionIndex: number) => {
     setCompletedSections((prev) => {
       const next = new Set(prev);
@@ -254,6 +336,12 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
       return next;
     });
   }, []);
+
+  const handleSkipSection = useCallback(() => {
+    // Mark current as complete and go to next
+    handleMarkComplete(currentSectionIndex);
+    handleNext();
+  }, [currentSectionIndex, handleMarkComplete, handleNext]);
 
   // Render a segment (sectionIndex included for unique keys)
   const renderSegment = (
@@ -323,37 +411,25 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
-        <h1 className="text-xl font-semibold text-gray-900">{lesson.title}</h1>
-        <Link
-          href="/"
-          className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-          Exit
-        </Link>
-      </header>
-
-      {/* Sticky section title */}
-      <div className="sticky top-[57px] z-40 bg-gray-50 border-b border-gray-200 px-6 py-2">
-        <span className="text-sm font-medium text-gray-600">
-          {lesson.sections[currentSectionIndex] &&
-            getSectionLabel(lesson.sections[currentSectionIndex], currentSectionIndex)}
-        </span>
-      </div>
+      <LessonHeader
+        lessonTitle={lesson.title}
+        stages={stages}
+        currentStageIndex={furthestCompletedIndex + 1}
+        viewingStageIndex={viewingStageIndex}
+        isViewingOther={
+          viewingStageIndex !== null &&
+          viewingStageIndex !== currentSectionIndex
+        }
+        canGoPrevious={currentSectionIndex > 0}
+        canGoNext={currentSectionIndex < lesson.sections.length - 1}
+        onStageClick={handleStageClick}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        onReturnToCurrent={() => setViewingStageIndex(null)}
+        onSkipSection={handleSkipSection}
+        onDrawerOpen={() => setDrawerOpen(true)}
+        onLoginClick={handleLoginClick}
+      />
 
       {/* Progress sidebar */}
       <ProgressSidebar
@@ -393,6 +469,19 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
           </div>
         ))}
       </main>
+
+      <LessonDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        lessonTitle={lesson.title}
+        stages={stagesForDrawer}
+        currentStageIndex={furthestCompletedIndex + 1}
+        viewedStageIndex={viewingStageIndex ?? currentSectionIndex}
+        onStageClick={(index) => {
+          handleStageClick(index);
+          setDrawerOpen(false);
+        }}
+      />
     </div>
   );
 }
