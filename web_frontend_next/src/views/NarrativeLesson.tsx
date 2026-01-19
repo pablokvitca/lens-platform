@@ -15,6 +15,8 @@ import type {
   NarrativeSegment,
 } from "@/types/narrative-lesson";
 import { sendMessage, createSession, getSession } from "@/api/lessons";
+import type { LessonCompletionResult } from "@/api/lessons";
+// Note: getNextLesson can be imported when courseId is available in props
 import { useAnonymousSession } from "@/hooks/useAnonymousSession";
 import { useAuth } from "@/hooks/useAuth";
 import AuthoredText from "@/components/narrative-lesson/AuthoredText";
@@ -25,6 +27,7 @@ import MarkCompleteButton from "@/components/narrative-lesson/MarkCompleteButton
 import SectionDivider from "@/components/unified-lesson/SectionDivider";
 import { LessonHeader } from "@/components/LessonHeader";
 import LessonDrawer from "@/components/unified-lesson/LessonDrawer";
+import LessonCompleteModal from "@/components/unified-lesson/LessonCompleteModal";
 
 type NarrativeLessonProps = {
   lesson: NarrativeLessonType;
@@ -86,6 +89,12 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
     null,
   );
 
+  // Lesson completion modal state
+  const [lessonCompletionResult, setLessonCompletionResult] =
+    useState<LessonCompletionResult>(null);
+  const [completionModalDismissed, setCompletionModalDismissed] =
+    useState(false);
+
   // Derive furthest completed index for progress bar display
   // Progress bar shows stages as "reached" based on this, not scroll position
   const furthestCompletedIndex = useMemo(() => {
@@ -128,6 +137,18 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
       optional: false,
     }));
   }, [lesson.sections]);
+
+  // Derived value for lesson completion
+  const isLessonComplete = completedSections.size === lesson.sections.length;
+
+  // Fetch next lesson info when lesson completes
+  useEffect(() => {
+    if (!isLessonComplete) return;
+
+    // For now, we don't have courseId in NarrativeLesson props
+    // This can be added later when course context is available
+    setLessonCompletionResult(null);
+  }, [isLessonComplete]);
 
   // Initialize session
   useEffect(() => {
@@ -465,6 +486,28 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
           handleStageClick(index);
           setDrawerOpen(false);
         }}
+      />
+
+      <LessonCompleteModal
+        isOpen={isLessonComplete && !completionModalDismissed}
+        lessonTitle={lesson.title}
+        courseId={undefined}
+        isInSignupsTable={isInSignupsTable}
+        isInActiveGroup={isInActiveGroup}
+        nextLesson={
+          lessonCompletionResult?.type === "next_lesson"
+            ? {
+                slug: lessonCompletionResult.slug,
+                title: lessonCompletionResult.title,
+              }
+            : null
+        }
+        completedUnit={
+          lessonCompletionResult?.type === "unit_complete"
+            ? lessonCompletionResult.unitNumber
+            : null
+        }
+        onClose={() => setCompletionModalDismissed(true)}
       />
     </div>
   );
