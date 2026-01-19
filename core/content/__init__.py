@@ -18,6 +18,11 @@ from .github_fetcher import (
     fetch_all_content,
     CONTENT_REPO,
 )
+from .webhook_handler import (
+    WebhookSignatureError,
+    verify_webhook_signature,
+    handle_content_update,
+)
 
 __all__ = [
     "ContentCache",
@@ -34,4 +39,7 @@ __all__ = [
     "list_directory",
     "fetch_all_content",
     "CONTENT_REPO",
+    "WebhookSignatureError",
+    "verify_webhook_signature",
+    "handle_content_update",
 ]

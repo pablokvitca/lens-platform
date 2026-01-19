@@ -21,6 +21,7 @@ class ContentCache:
     articles: dict[str, str]  # path -> raw markdown
     video_transcripts: dict[str, str]  # path -> raw markdown
     last_refreshed: datetime
+    last_commit_sha: str | None = None  # Git commit SHA of current cache state
 
 
 # Global cache singleton
