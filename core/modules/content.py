@@ -534,6 +534,7 @@ def bundle_narrative_module(module) -> dict:
         TextSection,
         ArticleSection,
         VideoSection,
+        ChatSection,
         TextSegment,
         ArticleExcerptSegment,
         VideoExcerptSegment,
@@ -543,18 +544,24 @@ def bundle_narrative_module(module) -> dict:
 
     def _parse_time_to_seconds(time_str: str) -> int:
         """Convert time string (e.g., '1:30' or '1:30:45') to seconds."""
-        parts = time_str.split(":")
-        if len(parts) == 2:
-            # MM:SS format
-            minutes, seconds = int(parts[0]), int(parts[1])
-            return minutes * 60 + seconds
-        elif len(parts) == 3:
-            # HH:MM:SS format
-            hours, minutes, seconds = int(parts[0]), int(parts[1]), int(parts[2])
-            return hours * 3600 + minutes * 60 + seconds
-        else:
-            # Single number assumed to be seconds
-            return int(time_str)
+        # Strip any extra content (defensive - content parsing issue)
+        time_str = time_str.strip().split("\n")[0].strip()
+        try:
+            parts = time_str.split(":")
+            if len(parts) == 2:
+                # MM:SS format
+                minutes, seconds = int(parts[0]), int(parts[1])
+                return minutes * 60 + seconds
+            elif len(parts) == 3:
+                # HH:MM:SS format
+                hours, minutes, seconds = int(parts[0]), int(parts[1]), int(parts[2])
+                return hours * 3600 + minutes * 60 + seconds
+            else:
+                # Single number assumed to be seconds
+                return int(time_str)
+        except ValueError:
+            # If parsing fails, return 0 as fallback
+            return 0
 
     def bundle_segment(segment, section) -> dict:
         """Bundle a single segment with content."""
@@ -647,6 +654,15 @@ def bundle_narrative_module(module) -> dict:
                 "videoId": video_id,
                 "meta": meta,
                 "segments": segments,
+            }
+
+        elif isinstance(section, ChatSection):
+            return {
+                "type": "chat",
+                "meta": {"title": "Discussion"},
+                "instructions": section.instructions,
+                "showUserPreviousContent": section.show_user_previous_content,
+                "showTutorPreviousContent": section.show_tutor_previous_content,
             }
 
         return {}

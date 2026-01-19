@@ -158,7 +158,7 @@ export default function Module({ module }: ModuleProps) {
       title:
         section.type === "text"
           ? `Section ${index + 1}`
-          : section.meta.title || `${section.type} ${index + 1}`,
+          : section.meta?.title || `${section.type || "Section"} ${index + 1}`,
       duration: null,
       optional: false,
     }));
@@ -598,10 +598,24 @@ export default function Module({ module }: ModuleProps) {
                 <SectionDivider type="article" />
                 <AuthoredText content={section.content} />
               </>
+            ) : section.type === "chat" ? (
+              <>
+                <SectionDivider type="chat" />
+                <NarrativeChatSection
+                  messages={messages}
+                  pendingMessage={pendingMessage}
+                  streamingContent={streamingContent}
+                  isLoading={isLoading}
+                  onSendMessage={(content) =>
+                    handleSendMessage(content, sectionIndex, 0)
+                  }
+                  onRetryMessage={handleRetryMessage}
+                />
+              </>
             ) : (
               <>
                 <SectionDivider type={section.type} />
-                {section.segments.map((segment, segmentIndex) =>
+                {section.segments?.map((segment, segmentIndex) =>
                   renderSegment(segment, section, sectionIndex, segmentIndex),
                 )}
               </>
