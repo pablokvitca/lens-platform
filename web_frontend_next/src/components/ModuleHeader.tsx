@@ -2,7 +2,9 @@ import { useHeaderLayout } from "../hooks/useHeaderLayout";
 import StageProgressBar from "./module/StageProgressBar";
 import { ModuleDrawerToggle } from "./module/ModuleDrawer";
 import HeaderAuthStatus from "./module/HeaderAuthStatus";
+import ViewModeToggle from "./module/ViewModeToggle";
 import type { Stage } from "../types/module";
+import type { ViewMode } from "../types/viewMode";
 
 interface ModuleHeaderProps {
   moduleTitle: string;
@@ -12,6 +14,8 @@ interface ModuleHeaderProps {
   isViewingOther: boolean;
   canGoPrevious: boolean;
   canGoNext: boolean;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
   onStageClick: (index: number) => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -29,6 +33,8 @@ export function ModuleHeader({
   isViewingOther,
   canGoPrevious,
   canGoNext,
+  viewMode,
+  onViewModeChange,
   onStageClick,
   onPrevious,
   onNext,
@@ -105,6 +111,7 @@ export function ModuleHeader({
 
           {/* Right section: Controls */}
           <div ref={rightRef} className="flex items-center gap-4">
+            <ViewModeToggle viewMode={viewMode} onChange={onViewModeChange} />
             {isViewingOther ? (
               <button
                 onClick={onReturnToCurrent}

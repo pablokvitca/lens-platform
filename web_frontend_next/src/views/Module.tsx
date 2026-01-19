@@ -10,6 +10,7 @@ import type {
   Stage,
 } from "@/types/module";
 import type { StageInfo } from "@/types/course";
+import type { ViewMode } from "@/types/viewMode";
 import type {
   Module as ModuleType,
   ModuleSection,
@@ -120,6 +121,13 @@ export default function Module({ module }: ModuleProps) {
 
   // Error state
   const [error, setError] = useState<string | null>(null);
+
+  // View mode state
+  const [viewMode, setViewMode] = useState<ViewMode>("continuous");
+
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+  }, []);
 
   // Derive furthest completed index for progress bar display
   // Progress bar shows stages as "reached" based on this, not scroll position
@@ -347,7 +355,11 @@ export default function Module({ module }: ModuleProps) {
   }, [pendingMessage, lastPosition, handleSendMessage]);
 
   // Scroll tracking with hybrid rule: >50% viewport OR fully visible, topmost wins
+  // Only active in continuous mode
   useEffect(() => {
+    // Skip scroll tracking in paginated mode
+    if (viewMode === "paginated") return;
+
     const calculateCurrentSection = () => {
       const viewportHeight = window.innerHeight;
       let bestIndex = 0;
@@ -417,7 +429,7 @@ export default function Module({ module }: ModuleProps) {
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", calculateCurrentSection);
     };
-  }, [module.sections]);
+  }, [module.sections, viewMode]);
 
   const handleLoginClick = useCallback(() => {
     sessionStorage.setItem("returnToModule", module.slug);
@@ -426,28 +438,43 @@ export default function Module({ module }: ModuleProps) {
 
   const handleStageClick = useCallback(
     (index: number) => {
-      // Scroll to section
-      const el = sectionRefs.current.get(index);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth" });
+      if (viewMode === "continuous") {
+        // Scroll to section
+        const el = sectionRefs.current.get(index);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      } else {
+        // Paginated: just update the index (render handles the rest)
+        setCurrentSectionIndex(index);
       }
       setViewingStageIndex(index === currentSectionIndex ? null : index);
     },
-    [currentSectionIndex],
+    [currentSectionIndex, viewMode],
   );
 
   const handlePrevious = useCallback(() => {
     const prevIndex = Math.max(0, currentSectionIndex - 1);
-    handleStageClick(prevIndex);
-  }, [currentSectionIndex, handleStageClick]);
+    if (viewMode === "continuous") {
+      handleStageClick(prevIndex);
+    } else {
+      setCurrentSectionIndex(prevIndex);
+      setViewingStageIndex(null);
+    }
+  }, [currentSectionIndex, viewMode, handleStageClick]);
 
   const handleNext = useCallback(() => {
     const nextIndex = Math.min(
       module.sections.length - 1,
       currentSectionIndex + 1,
     );
-    handleStageClick(nextIndex);
-  }, [currentSectionIndex, module.sections.length, handleStageClick]);
+    if (viewMode === "continuous") {
+      handleStageClick(nextIndex);
+    } else {
+      setCurrentSectionIndex(nextIndex);
+      setViewingStageIndex(null);
+    }
+  }, [currentSectionIndex, module.sections.length, viewMode, handleStageClick]);
 
   const handleMarkComplete = useCallback(
     (sectionIndex: number) => {
@@ -562,70 +589,68 @@ export default function Module({ module }: ModuleProps) {
     <div className="min-h-screen bg-white">
       <div className="sticky top-0 z-50 bg-white">
         <ModuleHeader
-        moduleTitle={module.title}
-        stages={stages}
-        currentStageIndex={furthestCompletedIndex + 1}
-        viewingStageIndex={viewingStageIndex ?? currentSectionIndex}
-        isViewingOther={
-          viewingStageIndex !== null &&
-          viewingStageIndex !== currentSectionIndex
-        }
-        canGoPrevious={currentSectionIndex > 0}
-        canGoNext={currentSectionIndex < module.sections.length - 1}
-        onStageClick={handleStageClick}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-        onReturnToCurrent={() => setViewingStageIndex(null)}
-        onSkipSection={handleSkipSection}
-        onDrawerOpen={() => setDrawerOpen(true)}
-        onLoginClick={handleLoginClick}
-      />
+          moduleTitle={module.title}
+          stages={stages}
+          currentStageIndex={furthestCompletedIndex + 1}
+          viewingStageIndex={viewingStageIndex ?? currentSectionIndex}
+          isViewingOther={
+            viewingStageIndex !== null &&
+            viewingStageIndex !== currentSectionIndex
+          }
+          canGoPrevious={currentSectionIndex > 0}
+          canGoNext={currentSectionIndex < module.sections.length - 1}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
+          onStageClick={handleStageClick}
+          onPrevious={handlePrevious}
+          onNext={handleNext}
+          onReturnToCurrent={() => setViewingStageIndex(null)}
+          onSkipSection={handleSkipSection}
+          onDrawerOpen={() => setDrawerOpen(true)}
+          onLoginClick={handleLoginClick}
+        />
       </div>
 
       {/* Main content */}
       <main>
-        {module.sections.map((section, sectionIndex) => (
-          <div
-            key={sectionIndex}
-            ref={(el) => {
-              if (el) sectionRefs.current.set(sectionIndex, el);
-            }}
-            data-section-index={sectionIndex}
-            className="py-8"
-          >
-            {section.type === "text" ? (
-              <>
-                <SectionDivider type="article" />
-                <AuthoredText content={section.content} />
-              </>
-            ) : section.type === "chat" ? (
-              <>
-                <SectionDivider type="chat" />
-                <NarrativeChatSection
-                  messages={messages}
-                  pendingMessage={pendingMessage}
-                  streamingContent={streamingContent}
-                  isLoading={isLoading}
-                  onSendMessage={(content) =>
-                    handleSendMessage(content, sectionIndex, 0)
-                  }
-                  onRetryMessage={handleRetryMessage}
-                />
-              </>
-            ) : (
-              <>
-                <SectionDivider type={section.type} />
-                {section.segments?.map((segment, segmentIndex) =>
-                  renderSegment(segment, section, sectionIndex, segmentIndex),
-                )}
-              </>
-            )}
-            <MarkCompleteButton
-              isCompleted={completedSections.has(sectionIndex)}
-              onComplete={() => handleMarkComplete(sectionIndex)}
-            />
-          </div>
-        ))}
+        {module.sections.map((section, sectionIndex) => {
+          // In paginated mode, only render current section
+          if (
+            viewMode === "paginated" &&
+            sectionIndex !== currentSectionIndex
+          ) {
+            return null;
+          }
+
+          return (
+            <div
+              key={sectionIndex}
+              ref={(el) => {
+                if (el) sectionRefs.current.set(sectionIndex, el);
+              }}
+              data-section-index={sectionIndex}
+              className="py-8"
+            >
+              {section.type === "text" ? (
+                <>
+                  <SectionDivider type="article" />
+                  <AuthoredText content={section.content} />
+                </>
+              ) : (
+                <>
+                  <SectionDivider type={section.type} />
+                  {section.segments?.map((segment, segmentIndex) =>
+                    renderSegment(segment, section, sectionIndex, segmentIndex),
+                  )}
+                </>
+              )}
+              <MarkCompleteButton
+                isCompleted={completedSections.has(sectionIndex)}
+                onComplete={() => handleMarkComplete(sectionIndex)}
+              />
+            </div>
+          );
+        })}
       </main>
 
       <ModuleDrawer
