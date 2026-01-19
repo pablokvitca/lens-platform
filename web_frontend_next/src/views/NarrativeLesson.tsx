@@ -36,6 +36,11 @@ import { LessonHeader } from "@/components/LessonHeader";
 import LessonDrawer from "@/components/unified-lesson/LessonDrawer";
 import LessonCompleteModal from "@/components/unified-lesson/LessonCompleteModal";
 import AuthPromptModal from "@/components/unified-lesson/AuthPromptModal";
+import {
+  trackLessonStarted,
+  trackLessonCompleted,
+  trackChatMessageSent,
+} from "@/analytics";
 
 type NarrativeLessonProps = {
   lesson: NarrativeLessonType;
@@ -106,6 +111,9 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
   // Auth prompt modal state
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [hasPromptedAuth, setHasPromptedAuth] = useState(false);
+
+  // Analytics tracking ref
+  const hasTrackedLessonStart = useRef(false);
 
   // Derive furthest completed index for progress bar display
   // Progress bar shows stages as "reached" based on this, not scroll position
@@ -196,6 +204,13 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
     setLessonCompletionResult(null);
   }, [isLessonComplete]);
 
+  // Track lesson completed
+  useEffect(() => {
+    if (isLessonComplete) {
+      trackLessonCompleted(lesson.slug);
+    }
+  }, [isLessonComplete, lesson.slug]);
+
   // Initialize session
   useEffect(() => {
     async function init() {
@@ -224,10 +239,23 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
       const sid = await createSession(lesson.slug);
       storeSessionId(sid);
       setSessionId(sid);
+
+      // Track lesson start (only for new sessions)
+      if (!hasTrackedLessonStart.current) {
+        hasTrackedLessonStart.current = true;
+        trackLessonStarted(lesson.slug, lesson.title);
+      }
     }
 
     init();
-  }, [lesson.slug, getStoredSessionId, storeSessionId, clearSessionId, isAuthenticated]);
+  }, [
+    lesson.slug,
+    lesson.title,
+    getStoredSessionId,
+    storeSessionId,
+    clearSessionId,
+    isAuthenticated,
+  ]);
 
   // Track position for retry
   const [lastPosition, setLastPosition] = useState<{
@@ -248,6 +276,7 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
 
       if (content) {
         setPendingMessage({ content, status: "sending" });
+        trackChatMessageSent(lesson.slug, content.length);
       }
       setIsLoading(true);
       setStreamingContent("");
@@ -282,7 +311,7 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
         setIsLoading(false);
       }
     },
-    [sessionId, triggerChatActivity],
+    [sessionId, triggerChatActivity, lesson.slug],
   );
 
   const handleRetryMessage = useCallback(() => {
