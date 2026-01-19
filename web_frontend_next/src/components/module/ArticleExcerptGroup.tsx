@@ -34,20 +34,23 @@ export default function ArticleExcerptGroup({
   }, [section.segments]);
 
   return (
-    <div className="relative">
-      {/* Content column - full width */}
-      <div className="w-full">{children}</div>
+    <div>
+      {/* Centered content with relative positioning for TOC */}
+      <div className="max-w-[750px] mx-auto relative">
+        {/* Content */}
+        <div className="w-full">{children}</div>
 
-      {/* TOC Sidebar - spans full height of this container */}
-      <div className="hidden lg:block absolute left-0 top-0 bottom-0 w-[280px] -translate-x-full pr-8">
-        <div className="sticky top-20">
-          <ArticleTOC
-            title={section.meta.title}
-            author={section.meta.author}
-            headings={allHeadings}
-            passedHeadingIds={context?.passedHeadingIds ?? new Set()}
-            onHeadingClick={context?.onHeadingClick ?? (() => {})}
-          />
+        {/* TOC Sidebar - positioned to the left of centered content */}
+        <div className="hidden xl:block absolute top-0 bottom-0 right-full w-[250px] mr-6">
+          <div className="sticky top-20 will-change-transform">
+            <ArticleTOC
+              title={section.meta.title}
+              author={section.meta.author}
+              headings={allHeadings}
+              passedHeadingIds={context?.passedHeadingIds ?? new Set()}
+              onHeadingClick={context?.onHeadingClick ?? (() => {})}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -45,10 +45,10 @@ export default function ArticleEmbed({
   };
 
   return (
-    <div className="py-4">
+    <div>
       {/* Article content with warm background - header inside */}
-      <div className="bg-amber-50/50">
-        <div className="max-w-[700px] mx-auto px-4 py-6">
+      <div className="max-w-[750px] mx-auto">
+        <div className="bg-amber-50/50 px-10 py-6 rounded-lg">
           {/* Excerpt marker inside yellow background */}
           {isFirst ? (
             // First excerpt: full attribution with divider
