@@ -12,7 +12,7 @@
 
 ## Task 1: Duration Formatter Utility
 
-Create a utility function to format seconds as human-readable duration (e.g., "2 min 15 sec").
+Create a utility function to format seconds as human-readable duration.
 
 **Files:**
 - Create: `web_frontend_next/src/utils/formatDuration.ts`
@@ -28,9 +28,16 @@ mkdir -p web_frontend_next/src/utils
 
 /**
  * Format seconds as human-readable duration.
+ *
+ * Under 5 minutes: shows seconds (e.g., "2 min 15 sec")
+ * 5 minutes or above: rounds to whole minutes (e.g., "7 min")
+ *
  * Examples:
  *   45 → "45 sec"
  *   135 → "2 min 15 sec"
+ *   299 → "4 min 59 sec"
+ *   300 → "5 min"
+ *   423 → "7 min"
  *   3665 → "1 hr 1 min"
  */
 export function formatDuration(seconds: number): string {
@@ -41,6 +48,7 @@ export function formatDuration(seconds: number): string {
 
   const totalSeconds = Math.floor(seconds);
 
+  // Under 1 minute: show seconds only
   if (totalSeconds < 60) {
     return `${totalSeconds} sec`;
   }
@@ -49,6 +57,7 @@ export function formatDuration(seconds: number): string {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const secs = totalSeconds % 60;
 
+  // 1 hour or more
   if (hours > 0) {
     if (minutes > 0) {
       return `${hours} hr ${minutes} min`;
@@ -56,6 +65,13 @@ export function formatDuration(seconds: number): string {
     return `${hours} hr`;
   }
 
+  // 5 minutes or above: round to whole minutes
+  if (totalSeconds >= 300) {
+    const roundedMinutes = Math.round(totalSeconds / 60);
+    return `${roundedMinutes} min`;
+  }
+
+  // Under 5 minutes: show minutes and seconds
   if (secs > 0) {
     return `${minutes} min ${secs} sec`;
   }
@@ -109,7 +125,7 @@ export default function ContinueVideoButton({
       <button
         onClick={onClick}
         className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
-        aria-label={`Continue video, ${formatDuration(durationSeconds)} remaining`}
+        aria-label={`Continue video, ${formatDuration(durationSeconds)}`}
       >
         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
           <path d="M8 5v14l11-7z" />
@@ -172,28 +188,33 @@ type VideoEmbedProps = {
 
 **Step 3: Update imports and add ref**
 
-Update imports:
+Replace imports with:
 
 ```typescript
 import { useState, useRef, useEffect } from "react";
 import VideoPlayer from "@/components/module/VideoPlayer";
 import ContinueVideoButton from "@/components/module/ContinueVideoButton";
+import { formatDuration } from "@/utils/formatDuration";
 ```
 
-Add to component body (after useState, before formatTime):
+Add to component body (after useState):
 
 ```typescript
 const containerRef = useRef<HTMLDivElement>(null);
 const isFirst = isFirstInSection ?? true;
 ```
 
-**Step 4: Add scroll-into-view effect**
+**Step 4: Remove the old formatTime function**
+
+Delete the `formatTime` function (lines 35-39) - we're replacing it with `formatDuration`.
+
+**Step 5: Add scroll-into-view effect**
 
 After the isFirst declaration:
 
 ```typescript
 // Scroll into view when video is activated (for continue button clicks)
-// Space is reserved via aspect-video wrapper, so scroll position is correct immediately
+// VideoPlayer manages its own dimensions, so scroll position is correct immediately
 useEffect(() => {
   if (isActivated && !isFirst && containerRef.current) {
     containerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -201,30 +222,25 @@ useEffect(() => {
 }, [isActivated, isFirst]);
 ```
 
-Note: The existing `formatTime` function (lines 35-39) stays unchanged - it's used for the thumbnail duration badge.
-
-**Step 5: Update render logic**
+**Step 6: Update render logic**
 
 Replace the return statement with:
 
 ```typescript
 return (
-  <div ref={containerRef} className="w-[80%] max-w-[900px] mx-auto py-4 scroll-mt-6">
+  <div ref={containerRef} className="w-[80%] max-w-[900px] mx-auto py-4 scroll-mt-20">
     <div className="bg-stone-100 rounded-lg overflow-hidden shadow-sm">
       {isActivated ? (
-        // Reserve space with aspect-video so scroll position is correct while player loads
-        <div className="aspect-video">
-          <VideoPlayer
-            videoId={videoId}
-            start={start}
-            end={end}
-            autoplay
-            onEnded={onEnded ?? (() => {})}
-            onPlay={onPlay}
-            onPause={onPause}
-            onTimeUpdate={onTimeUpdate}
-          />
-        </div>
+        <VideoPlayer
+          videoId={videoId}
+          start={start}
+          end={end}
+          autoplay
+          onEnded={onEnded ?? (() => {})}
+          onPlay={onPlay}
+          onPause={onPause}
+          onTimeUpdate={onTimeUpdate}
+        />
       ) : isFirst ? (
         <button
           onClick={() => setIsActivated(true)}
@@ -256,7 +272,7 @@ return (
 
           {/* Duration badge */}
           <div className="absolute bottom-3 right-3 bg-black/80 text-white text-sm px-2 py-1 rounded">
-            {formatTime(end - start)}
+            {formatDuration(end - start)}
           </div>
         </button>
       ) : (
@@ -270,12 +286,14 @@ return (
 );
 ```
 
-**Step 6: Verify it compiles**
+Note: Changed `scroll-mt-6` to `scroll-mt-20` (5rem) to better account for the sticky header.
+
+**Step 7: Verify it compiles**
 
 Run: `cd web_frontend_next && npx tsc --noEmit`
 Expected: No errors
 
-**Step 7: Commit**
+**Step 8: Commit**
 
 ```bash
 jj desc -m "feat: VideoEmbed supports compact continue button for subsequent clips"
@@ -355,11 +373,12 @@ Find or create a test module that has a video section with multiple video-excerp
 **Step 3: Verify behavior**
 
 - [ ] First video clip shows full thumbnail with red play button
+- [ ] First video thumbnail shows duration in new format (e.g., "2 min 15 sec")
 - [ ] Subsequent video clips show blue "Continue video (X min Y sec)" button
+- [ ] Durations 5+ min show rounded format (e.g., "7 min" not "7 min 23 sec")
 - [ ] Clicking continue button expands to full player
 - [ ] Video auto-plays on click
-- [ ] Page scrolls to position video nicely in viewport (no layout shift)
-- [ ] Duration format is human-readable (not "2:15" but "2 min 15 sec")
+- [ ] Page scrolls to position video nicely in viewport
 - [ ] Continue button has visible focus ring when tabbed to
 
 **Step 4: Final commit**
@@ -370,8 +389,8 @@ jj desc -m "feat: video continuation UX - show compact button for subsequent cli
 - First video clip in a section shows full thumbnail (unchanged)
 - Subsequent clips show 'Continue video (duration)' button
 - Clicking expands to full player, auto-plays, and scrolls into view
-- Space reserved with aspect-video wrapper for stable scroll position
-- Duration shown in human-readable format (e.g., '2 min 15 sec')"
+- Duration shown in human-readable format (e.g., '2 min 15 sec')
+- Durations 5+ minutes rounded to whole minutes (e.g., '7 min')"
 ```
 
 ---
@@ -391,6 +410,9 @@ Test cases to cover:
 - 45 seconds → "45 sec"
 - 60 seconds → "1 min"
 - 135 seconds → "2 min 15 sec"
+- 299 seconds → "4 min 59 sec"
+- 300 seconds → "5 min" (threshold for rounding)
+- 423 seconds → "7 min" (rounded from 7:03)
 - 3600 seconds → "1 hr"
 - 3665 seconds → "1 hr 1 min"
 
