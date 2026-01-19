@@ -21,7 +21,6 @@ import AuthoredText from "@/components/narrative-lesson/AuthoredText";
 import ArticleEmbed from "@/components/narrative-lesson/ArticleEmbed";
 import VideoEmbed from "@/components/narrative-lesson/VideoEmbed";
 import NarrativeChatSection from "@/components/narrative-lesson/NarrativeChatSection";
-import ProgressSidebar from "@/components/narrative-lesson/ProgressSidebar";
 import MarkCompleteButton from "@/components/narrative-lesson/MarkCompleteButton";
 import SectionDivider from "@/components/unified-lesson/SectionDivider";
 import { LessonHeader } from "@/components/LessonHeader";
@@ -291,14 +290,6 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
     };
   }, [lesson.sections]);
 
-  // Scroll to section
-  const handleSectionClick = useCallback((index: number) => {
-    const el = sectionRefs.current.get(index);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth" });
-    }
-  }, []);
-
   const handleLoginClick = useCallback(() => {
     sessionStorage.setItem("returnToLesson", lesson.slug);
     login();
@@ -431,15 +422,8 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
         onLoginClick={handleLoginClick}
       />
 
-      {/* Progress sidebar */}
-      <ProgressSidebar
-        sections={lesson.sections}
-        sectionRefs={sectionRefs}
-        onSectionClick={handleSectionClick}
-      />
-
       {/* Main content */}
-      <main className="pl-20">
+      <main>
         {lesson.sections.map((section, sectionIndex) => (
           <div
             key={sectionIndex}
