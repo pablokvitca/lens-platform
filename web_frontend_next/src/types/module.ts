@@ -72,7 +72,19 @@ export type VideoSection = {
   segments: ModuleSegment[];
 };
 
-export type ModuleSection = TextSection | ArticleSection | VideoSection;
+export type ChatSection = {
+  type: "chat";
+  meta: { title: string };
+  instructions: string;
+  showUserPreviousContent: boolean;
+  showTutorPreviousContent: boolean;
+};
+
+export type ModuleSection =
+  | TextSection
+  | ArticleSection
+  | VideoSection
+  | ChatSection;
 
 // Full module definition
 export type Module = {

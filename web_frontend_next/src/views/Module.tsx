@@ -20,9 +20,9 @@ import {
   createSession,
   getSession,
   claimSession,
+  getNextModule,
 } from "@/api/modules";
 import type { ModuleCompletionResult } from "@/api/modules";
-// Note: getNextModule can be imported when courseId is available in props
 import { useAnonymousSession } from "@/hooks/useAnonymousSession";
 import { useAuth } from "@/hooks/useAuth";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
@@ -45,8 +45,15 @@ import {
 import { Sentry } from "@/errorTracking";
 import { RequestTimeoutError } from "@/api/modules";
 
+type CourseContext = {
+  courseId: string;
+  // Module slugs in order, for next/prev navigation
+  modules: string[];
+};
+
 type ModuleProps = {
   module: ModuleType;
+  courseContext: CourseContext | null;
 };
 
 /**
@@ -59,7 +66,7 @@ type ModuleProps = {
  * - Chat sections (75vh, all sharing same state)
  * - Progress sidebar on left
  */
-export default function Module({ module }: ModuleProps) {
+export default function Module({ module, courseContext }: ModuleProps) {
   // Chat state (shared across all chat sections)
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(
@@ -205,10 +212,25 @@ export default function Module({ module }: ModuleProps) {
   useEffect(() => {
     if (!isModuleComplete) return;
 
-    // For now, we don't have courseId in Module props
-    // This can be added later when course context is available
-    setModuleCompletionResult(null);
-  }, [isModuleComplete]);
+    // If no course context, this is a standalone module - no next
+    if (!courseContext) {
+      setModuleCompletionResult(null);
+      return;
+    }
+
+    // Fetch next module from course
+    async function fetchNext() {
+      try {
+        const result = await getNextModule(courseContext!.courseId, module.slug);
+        setModuleCompletionResult(result);
+      } catch (e) {
+        console.error("[Module] Failed to fetch next module:", e);
+        setModuleCompletionResult(null);
+      }
+    }
+
+    fetchNext();
+  }, [isModuleComplete, courseContext, module.slug]);
 
   // Track module completed
   useEffect(() => {
@@ -641,7 +663,7 @@ export default function Module({ module }: ModuleProps) {
       <ModuleCompleteModal
         isOpen={isModuleComplete && !completionModalDismissed}
         moduleTitle={module.title}
-        courseId={undefined}
+        courseId={courseContext?.courseId}
         isInSignupsTable={isInSignupsTable}
         isInActiveGroup={isInActiveGroup}
         nextModule={
