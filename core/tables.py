@@ -312,10 +312,10 @@ auth_codes = Table(
 
 
 # =====================================================
-# 11. LESSON_SESSIONS
+# 11. MODULE_SESSIONS
 # =====================================================
-lesson_sessions = Table(
-    "lesson_sessions",
+module_sessions = Table(
+    "module_sessions",
     metadata,
     Column("session_id", Integer, primary_key=True, autoincrement=True),
     Column(
@@ -324,14 +324,14 @@ lesson_sessions = Table(
         ForeignKey("users.user_id", ondelete="CASCADE"),
         nullable=True,
     ),
-    Column("lesson_slug", Text, nullable=False),
+    Column("module_slug", Text, nullable=False),
     Column("current_stage_index", Integer, server_default="0"),
     Column("messages", JSONB, server_default="[]"),
     Column("started_at", TIMESTAMP(timezone=True), server_default=func.now()),
     Column("last_active_at", TIMESTAMP(timezone=True), server_default=func.now()),
     Column("completed_at", TIMESTAMP(timezone=True)),
-    Index("idx_lesson_sessions_user_id", "user_id"),
-    Index("idx_lesson_sessions_lesson_slug", "lesson_slug"),
+    Index("idx_module_sessions_user_id", "user_id"),
+    Index("idx_module_sessions_module_slug", "module_slug"),
 )
 
 
@@ -351,10 +351,10 @@ content_events = Table(
     Column(
         "session_id",
         Integer,
-        ForeignKey("lesson_sessions.session_id", ondelete="CASCADE"),
+        ForeignKey("module_sessions.session_id", ondelete="CASCADE"),
         nullable=False,
     ),
-    Column("lesson_slug", Text, nullable=False),
+    Column("module_slug", Text, nullable=False),
     Column("stage_index", Integer, nullable=False),
     Column(
         "stage_type",
@@ -370,6 +370,6 @@ content_events = Table(
     Column("metadata", JSONB, nullable=True),  # scroll_depth, video_time, etc.
     Index("idx_content_events_user_id", "user_id"),
     Index("idx_content_events_session_id", "session_id"),
-    Index("idx_content_events_lesson_slug", "lesson_slug"),
+    Index("idx_content_events_module_slug", "module_slug"),
     Index("idx_content_events_timestamp", "timestamp"),
 )

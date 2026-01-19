@@ -1,20 +1,20 @@
 /**
- * Accordion sidebar showing course units and lessons.
+ * Accordion sidebar showing course units and modules.
  * Units are identified by meeting number (or null for additional content).
  */
 
 import { useState, useEffect } from "react";
-import type { UnitInfo, LessonInfo } from "../../types/course";
+import type { UnitInfo, ModuleInfo } from "../../types/course";
 import { ChevronDown, ChevronRight, Check, Circle } from "lucide-react";
 
 type CourseSidebarProps = {
   courseTitle: string;
   units: UnitInfo[];
-  selectedLessonSlug: string | null;
-  onLessonSelect: (lesson: LessonInfo) => void;
+  selectedModuleSlug: string | null;
+  onModuleSelect: (module: ModuleInfo) => void;
 };
 
-function LessonStatusIcon({ status }: { status: LessonInfo["status"] }) {
+function ModuleStatusIcon({ status }: { status: ModuleInfo["status"] }) {
   if (status === "completed") {
     return <Check className="w-4 h-4 text-blue-500" />;
   }
@@ -34,23 +34,23 @@ function getUnitLabel(unit: UnitInfo): string {
 export default function CourseSidebar({
   courseTitle,
   units,
-  selectedLessonSlug,
-  onLessonSelect,
+  selectedModuleSlug,
+  onModuleSelect,
 }: CourseSidebarProps) {
   // Track which units are expanded (by index)
   const [expandedUnits, setExpandedUnits] = useState<Set<number>>(new Set());
 
-  // Auto-expand unit containing selected lesson on mount
+  // Auto-expand unit containing selected module on mount
   useEffect(() => {
-    if (selectedLessonSlug) {
+    if (selectedModuleSlug) {
       for (let i = 0; i < units.length; i++) {
-        if (units[i].lessons.some((l) => l.slug === selectedLessonSlug)) {
+        if (units[i].modules.some((m) => m.slug === selectedModuleSlug)) {
           setExpandedUnits((prev) => new Set(prev).add(i));
           break;
         }
       }
     }
-  }, [selectedLessonSlug, units]);
+  }, [selectedModuleSlug, units]);
 
   const toggleUnit = (unitIndex: number) => {
     setExpandedUnits((prev) => {
@@ -65,12 +65,12 @@ export default function CourseSidebar({
   };
 
   const getUnitProgress = (unit: UnitInfo) => {
-    // Only count required lessons for progress
-    const requiredLessons = unit.lessons.filter((l) => !l.optional);
-    const completed = requiredLessons.filter(
-      (l) => l.status === "completed"
+    // Only count required modules for progress
+    const requiredModules = unit.modules.filter((m) => !m.optional);
+    const completed = requiredModules.filter(
+      (m) => m.status === "completed"
     ).length;
-    return `${completed}/${requiredLessons.length}`;
+    return `${completed}/${requiredModules.length}`;
   };
 
   return (
@@ -105,37 +105,37 @@ export default function CourseSidebar({
                 </span>
               </button>
 
-              {/* Lessons list */}
+              {/* Modules list */}
               {isExpanded && (
                 <div className="pb-2">
-                  {unit.lessons.map((lesson) => {
-                    const isSelected = lesson.slug === selectedLessonSlug;
+                  {unit.modules.map((module) => {
+                    const isSelected = module.slug === selectedModuleSlug;
 
                     return (
                       <button
-                        key={lesson.slug}
-                        onClick={() => onLessonSelect(lesson)}
+                        key={module.slug}
+                        onClick={() => onModuleSelect(module)}
                         className={`w-full flex items-center gap-3 px-4 py-2 pl-10 text-left transition-colors ${
                           isSelected
                             ? "bg-blue-50 text-blue-900"
                             : "hover:bg-slate-100 text-slate-700"
                         }`}
                       >
-                        <LessonStatusIcon status={lesson.status} />
+                        <ModuleStatusIcon status={module.status} />
                         <span
                           className={`flex-1 text-sm ${
-                            lesson.optional ? "text-slate-500" : ""
+                            module.optional ? "text-slate-500" : ""
                           }`}
                         >
-                          {lesson.title}
+                          {module.title}
                         </span>
-                        {lesson.optional && (
+                        {module.optional && (
                           <span className="text-xs text-slate-400 font-medium">
                             Optional
                           </span>
                         )}
-                        {!lesson.optional &&
-                          lesson.status === "in_progress" && (
+                        {!module.optional &&
+                          module.status === "in_progress" && (
                             <span className="text-xs text-blue-600 font-medium">
                               Continue
                             </span>

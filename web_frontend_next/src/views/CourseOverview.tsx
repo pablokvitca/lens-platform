@@ -2,17 +2,17 @@
 
 /**
  * Course overview page with two-panel layout.
- * Sidebar shows units/lessons, main panel shows selected lesson details.
+ * Sidebar shows units/modules, main panel shows selected module details.
  */
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { getCourseProgress } from "../api/lessons";
-import type { CourseProgress, LessonInfo } from "../types/course";
+import { getCourseProgress } from "../api/modules";
+import type { CourseProgress, ModuleInfo } from "../types/course";
 import CourseSidebar from "../components/course/CourseSidebar";
-import LessonOverview from "../components/course/LessonOverview";
+import ModuleOverview from "../components/course/ModuleOverview";
 import ContentPreviewModal from "../components/course/ContentPreviewModal";
 import { DiscordInviteButton, UserMenu } from "../components/nav";
 
@@ -26,11 +26,11 @@ export default function CourseOverview({ courseId = "default" }: CourseOverviewP
   const [courseProgress, setCourseProgress] = useState<CourseProgress | null>(
     null
   );
-  const [selectedLesson, setSelectedLesson] = useState<LessonInfo | null>(null);
+  const [selectedModule, setSelectedModule] = useState<ModuleInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [previewStage, setPreviewStage] = useState<{
-    lessonSlug: string;
+    moduleSlug: string;
     stageIndex: number;
     sessionId: number | null;
   } | null>(null);
@@ -43,24 +43,24 @@ export default function CourseOverview({ courseId = "default" }: CourseOverviewP
         const data = await getCourseProgress(courseId);
         setCourseProgress(data);
 
-        // Auto-select current lesson (first in-progress, or first not-started)
-        let currentLesson: LessonInfo | null = null;
+        // Auto-select current module (first in-progress, or first not-started)
+        let currentModule: ModuleInfo | null = null;
         for (const unit of data.units) {
-          for (const lesson of unit.lessons) {
-            if (lesson.status === "in_progress") {
-              currentLesson = lesson;
+          for (const mod of unit.modules) {
+            if (mod.status === "in_progress") {
+              currentModule = mod;
               break;
             }
-            if (!currentLesson && lesson.status === "not_started") {
-              currentLesson = lesson;
+            if (!currentModule && mod.status === "not_started") {
+              currentModule = mod;
             }
           }
-          if (currentLesson?.status === "in_progress") break;
+          if (currentModule?.status === "in_progress") break;
         }
-        if (currentLesson) {
-          setSelectedLesson(currentLesson);
-        } else if (data.units[0]?.lessons[0]) {
-          setSelectedLesson(data.units[0].lessons[0]);
+        if (currentModule) {
+          setSelectedModule(currentModule);
+        } else if (data.units[0]?.modules[0]) {
+          setSelectedModule(data.units[0].modules[0]);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load course");
@@ -71,25 +71,25 @@ export default function CourseOverview({ courseId = "default" }: CourseOverviewP
     load();
   }, [courseId]);
 
-  const handleStartLesson = () => {
-    if (!selectedLesson) return;
-    router.push(`/course/${courseId}/lesson/${selectedLesson.slug}`);
+  const handleStartModule = () => {
+    if (!selectedModule) return;
+    router.push(`/course/${courseId}/module/${selectedModule.slug}`);
   };
 
   const handleStageClick = (index: number) => {
-    if (!selectedLesson) return;
-    const stage = selectedLesson.stages[index];
+    if (!selectedModule) return;
+    const stage = selectedModule.stages[index];
     if (stage.type === "chat") return; // Can't preview chat
     setPreviewStage({
-      lessonSlug: selectedLesson.slug,
+      moduleSlug: selectedModule.slug,
       stageIndex: index,
-      sessionId: selectedLesson.sessionId,
+      sessionId: selectedModule.sessionId,
     });
   };
 
   // Find unit for breadcrumb
   const selectedUnit = courseProgress?.units.find((u) =>
-    u.lessons.some((l) => l.slug === selectedLesson?.slug)
+    u.modules.some((m) => m.slug === selectedModule?.slug)
   );
   const selectedUnitLabel = selectedUnit
     ? selectedUnit.meetingNumber !== null
@@ -154,10 +154,10 @@ export default function CourseOverview({ courseId = "default" }: CourseOverviewP
             <span className="text-slate-500">{selectedUnitLabel}</span>
           </>
         )}
-        {selectedLesson && (
+        {selectedModule && (
           <>
             <ChevronRight className="w-4 h-4 text-slate-400" />
-            <span className="text-slate-900">{selectedLesson.title}</span>
+            <span className="text-slate-900">{selectedModule.title}</span>
           </>
         )}
       </div>
@@ -169,25 +169,25 @@ export default function CourseOverview({ courseId = "default" }: CourseOverviewP
           <CourseSidebar
             courseTitle={courseProgress.course.title}
             units={courseProgress.units}
-            selectedLessonSlug={selectedLesson?.slug ?? null}
-            onLessonSelect={setSelectedLesson}
+            selectedModuleSlug={selectedModule?.slug ?? null}
+            onModuleSelect={setSelectedModule}
           />
         </div>
 
         {/* Main panel */}
         <div className="flex-1 p-8 overflow-y-auto">
-          {selectedLesson ? (
-            <LessonOverview
-              lessonTitle={selectedLesson.title}
-              stages={selectedLesson.stages}
-              status={selectedLesson.status}
-              currentStageIndex={selectedLesson.currentStageIndex}
+          {selectedModule ? (
+            <ModuleOverview
+              moduleTitle={selectedModule.title}
+              stages={selectedModule.stages}
+              status={selectedModule.status}
+              currentStageIndex={selectedModule.currentStageIndex}
               onStageClick={handleStageClick}
-              onStartLesson={handleStartLesson}
+              onStartModule={handleStartModule}
             />
           ) : (
             <div className="text-slate-500">
-              Select a lesson to view details
+              Select a module to view details
             </div>
           )}
         </div>
@@ -196,7 +196,7 @@ export default function CourseOverview({ courseId = "default" }: CourseOverviewP
       {/* Content preview modal */}
       {previewStage && (
         <ContentPreviewModal
-          lessonSlug={previewStage.lessonSlug}
+          moduleSlug={previewStage.moduleSlug}
           stageIndex={previewStage.stageIndex}
           sessionId={previewStage.sessionId}
           onClose={() => setPreviewStage(null)}

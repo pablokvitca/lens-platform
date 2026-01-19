@@ -78,7 +78,7 @@ if __name__ == "__main__":
     if _early_args.no_db:
         os.environ["SKIP_DB_CHECK"] = "true"
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from core.database import close_engine, check_connection
 from core import get_allowed_origins, is_dev_mode
@@ -97,8 +97,8 @@ from discord_bot.main import bot
 # Import routes using full paths (don't add web_api to sys.path to avoid main.py conflict)
 from web_api.routes.auth import router as auth_router
 from web_api.routes.users import router as users_router
-from web_api.routes.lesson import router as lesson_router
-from web_api.routes.lessons import router as lessons_router
+from web_api.routes.module import router as module_router
+from web_api.routes.modules import router as modules_router
 from web_api.routes.speech import router as speech_router
 from web_api.routes.cohorts import router as cohorts_router
 from web_api.routes.courses import router as courses_router
@@ -242,8 +242,8 @@ app.add_middleware(
 # Include routers
 app.include_router(auth_router)
 app.include_router(users_router)
-app.include_router(lesson_router)
-app.include_router(lessons_router)
+app.include_router(module_router)
+app.include_router(modules_router)
 app.include_router(speech_router)
 app.include_router(cohorts_router)
 app.include_router(courses_router)

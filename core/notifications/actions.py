@@ -13,7 +13,7 @@ from core.notifications.urls import (
     build_profile_url,
     build_discord_channel_url,
     build_discord_invite_url,
-    build_lesson_url,
+    build_module_url,
 )
 
 
@@ -76,7 +76,7 @@ def schedule_meeting_reminders(
     user_ids: list[int],
     group_name: str,
     discord_channel_id: str,
-    lesson_url: str | None = None,
+    module_url: str | None = None,
 ) -> None:
     """
     Schedule all reminders for a meeting.
@@ -84,17 +84,17 @@ def schedule_meeting_reminders(
     Schedules:
     - 24h before: meeting reminder
     - 1h before: meeting reminder
-    - 3d before: lesson nudge (if <50% done)
-    - 1d before: lesson nudge (if <100% done)
+    - 3d before: module nudge (if <50% done)
+    - 1d before: module nudge (if <100% done)
     """
     context = {
         "group_name": group_name,
         "meeting_time": meeting_time.strftime("%A at %H:%M UTC"),
         "meeting_date": meeting_time.strftime("%A, %B %d"),
-        "lesson_url": lesson_url or build_lesson_url("next"),
+        "module_url": module_url or build_module_url("next"),
         "discord_channel_url": build_discord_channel_url(channel_id=discord_channel_id),
-        "lesson_list": "- Check your course dashboard for assigned lessons",
-        "lessons_remaining": "some",
+        "module_list": "- Check your course dashboard for assigned modules",
+        "modules_remaining": "some",
     }
 
     # 24h reminder
@@ -117,29 +117,29 @@ def schedule_meeting_reminders(
         channel_id=discord_channel_id,
     )
 
-    # 3d lesson nudge (conditional: <50% complete)
+    # 3d module nudge (conditional: <50% complete)
     schedule_reminder(
-        job_id=f"meeting_{meeting_id}_lesson_nudge_3d",
+        job_id=f"meeting_{meeting_id}_module_nudge_3d",
         run_at=meeting_time - timedelta(days=3),
-        message_type="lesson_nudge",
+        message_type="module_nudge",
         user_ids=user_ids,
         context=context,
         condition={
-            "type": "lesson_progress",
+            "type": "module_progress",
             "meeting_id": meeting_id,
             "threshold": 0.5,
         },
     )
 
-    # 1d lesson nudge (conditional: <100% complete)
+    # 1d module nudge (conditional: <100% complete)
     schedule_reminder(
-        job_id=f"meeting_{meeting_id}_lesson_nudge_1d",
+        job_id=f"meeting_{meeting_id}_module_nudge_1d",
         run_at=meeting_time - timedelta(days=1),
-        message_type="lesson_nudge",
+        message_type="module_nudge",
         user_ids=user_ids,
         context=context,
         condition={
-            "type": "lesson_progress",
+            "type": "module_progress",
             "meeting_id": meeting_id,
             "threshold": 1.0,
         },

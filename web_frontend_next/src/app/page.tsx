@@ -28,7 +28,7 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/course/default/lesson/introduction"
+              href="/course/default/module/introduction"
               className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-emerald-500 text-white font-semibold text-lg hover:bg-emerald-600 transition-all duration-200 hover:shadow-xl hover:shadow-emerald-500/25 hover:-translate-y-0.5"
             >
               Start Learning
@@ -41,7 +41,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <p className="text-sm text-slate-500 mt-6">
-            Try our intro lesson first, or sign up directly for the full course.
+            Try our intro module first, or sign up directly for the full course.
           </p>
         </div>
       </main>

@@ -6,7 +6,7 @@ import pytest
 from pathlib import Path
 import yaml
 
-from core.lessons.content import extract_video_id_from_url
+from core.modules.content import extract_video_id_from_url
 
 
 TRANSCRIPTS_DIR = (

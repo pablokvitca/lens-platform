@@ -34,7 +34,7 @@ from .helpers import (
 )
 from core.queries.groups import add_user_to_group
 from core.tables import cohorts, users, signups, groups, groups_users
-from core.lessons.course_loader import load_course
+from core.modules.course_loader import load_course
 
 
 # Load environment (.env first, then .env.local overrides)

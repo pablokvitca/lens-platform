@@ -138,79 +138,79 @@ function shouldTrack(): boolean {
   return isAnalyticsEnabled() && initialized && hasConsent();
 }
 
-// Lesson events
-export function trackLessonStarted(
-  lessonId: string,
-  lessonTitle: string
+// Module events
+export function trackModuleStarted(
+  moduleId: string,
+  moduleTitle: string
 ): void {
   if (!shouldTrack()) return;
-  posthog.capture("lesson_started", {
-    lesson_id: lessonId,
-    lesson_title: lessonTitle,
+  posthog.capture("module_started", {
+    module_id: moduleId,
+    module_title: moduleTitle,
   });
 }
 
-export function trackVideoStarted(lessonId: string): void {
+export function trackVideoStarted(moduleId: string): void {
   if (!shouldTrack()) return;
-  posthog.capture("video_started", { lesson_id: lessonId });
+  posthog.capture("video_started", { module_id: moduleId });
 }
 
 export function trackVideoCompleted(
-  lessonId: string,
+  moduleId: string,
   watchDuration: number
 ): void {
   if (!shouldTrack()) return;
   posthog.capture("video_completed", {
-    lesson_id: lessonId,
+    module_id: moduleId,
     watch_duration: watchDuration,
   });
 }
 
 export function trackArticleScrolled(
-  lessonId: string,
+  moduleId: string,
   percent: 25 | 50 | 75 | 100
 ): void {
   if (!shouldTrack()) return;
-  posthog.capture("article_scrolled", { lesson_id: lessonId, percent });
+  posthog.capture("article_scrolled", { module_id: moduleId, percent });
 }
 
-export function trackArticleCompleted(lessonId: string): void {
+export function trackArticleCompleted(moduleId: string): void {
   if (!shouldTrack()) return;
-  posthog.capture("article_completed", { lesson_id: lessonId });
+  posthog.capture("article_completed", { module_id: moduleId });
 }
 
-export function trackChatOpened(lessonId: string): void {
+export function trackChatOpened(moduleId: string): void {
   if (!shouldTrack()) return;
-  posthog.capture("chat_opened", { lesson_id: lessonId });
+  posthog.capture("chat_opened", { module_id: moduleId });
 }
 
 export function trackChatMessageSent(
-  lessonId: string,
+  moduleId: string,
   messageLength: number
 ): void {
   if (!shouldTrack()) return;
   posthog.capture("chat_message_sent", {
-    lesson_id: lessonId,
+    module_id: moduleId,
     message_length: messageLength,
   });
 }
 
 export function trackChatSessionEnded(
-  lessonId: string,
+  moduleId: string,
   messageCount: number,
   durationSeconds: number
 ): void {
   if (!shouldTrack()) return;
   posthog.capture("chat_session_ended", {
-    lesson_id: lessonId,
+    module_id: moduleId,
     message_count: messageCount,
     duration: durationSeconds,
   });
 }
 
-export function trackLessonCompleted(lessonId: string): void {
+export function trackModuleCompleted(moduleId: string): void {
   if (!shouldTrack()) return;
-  posthog.capture("lesson_completed", { lesson_id: lessonId });
+  posthog.capture("module_completed", { module_id: moduleId });
 }
 
 // Signup events

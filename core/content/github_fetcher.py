@@ -5,10 +5,10 @@ from datetime import datetime
 
 import httpx
 
-from core.lessons.markdown_parser import (
-    parse_lesson,
+from core.modules.markdown_parser import (
+    parse_module,
     parse_course,
-    ParsedLesson,
+    ParsedModule,
     ParsedCourse,
 )
 from .cache import ContentCache, set_cache
@@ -76,7 +76,7 @@ async def fetch_file(path: str) -> str:
     """Fetch a single file from GitHub.
 
     Args:
-        path: Path relative to repo root (e.g., "lessons/introduction.md")
+        path: Path relative to repo root (e.g., "modules/introduction.md")
 
     Returns:
         File content as string
@@ -100,10 +100,10 @@ async def list_directory(path: str) -> list[str]:
     """List files in a directory using GitHub API.
 
     Args:
-        path: Directory path relative to repo root (e.g., "lessons")
+        path: Directory path relative to repo root (e.g., "modules")
 
     Returns:
-        List of file paths (e.g., ["lessons/intro.md", "lessons/advanced.md"])
+        List of file paths (e.g., ["modules/intro.md", "modules/advanced.md"])
 
     Raises:
         GitHubFetchError: If API call fails
@@ -133,20 +133,20 @@ async def fetch_all_content() -> ContentCache:
     """
     async with httpx.AsyncClient() as client:
         # List all files in each directory
-        lesson_files = await _list_directory_with_client(client, "lessons")
+        module_files = await _list_directory_with_client(client, "modules")
         course_files = await _list_directory_with_client(client, "courses")
         article_files = await _list_directory_with_client(client, "articles")
         transcript_files = await _list_directory_with_client(
             client, "video_transcripts"
         )
 
-        # Fetch and parse lessons
-        lessons: dict[str, ParsedLesson] = {}
-        for path in lesson_files:
+        # Fetch and parse modules
+        modules: dict[str, ParsedModule] = {}
+        for path in module_files:
             if path.endswith(".md"):
                 content = await _fetch_file_with_client(client, path)
-                parsed = parse_lesson(content)
-                lessons[parsed.slug] = parsed
+                parsed = parse_module(content)
+                modules[parsed.slug] = parsed
 
         # Fetch and parse courses
         courses: dict[str, ParsedCourse] = {}
@@ -173,7 +173,7 @@ async def fetch_all_content() -> ContentCache:
 
         return ContentCache(
             courses=courses,
-            lessons=lessons,
+            modules=modules,
             articles=articles,
             video_transcripts=video_transcripts,
             last_refreshed=datetime.now(),
@@ -220,7 +220,7 @@ async def initialize_cache() -> None:
     set_cache(cache)
 
     print(f"  Loaded {len(cache.courses)} courses")
-    print(f"  Loaded {len(cache.lessons)} lessons")
+    print(f"  Loaded {len(cache.modules)} modules")
     print(f"  Loaded {len(cache.articles)} articles")
     print(f"  Loaded {len(cache.video_transcripts)} video transcripts")
     print("Content cache initialized")

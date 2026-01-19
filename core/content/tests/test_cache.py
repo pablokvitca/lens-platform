@@ -28,7 +28,7 @@ class TestContentCache:
         """Should store and retrieve cache."""
         cache = ContentCache(
             courses={},
-            lessons={},
+            modules={},
             articles={},
             video_transcripts={},
             last_refreshed=datetime.now(),
@@ -42,7 +42,7 @@ class TestContentCache:
         """Should clear the cache."""
         cache = ContentCache(
             courses={},
-            lessons={},
+            modules={},
             articles={},
             video_transcripts={},
             last_refreshed=datetime.now(),
@@ -53,13 +53,13 @@ class TestContentCache:
         with pytest.raises(CacheNotInitializedError):
             get_cache()
 
-    def test_cache_stores_lessons(self):
-        """Should store and retrieve lessons from cache."""
-        from core.lessons.markdown_parser import ParsedLesson, ChatSection
+    def test_cache_stores_modules(self):
+        """Should store and retrieve modules from cache."""
+        from core.modules.markdown_parser import ParsedModule, ChatSection
 
-        test_lesson = ParsedLesson(
-            slug="test-lesson",
-            title="Test Lesson",
+        test_module = ParsedModule(
+            slug="test-module",
+            title="Test Module",
             sections=[
                 ChatSection(
                     instructions="Test instructions",
@@ -71,7 +71,7 @@ class TestContentCache:
 
         cache = ContentCache(
             courses={},
-            lessons={"test-lesson": test_lesson},
+            modules={"test-module": test_module},
             articles={},
             video_transcripts={},
             last_refreshed=datetime.now(),
@@ -79,14 +79,14 @@ class TestContentCache:
         set_cache(cache)
 
         retrieved = get_cache()
-        assert "test-lesson" in retrieved.lessons
-        assert retrieved.lessons["test-lesson"].title == "Test Lesson"
+        assert "test-module" in retrieved.modules
+        assert retrieved.modules["test-module"].title == "Test Module"
 
     def test_cache_stores_articles(self):
         """Should store and retrieve articles from cache."""
         cache = ContentCache(
             courses={},
-            lessons={},
+            modules={},
             articles={"articles/test.md": "# Test Article\n\nSome content."},
             video_transcripts={},
             last_refreshed=datetime.now(),
@@ -101,7 +101,7 @@ class TestContentCache:
         """Should store and retrieve video transcripts from cache."""
         cache = ContentCache(
             courses={},
-            lessons={},
+            modules={},
             articles={},
             video_transcripts={"video_transcripts/test.md": "Transcript content"},
             last_refreshed=datetime.now(),
@@ -116,7 +116,7 @@ class TestContentCache:
         refresh_time = datetime(2026, 1, 18, 12, 0, 0)
         cache = ContentCache(
             courses={},
-            lessons={},
+            modules={},
             articles={},
             video_transcripts={},
             last_refreshed=refresh_time,

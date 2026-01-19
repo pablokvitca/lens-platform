@@ -4,16 +4,16 @@ from unittest.mock import patch
 
 
 class TestBuildUrls:
-    def test_builds_lesson_url(self):
-        from core.notifications.urls import build_lesson_url
+    def test_builds_module_url(self):
+        from core.notifications.urls import build_module_url
 
         with patch(
             "core.notifications.urls.get_frontend_url",
             return_value="https://aisafety.com",
         ):
-            url = build_lesson_url("lesson-123")
+            url = build_module_url("module-123")
 
-        assert url == "https://aisafety.com/lesson/lesson-123"
+        assert url == "https://aisafety.com/module/module-123"
 
     def test_builds_profile_url(self):
         from core.notifications.urls import build_profile_url

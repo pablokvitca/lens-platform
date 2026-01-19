@@ -60,13 +60,13 @@ class TestFetchFile:
                 mock_client.get.return_value = mock_response
                 mock_client_class.return_value = mock_client
 
-                result = await fetch_file("lessons/test.md")
+                result = await fetch_file("modules/test.md")
 
                 assert result == "# Test Content\n\nHello world"
                 mock_client.get.assert_called_once()
                 # Verify URL contains correct path
                 call_url = mock_client.get.call_args[0][0]
-                assert "lessons/test.md" in call_url
+                assert "modules/test.md" in call_url
                 assert "lucbrinkman/lens-educational-content" in call_url
                 assert "main" in call_url
 
@@ -126,9 +126,9 @@ class TestListDirectory:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = [
-            {"path": "lessons/intro.md", "type": "file"},
-            {"path": "lessons/advanced.md", "type": "file"},
-            {"path": "lessons/drafts", "type": "dir"},  # Should be excluded
+            {"path": "modules/intro.md", "type": "file"},
+            {"path": "modules/advanced.md", "type": "file"},
+            {"path": "modules/drafts", "type": "dir"},  # Should be excluded
         ]
 
         with patch.dict(
@@ -142,13 +142,13 @@ class TestListDirectory:
                 mock_client.get.return_value = mock_response
                 mock_client_class.return_value = mock_client
 
-                result = await list_directory("lessons")
+                result = await list_directory("modules")
 
-                assert result == ["lessons/intro.md", "lessons/advanced.md"]
+                assert result == ["modules/intro.md", "modules/advanced.md"]
                 # Verify API URL is used
                 call_url = mock_client.get.call_args[0][0]
                 assert "api.github.com" in call_url
-                assert "lessons" in call_url
+                assert "modules" in call_url
 
     @pytest.mark.asyncio
     async def test_list_directory_raises_on_error(self):
@@ -167,7 +167,7 @@ class TestListDirectory:
                 mock_client_class.return_value = mock_client
 
                 with pytest.raises(GitHubFetchError) as exc_info:
-                    await list_directory("lessons")
+                    await list_directory("modules")
 
                 assert "403" in str(exc_info.value)
 
@@ -180,7 +180,7 @@ class TestFetchAllContent:
         """Should fetch all content and return ContentCache."""
         # Mock directory listings
         dir_responses = {
-            "lessons": [{"path": "lessons/intro.md", "type": "file"}],
+            "modules": [{"path": "modules/intro.md", "type": "file"}],
             "courses": [{"path": "courses/fundamentals.md", "type": "file"}],
             "articles": [{"path": "articles/safety.md", "type": "file"}],
             "video_transcripts": [
@@ -189,7 +189,7 @@ class TestFetchAllContent:
         }
 
         # Mock file contents
-        lesson_md = """---
+        module_md = """---
 slug: intro
 title: Introduction
 ---
@@ -202,7 +202,7 @@ slug: fundamentals
 title: AI Safety Fundamentals
 ---
 
-# Lesson: [[lessons/intro]]
+# Lesson: [[modules/intro]]
 """
         article_md = "# Safety Article\n\nContent here."
         transcript_md = "# Video Transcript\n\nTranscript here."
@@ -220,8 +220,8 @@ title: AI Safety Fundamentals
             else:
                 # File fetch
                 response.status_code = 200
-                if "lessons/" in url:
-                    response.text = lesson_md
+                if "modules/" in url:
+                    response.text = module_md
                 elif "courses/" in url:
                     response.text = course_md
                 elif "articles/" in url:
@@ -243,8 +243,8 @@ title: AI Safety Fundamentals
                 cache = await fetch_all_content()
 
                 # Verify cache structure
-                assert "intro" in cache.lessons
-                assert cache.lessons["intro"].title == "Introduction"
+                assert "intro" in cache.modules
+                assert cache.modules["intro"].title == "Introduction"
 
                 assert "fundamentals" in cache.courses
                 assert cache.courses["fundamentals"].title == "AI Safety Fundamentals"

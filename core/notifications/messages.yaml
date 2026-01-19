@@ -3,7 +3,7 @@
 #
 # Template variables use {variable_name} syntax.
 # Common variables: {name}, {email}, {group_name}, {meeting_time},
-#   {lesson_url}, {discord_channel_url}, {profile_url}
+#   {module_url}, {discord_channel_url}, {profile_url}
 
 welcome:
   email_subject: Welcome to the Lens Academy AI Safety Course
@@ -62,10 +62,10 @@ meeting_reminder_24h:
 
     Your study group meets tomorrow at {meeting_time}.
 
-    Lessons to complete before the meeting:
-    {lesson_list}
+    Modules to complete before the meeting:
+    {module_list}
 
-    Continue here: {lesson_url}
+    Continue here: {module_url}
 
     Questions? Chat with your group: {discord_channel_url}
 
@@ -92,17 +92,17 @@ meeting_reminder_1h:
   discord_channel: |
     Meeting starting in 1 hour!
 
-lesson_nudge:
-  email_subject: "Don't forget: {lessons_remaining} lessons before your meeting"
+module_nudge:
+  email_subject: "Don't forget: {modules_remaining} modules before your meeting"
   email_body: |
     Hi {name},
 
-    Your next meeting is on {meeting_date}. You have {lessons_remaining}
-    lessons left to complete:
+    Your next meeting is on {meeting_date}. You have {modules_remaining}
+    modules left to complete:
 
-    {lesson_list}
+    {module_list}
 
-    Continue here: {lesson_url}
+    Continue here: {module_url}
 
     Questions for your group? {discord_channel_url}
 
@@ -110,6 +110,6 @@ lesson_nudge:
     Luc
     Founder of Lens Academy
   discord: |
-    Heads up! You have {lessons_remaining} lessons to finish before
-    your meeting on {meeting_date}. Continue here: {lesson_url}
+    Heads up! You have {modules_remaining} modules to finish before
+    your meeting on {meeting_date}. Continue here: {module_url}
 

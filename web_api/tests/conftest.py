@@ -1,7 +1,7 @@
 # web_api/tests/conftest.py
 """Pytest fixtures for web API tests.
 
-Sets up a test cache with realistic course/lesson data so that API tests
+Sets up a test cache with realistic course/module data so that API tests
 can run without requiring actual content files or GitHub access.
 """
 
@@ -9,10 +9,10 @@ import pytest
 from datetime import datetime
 
 from core.content import ContentCache, set_cache, clear_cache
-from core.lessons.markdown_parser import (
+from core.modules.markdown_parser import (
     ParsedCourse,
-    ParsedLesson,
-    LessonRef,
+    ParsedModule,
+    ModuleRef,
     MeetingMarker,
     ChatSection,
     VideoSection,
@@ -25,12 +25,12 @@ def api_test_cache():
     """Set up a test cache with a 'default' course for API tests.
 
     This fixture runs automatically for all tests in web_api/tests/.
-    It provides a realistic course structure with multiple lessons,
-    meetings, and both required and optional lessons.
+    It provides a realistic course structure with multiple modules,
+    meetings, and both required and optional modules.
     """
-    # Create test lessons with varied section types
-    lessons = {
-        "introduction": ParsedLesson(
+    # Create test modules with varied section types
+    modules = {
+        "introduction": ParsedModule(
             slug="introduction",
             title="Introduction to AI Safety",
             sections=[
@@ -43,7 +43,7 @@ def api_test_cache():
                 ),
             ],
         ),
-        "core-concepts": ParsedLesson(
+        "core-concepts": ParsedModule(
             slug="core-concepts",
             title="Core Concepts in AI Alignment",
             sections=[
@@ -56,7 +56,7 @@ def api_test_cache():
                 ),
             ],
         ),
-        "advanced-topics": ParsedLesson(
+        "advanced-topics": ParsedModule(
             slug="advanced-topics",
             title="Advanced Topics",
             sections=[
@@ -65,7 +65,7 @@ def api_test_cache():
                 ),
             ],
         ),
-        "supplementary-reading": ParsedLesson(
+        "supplementary-reading": ParsedModule(
             slug="supplementary-reading",
             title="Supplementary Reading",
             sections=[
@@ -76,7 +76,7 @@ def api_test_cache():
                 ),
             ],
         ),
-        "final-discussion": ParsedLesson(
+        "final-discussion": ParsedModule(
             slug="final-discussion",
             title="Final Discussion",
             sections=[
@@ -88,29 +88,29 @@ def api_test_cache():
     }
 
     # Create test course with structure that exercises various test cases:
-    # - lesson -> lesson (introduction -> core-concepts)
-    # - lesson -> meeting (core-concepts -> Meeting 1)
-    # - optional lesson (supplementary-reading)
+    # - module -> module (introduction -> core-concepts)
+    # - module -> meeting (core-concepts -> Meeting 1)
+    # - optional module (supplementary-reading)
     # - end of course (final-discussion)
     courses = {
         "default": ParsedCourse(
             slug="default",
             title="AI Safety Fundamentals",
             progression=[
-                LessonRef(path="lessons/introduction"),
-                LessonRef(path="lessons/core-concepts"),
+                ModuleRef(path="modules/introduction"),
+                ModuleRef(path="modules/core-concepts"),
                 MeetingMarker(number=1),
-                LessonRef(path="lessons/advanced-topics"),
-                LessonRef(path="lessons/supplementary-reading", optional=True),
+                ModuleRef(path="modules/advanced-topics"),
+                ModuleRef(path="modules/supplementary-reading", optional=True),
                 MeetingMarker(number=2),
-                LessonRef(path="lessons/final-discussion"),
+                ModuleRef(path="modules/final-discussion"),
             ],
         ),
     }
 
     cache = ContentCache(
         courses=courses,
-        lessons=lessons,
+        modules=modules,
         articles={},
         video_transcripts={},
         last_refreshed=datetime.now(),

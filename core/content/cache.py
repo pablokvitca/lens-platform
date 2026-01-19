@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from core.lessons.markdown_parser import ParsedLesson, ParsedCourse
+from core.modules.markdown_parser import ParsedModule, ParsedCourse
 
 
 class CacheNotInitializedError(Exception):
@@ -17,7 +17,7 @@ class ContentCache:
     """Cache for all educational content."""
 
     courses: dict[str, ParsedCourse]  # slug -> parsed course
-    lessons: dict[str, ParsedLesson]  # slug -> parsed lesson
+    modules: dict[str, ParsedModule]  # slug -> parsed module
     articles: dict[str, str]  # path -> raw markdown
     video_transcripts: dict[str, str]  # path -> raw markdown
     last_refreshed: datetime

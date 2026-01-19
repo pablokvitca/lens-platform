@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from ..lessons.course_loader import load_course
+from ..modules.course_loader import load_course
 from ..tables import cohorts, groups, groups_users, users
 
 
