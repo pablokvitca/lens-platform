@@ -3,14 +3,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import VideoPlayer from "@/components/module/VideoPlayer";
-import ContinueVideoButton from "@/components/module/ContinueVideoButton";
 import { formatDuration } from "@/utils/formatDuration";
 
 type VideoEmbedProps = {
   videoId: string;
   start: number;
   end: number;
-  isFirstInSection?: boolean; // defaults to true for backward compat
+  excerptNumber?: number; // 1-indexed, defaults to 1 (first clip)
   onEnded?: () => void;
   onPlay?: () => void;
   onPause?: () => void;
@@ -25,7 +24,7 @@ export default function VideoEmbed({
   videoId,
   start,
   end,
-  isFirstInSection,
+  excerptNumber = 1,
   onEnded,
   onPlay,
   onPause,
@@ -33,12 +32,12 @@ export default function VideoEmbed({
 }: VideoEmbedProps) {
   const [isActivated, setIsActivated] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isFirst = isFirstInSection ?? true;
+  const isFirst = excerptNumber === 1;
 
   // YouTube thumbnail URL (hqdefault is always available)
   const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 
-  // Scroll into view when video is activated (for continue button clicks)
+  // Scroll into view when video is activated (for non-first clips)
   // VideoPlayer manages its own dimensions, so scroll position is correct immediately
   useEffect(() => {
     if (isActivated && !isFirst && containerRef.current) {
@@ -95,10 +94,34 @@ export default function VideoEmbed({
             </div>
           </button>
         ) : (
-          <ContinueVideoButton
-            durationSeconds={end - start}
+          // Subsequent clips: smaller thumbnail with "Watch Part N" overlay
+          <button
             onClick={() => setIsActivated(true)}
-          />
+            className="relative w-full aspect-video group cursor-pointer max-w-[50%] mx-auto"
+            aria-label={`Watch part ${excerptNumber}`}
+          >
+            {/* Thumbnail */}
+            <img
+              src={thumbnailUrl}
+              alt="Video thumbnail"
+              className="w-full h-full object-cover"
+            />
+
+            {/* Dark overlay */}
+            <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors" />
+
+            {/* Watch Part N text */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-white text-lg font-medium bg-black/60 px-4 py-2 rounded-lg group-hover:scale-105 transition-transform">
+                Watch Part {excerptNumber}
+              </div>
+            </div>
+
+            {/* Duration badge */}
+            <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+              {formatDuration(end - start)}
+            </div>
+          </button>
         )}
       </div>
     </div>

@@ -33,6 +33,7 @@ import VideoEmbed from "@/components/module/VideoEmbed";
 import NarrativeChatSection from "@/components/module/NarrativeChatSection";
 import MarkCompleteButton from "@/components/module/MarkCompleteButton";
 import SectionDivider from "@/components/module/SectionDivider";
+import ArticleSectionWrapper from "@/components/module/ArticleSectionWrapper";
 import { ModuleHeader } from "@/components/ModuleHeader";
 import ModuleDrawer from "@/components/module/ModuleDrawer";
 import ModuleCompleteModal from "@/components/module/ModuleCompleteModal";
@@ -523,11 +524,21 @@ export default function Module({ module, courseContext }: ModuleProps) {
           sourceUrl: articleMeta?.sourceUrl ?? null,
           isExcerpt: true,
         };
+
+        // Count how many article-excerpt segments came before this one
+        const excerptsBefore =
+          section.type === "article"
+            ? section.segments
+                .slice(0, segmentIndex)
+                .filter((s) => s.type === "article-excerpt").length
+            : 0;
+        const isFirstExcerpt = excerptsBefore === 0;
+
         return (
           <ArticleEmbed
             key={`article-${keyPrefix}`}
             article={excerptData}
-            showHeader
+            isFirstExcerpt={isFirstExcerpt}
           />
         );
       }
@@ -535,13 +546,12 @@ export default function Module({ module, courseContext }: ModuleProps) {
       case "video-excerpt": {
         if (section.type !== "video") return null;
 
-        // Count how many video-excerpt segments came before this one in this section
-        // Note: All video-excerpts in a video section share the same videoId,
-        // so "Continue video" makes sense for subsequent clips.
+        // Count video excerpts to number them (Part 1, Part 2, etc.)
+        // All video-excerpts in a video section share the same videoId.
         const videoExcerptsBefore = section.segments
           .slice(0, segmentIndex)
           .filter((s) => s.type === "video-excerpt").length;
-        const isFirstVideoExcerpt = videoExcerptsBefore === 0;
+        const excerptNumber = videoExcerptsBefore + 1; // 1-indexed
 
         return (
           <VideoEmbed
@@ -549,7 +559,7 @@ export default function Module({ module, courseContext }: ModuleProps) {
             videoId={section.videoId}
             start={segment.from}
             end={segment.to}
-            isFirstInSection={isFirstVideoExcerpt}
+            excerptNumber={excerptNumber}
             onPlay={videoTracker.onPlay}
             onPause={videoTracker.onPause}
             onTimeUpdate={videoTracker.onTimeUpdate}
@@ -644,6 +654,15 @@ export default function Module({ module, courseContext }: ModuleProps) {
                   }
                   onRetryMessage={handleRetryMessage}
                 />
+              </>
+            ) : section.type === "article" ? (
+              <>
+                <SectionDivider type="article" />
+                <ArticleSectionWrapper section={section}>
+                  {section.segments?.map((segment, segmentIndex) =>
+                    renderSegment(segment, section, sectionIndex, segmentIndex),
+                  )}
+                </ArticleSectionWrapper>
               </>
             ) : (
               <>

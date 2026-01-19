@@ -22,10 +22,12 @@ export function generateHeadingId(text: string): string {
 /**
  * Extract h2 and h3 headings from markdown content.
  * Generates stable IDs from heading text for anchor linking.
+ * Handles duplicate headings by appending -1, -2, etc. suffix.
  */
 export function extractHeadings(markdown: string): HeadingItem[] {
   const headings: HeadingItem[] = [];
   const lines = markdown.split("\n");
+  const seenIds = new Map<string, number>();
 
   for (const line of lines) {
     // Match ## or ### at start of line
@@ -35,7 +37,12 @@ export function extractHeadings(markdown: string): HeadingItem[] {
       const text = match[2].trim();
       // Skip empty headings
       if (!text) continue;
-      const id = generateHeadingId(text);
+
+      const baseId = generateHeadingId(text);
+      const count = seenIds.get(baseId) || 0;
+      const id = count > 0 ? `${baseId}-${count}` : baseId;
+      seenIds.set(baseId, count + 1);
+
       headings.push({ id, text, level });
     }
   }
