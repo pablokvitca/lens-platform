@@ -60,7 +60,6 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
 
   // Progress tracking
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
-  const [scrollProgress, setScrollProgress] = useState(0);
   const sectionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Section completion tracking (persisted to localStorage)
@@ -167,69 +166,78 @@ export default function NarrativeLesson({ lesson }: NarrativeLessonProps) {
   }, [pendingMessage, lastPosition, handleSendMessage]);
 
 
-  // Scroll tracking with Intersection Observer
-  // Use setTimeout to ensure refs are populated after render
+  // Scroll tracking with hybrid rule: >50% viewport OR fully visible, topmost wins
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const index = Number(
-              entry.target.getAttribute("data-section-index"),
-            );
-            if (!isNaN(index)) {
-              setCurrentSectionIndex(index);
-            }
+    const calculateCurrentSection = () => {
+      const viewportHeight = window.innerHeight;
+      let bestIndex = 0;
+      let bestTopPosition = Infinity;
+
+      sectionRefs.current.forEach((el, index) => {
+        const rect = el.getBoundingClientRect();
+
+        // Calculate visible portion of section
+        const visibleTop = Math.max(0, rect.top);
+        const visibleBottom = Math.min(viewportHeight, rect.bottom);
+        const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+
+        // Check if section is fully visible
+        const isFullyVisible = rect.top >= 0 && rect.bottom <= viewportHeight;
+
+        // Check if section takes >50% of viewport
+        const viewportCoverage = visibleHeight / viewportHeight;
+        const takesHalfViewport = viewportCoverage > 0.5;
+
+        // Section qualifies if fully visible OR takes >50% of viewport
+        // For ties, prefer topmost (smallest rect.top)
+        if (isFullyVisible || takesHalfViewport) {
+          if (rect.top < bestTopPosition) {
+            bestIndex = index;
+            bestTopPosition = rect.top;
+          }
+        }
+      });
+
+      // Fallback: if no section qualified, find section closest to viewport top
+      if (bestTopPosition === Infinity) {
+        let closestDistance = Infinity;
+        sectionRefs.current.forEach((el, index) => {
+          const rect = el.getBoundingClientRect();
+          const distance = Math.abs(rect.top);
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            bestIndex = index;
           }
         });
-      },
-      { threshold: 0.3 },
-    );
+      }
 
-    // Delay observation to ensure refs are populated
-    const timeout = setTimeout(() => {
-      sectionRefs.current.forEach((el) => {
-        observer.observe(el);
-      });
-    }, 0);
-
-    return () => {
-      clearTimeout(timeout);
-      observer.disconnect();
+      setCurrentSectionIndex(bestIndex);
     };
-  }, [lesson.sections]);
 
-  // Track scroll progress within current section
-  useEffect(() => {
+    // Throttle scroll handler with requestAnimationFrame
+    let ticking = false;
     const handleScroll = () => {
-      const currentEl = sectionRefs.current.get(currentSectionIndex);
-      if (!currentEl) return;
-
-      const rect = currentEl.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-
-      // Calculate how much of the section has scrolled past the top
-      const sectionTop = rect.top;
-      const sectionHeight = rect.height;
-
-      if (sectionTop >= viewportHeight) {
-        setScrollProgress(0);
-      } else if (sectionTop + sectionHeight <= 0) {
-        setScrollProgress(1);
-      } else {
-        // Section is in view - calculate progress
-        const scrolledAmount = Math.max(0, -sectionTop);
-        const progress = Math.min(
-          1,
-          scrolledAmount / (sectionHeight - viewportHeight / 2),
-        );
-        setScrollProgress(progress);
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          calculateCurrentSection();
+          ticking = false;
+        });
+        ticking = true;
       }
     };
 
+    // Initial calculation (after refs are populated)
+    const timeout = setTimeout(calculateCurrentSection, 0);
+
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [currentSectionIndex]);
+    window.addEventListener("resize", calculateCurrentSection);
+
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", calculateCurrentSection);
+    };
+  }, [lesson.sections]);
 
   // Scroll to section
   const handleSectionClick = useCallback((index: number) => {
