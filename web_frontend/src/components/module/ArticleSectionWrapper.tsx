@@ -81,7 +81,14 @@ export default function ArticleSectionWrapper({
         }
       });
 
-      setPassedHeadingIds(passed);
+      // Only update state if the set actually changed
+      setPassedHeadingIds((prev) => {
+        if (prev.size !== passed.size) return passed;
+        for (const id of passed) {
+          if (!prev.has(id)) return passed;
+        }
+        return prev; // No change, return same reference
+      });
     };
 
     // Throttle scroll handler with requestAnimationFrame
