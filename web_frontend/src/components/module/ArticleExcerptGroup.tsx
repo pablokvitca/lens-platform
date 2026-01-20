@@ -30,19 +30,8 @@ export default function ArticleExcerptGroup({
     const excerptContents = section.segments
       .filter((s): s is ArticleExcerptSegment => s.type === "article-excerpt")
       .map((s) => s.content);
-    // Debug: log the content we're extracting from
-    console.log("[ArticleExcerptGroup] Title:", section.meta.title);
-    console.log("[ArticleExcerptGroup] Number of excerpts:", excerptContents.length);
-    if (excerptContents.length > 0) {
-      const content = excerptContents[0];
-      console.log("[ArticleExcerptGroup] Content length:", content.length);
-      console.log("[ArticleExcerptGroup] Contains '## History':", content.includes("## History"));
-      console.log("[ArticleExcerptGroup] Contains '## Potential':", content.includes("## Potential"));
-      console.log("[ArticleExcerptGroup] '## History' position:", content.indexOf("## History"));
-      console.log("[ArticleExcerptGroup] First excerpt preview:", content.slice(0, 500));
-    }
     return extractAllHeadings(excerptContents);
-  }, [section.segments, section.meta.title]);
+  }, [section.segments]);
 
   // Register heading IDs with context before children render
   // Uses a ref to avoid duplicate registrations for same headings
