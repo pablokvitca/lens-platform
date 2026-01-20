@@ -53,7 +53,7 @@ export default function ArticleTOC({
             >
               <button
                 onClick={() => onHeadingClick(heading.id)}
-                className={`text-left text-sm leading-snug transition-colors hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 rounded ${
+                className={`text-left text-sm leading-snug transition-colors hover:text-gray-900 focus:outline-none ${
                   isCurrent
                     ? "text-gray-900 font-semibold"
                     : isPassed
