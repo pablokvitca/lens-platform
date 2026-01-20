@@ -1,8 +1,6 @@
-// web_frontend_next/src/views/Module.tsx
-"use client";
+// web_frontend/src/views/Module.tsx
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import Link from "next/link";
 import type {
   ChatMessage,
   PendingMessage,
@@ -16,12 +14,15 @@ import type {
   ModuleSection,
   ModuleSegment,
 } from "@/types/module";
+import type { CourseProgress } from "@/types/course";
 import {
   sendMessage,
   createSession,
   getSession,
   claimSession,
   getNextModule,
+  getModule,
+  getCourseProgress,
 } from "@/api/modules";
 import type { ModuleCompletionResult } from "@/api/modules";
 import { useAnonymousSession } from "@/hooks/useAnonymousSession";
@@ -48,20 +49,15 @@ import {
 import { Sentry } from "@/errorTracking";
 import { RequestTimeoutError } from "@/api/modules";
 
-type CourseContext = {
+interface ModuleProps {
   courseId: string;
-  // Module slugs in order, for next/prev navigation
-  modules: string[];
-};
-
-type ModuleProps = {
-  module: ModuleType;
-  courseContext: CourseContext | null;
-};
+  moduleId: string;
+}
 
 /**
  * Main view for Module format.
  *
+ * Fetches module data based on courseId and moduleId props.
  * Renders a continuous vertical scroll with:
  * - Authored text (white bg)
  * - Article excerpts (gray card)
@@ -69,7 +65,61 @@ type ModuleProps = {
  * - Chat sections (75vh, all sharing same state)
  * - Progress sidebar on left
  */
-export default function Module({ module, courseContext }: ModuleProps) {
+export default function Module({ courseId, moduleId }: ModuleProps) {
+  // Module data loading state
+  const [module, setModule] = useState<ModuleType | null>(null);
+  const [courseProgress, setCourseProgress] = useState<CourseProgress | null>(null);
+  const [loadingModule, setLoadingModule] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Extract all module slugs from course for navigation
+  const courseModules = useMemo(() => {
+    if (!courseProgress) return [];
+    const modules: string[] = [];
+    for (const unit of courseProgress.units) {
+      for (const mod of unit.modules) {
+        modules.push(mod.slug);
+      }
+    }
+    return modules;
+  }, [courseProgress]);
+
+  // Build course context for navigation
+  const courseContext = useMemo(() => {
+    if (!courseProgress) return null;
+    return {
+      courseId,
+      modules: courseModules,
+    };
+  }, [courseProgress, courseId, courseModules]);
+
+  // Fetch module data on mount or when moduleId/courseId changes
+  useEffect(() => {
+    if (!moduleId) return;
+
+    async function load() {
+      setLoadingModule(true);
+      setLoadError(null);
+      try {
+        // Fetch module and course progress in parallel
+        const [moduleResult, courseResult] = await Promise.all([
+          getModule(moduleId),
+          courseId && courseId !== "default"
+            ? getCourseProgress(courseId).catch(() => null)
+            : Promise.resolve(null),
+        ]);
+
+        setModule(moduleResult);
+        setCourseProgress(courseResult);
+      } catch (e) {
+        setLoadError(e instanceof Error ? e.message : "Failed to load module");
+      } finally {
+        setLoadingModule(false);
+      }
+    }
+
+    load();
+  }, [moduleId, courseId]);
   // Chat state (shared across all chat sections)
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(
@@ -81,7 +131,7 @@ export default function Module({ module, courseContext }: ModuleProps) {
   // Session state
   const [sessionId, setSessionId] = useState<number | null>(null);
   const { getStoredSessionId, storeSessionId, clearSessionId } =
-    useAnonymousSession(module.slug);
+    useAnonymousSession(moduleId);
 
   // Progress tracking
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
@@ -91,7 +141,7 @@ export default function Module({ module, courseContext }: ModuleProps) {
   const [completedSections, setCompletedSections] = useState<Set<number>>(
     () => {
       if (typeof window === "undefined") return new Set();
-      const stored = localStorage.getItem(`module-completed-${module.slug}`);
+      const stored = localStorage.getItem(`module-completed-${moduleId}`);
       return stored ? new Set(JSON.parse(stored)) : new Set();
     },
   );
@@ -99,10 +149,10 @@ export default function Module({ module, courseContext }: ModuleProps) {
   // Persist completion state to localStorage
   useEffect(() => {
     localStorage.setItem(
-      `module-completed-${module.slug}`,
+      `module-completed-${moduleId}`,
       JSON.stringify([...completedSections]),
     );
-  }, [completedSections, module.slug]);
+  }, [completedSections, moduleId]);
 
   const { isAuthenticated, isInSignupsTable, isInActiveGroup, login } =
     useAuth();
@@ -144,6 +194,7 @@ export default function Module({ module, courseContext }: ModuleProps) {
   // Convert sections to Stage format for progress bar
   // StageProgressBar only uses the `type` field for icon display
   const stages: Stage[] = useMemo(() => {
+    if (!module) return [];
     return module.sections.map((section): Stage => {
       const stageType = section.type === "text" ? "article" : section.type;
       if (stageType === "article") {
@@ -159,10 +210,11 @@ export default function Module({ module, courseContext }: ModuleProps) {
         };
       }
     });
-  }, [module.sections]);
+  }, [module]);
 
   // Convert to StageInfo format for drawer
   const stagesForDrawer: StageInfo[] = useMemo(() => {
+    if (!module) return [];
     return module.sections.map((section, index) => ({
       type: section.type === "text" ? "article" : section.type,
       title:
@@ -172,13 +224,13 @@ export default function Module({ module, courseContext }: ModuleProps) {
       duration: null,
       optional: false,
     }));
-  }, [module.sections]);
+  }, [module]);
 
   // Derived value for module completion
-  const isModuleComplete = completedSections.size === module.sections.length;
+  const isModuleComplete = module ? completedSections.size === module.sections.length : false;
 
   // Activity tracking for current section
-  const currentSection = module.sections[currentSectionIndex];
+  const currentSection = module?.sections[currentSectionIndex];
   const currentSectionType =
     currentSection?.type === "text" ? "article" : currentSection?.type;
 
@@ -213,7 +265,7 @@ export default function Module({ module, courseContext }: ModuleProps) {
 
   // Fetch next module info when module completes
   useEffect(() => {
-    if (!isModuleComplete) return;
+    if (!isModuleComplete || !module) return;
 
     // If no course context, this is a standalone module - no next
     if (!courseContext) {
@@ -224,7 +276,7 @@ export default function Module({ module, courseContext }: ModuleProps) {
     // Fetch next module from course
     async function fetchNext() {
       try {
-        const result = await getNextModule(courseContext!.courseId, module.slug);
+        const result = await getNextModule(courseContext!.courseId, module!.slug);
         setModuleCompletionResult(result);
       } catch (e) {
         console.error("[Module] Failed to fetch next module:", e);
@@ -233,17 +285,19 @@ export default function Module({ module, courseContext }: ModuleProps) {
     }
 
     fetchNext();
-  }, [isModuleComplete, courseContext, module.slug]);
+  }, [isModuleComplete, courseContext, module]);
 
   // Track module completed
   useEffect(() => {
-    if (isModuleComplete) {
+    if (isModuleComplete && module) {
       trackModuleCompleted(module.slug);
     }
-  }, [isModuleComplete, module.slug]);
+  }, [isModuleComplete, module]);
 
-  // Initialize session
+  // Initialize session (only after module is loaded)
   useEffect(() => {
+    if (!module) return;
+
     async function init() {
       try {
         const storedId = getStoredSessionId();
@@ -295,8 +349,7 @@ export default function Module({ module, courseContext }: ModuleProps) {
 
     init();
   }, [
-    module.slug,
-    module.title,
+    module,
     getStoredSessionId,
     storeSessionId,
     clearSessionId,
@@ -322,7 +375,7 @@ export default function Module({ module, courseContext }: ModuleProps) {
 
       if (content) {
         setPendingMessage({ content, status: "sending" });
-        trackChatMessageSent(module.slug, content.length);
+        trackChatMessageSent(moduleId, content.length);
       }
       setIsLoading(true);
       setStreamingContent("");
@@ -357,7 +410,7 @@ export default function Module({ module, courseContext }: ModuleProps) {
         setIsLoading(false);
       }
     },
-    [sessionId, triggerChatActivity, module.slug],
+    [sessionId, triggerChatActivity, moduleId],
   );
 
   const handleRetryMessage = useCallback(() => {
@@ -446,12 +499,12 @@ export default function Module({ module, courseContext }: ModuleProps) {
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", calculateCurrentSection);
     };
-  }, [module.sections, viewMode]);
+  }, [module, viewMode]);
 
   const handleLoginClick = useCallback(() => {
-    sessionStorage.setItem("returnToModule", module.slug);
+    sessionStorage.setItem("returnToModule", moduleId);
     login();
-  }, [module.slug, login]);
+  }, [moduleId, login]);
 
   const handleStageClick = useCallback(
     (index: number) => {
@@ -481,6 +534,7 @@ export default function Module({ module, courseContext }: ModuleProps) {
   }, [currentSectionIndex, viewMode, handleStageClick]);
 
   const handleNext = useCallback(() => {
+    if (!module) return;
     const nextIndex = Math.min(
       module.sections.length - 1,
       currentSectionIndex + 1,
@@ -491,7 +545,7 @@ export default function Module({ module, courseContext }: ModuleProps) {
       setCurrentSectionIndex(nextIndex);
       setViewingStageIndex(null);
     }
-  }, [currentSectionIndex, module.sections.length, viewMode, handleStageClick]);
+  }, [currentSectionIndex, module, viewMode, handleStageClick]);
 
   const handleMarkComplete = useCallback(
     (sectionIndex: number) => {
@@ -611,14 +665,37 @@ export default function Module({ module, courseContext }: ModuleProps) {
     }
   };
 
+  // Loading state
+  if (loadingModule) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">Loading module...</p>
+      </div>
+    );
+  }
+
+  // Error states
+  if (loadError || !module) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{loadError ?? "Module not found"}</p>
+          <a href="/" className="text-emerald-600 hover:underline">
+            Go home
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
-          <Link href="/" className="text-emerald-600 hover:underline">
+          <a href="/" className="text-emerald-600 hover:underline">
             Go home
-          </Link>
+          </a>
         </div>
       </div>
     );
