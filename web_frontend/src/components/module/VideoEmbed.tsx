@@ -50,7 +50,7 @@ export default function VideoEmbed({
   // All clips start compact, expand when activated
   const containerClasses = isActivated
     ? "w-[90%] max-w-[1100px] mx-auto py-4 scroll-mt-20 transition-all duration-300"
-    : "w-[50%] max-w-[500px] mx-auto py-4 scroll-mt-20 transition-all duration-300";
+    : "max-w-content mx-auto py-4 scroll-mt-20 transition-all duration-300";
 
   // Label: "Watch" for first clip, "Watch Part N" for subsequent
   const label = isFirst ? "Watch" : `Watch Part ${excerptNumber}`;

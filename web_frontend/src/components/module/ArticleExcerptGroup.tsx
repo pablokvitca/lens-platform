@@ -35,7 +35,7 @@ export default function ArticleExcerptGroup({
   return (
     <div>
       {/* Centered content with relative positioning for TOC */}
-      <div className="max-w-[750px] mx-auto relative">
+      <div className="max-w-content-padded mx-auto relative">
         {/* Content */}
         <div className="w-full">{children}</div>
 

@@ -422,10 +422,10 @@ export default function NarrativeChatSection({
   };
 
   return (
-    <div className="max-w-[700px] mx-auto py-4 px-4" style={{ overflowAnchor: "none" }}>
+    <div className="py-4 px-4" style={{ overflowAnchor: "none" }}>
       <div
         ref={containerRef}
-        className="border border-gray-200 rounded-lg bg-white shadow-sm flex flex-col scroll-mb-8 relative"
+        className="max-w-content mx-auto border border-gray-200 rounded-lg bg-white shadow-sm flex flex-col scroll-mb-8 relative"
         style={hasInteracted
           ? { height: "85vh", overflowAnchor: "none" }  // Fixed height when interacted to prevent jitter during streaming
           : { maxHeight: "85vh", minHeight: "180px", overflowAnchor: "none" }
@@ -439,7 +439,7 @@ export default function NarrativeChatSection({
           onScroll={handleScroll}
         >
           {hasInteracted ? (
-            <div className="max-w-[620px] mx-auto">
+            <div>
               {/* Previous messages - natural height */}
               {currentExchangeStartIndex > 0 && (
                 <div className="space-y-3 pb-3">

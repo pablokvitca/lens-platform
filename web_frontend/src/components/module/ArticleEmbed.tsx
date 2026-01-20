@@ -46,12 +46,12 @@ export default function ArticleEmbed({
   return (
     <div>
       {/* Article content with warm background - header inside */}
-      <div className="max-w-[750px] mx-auto">
+      <div className="max-w-content-padded mx-auto">
         <div className="bg-amber-50/50 px-10 py-6 rounded-lg">
           {/* Excerpt marker inside yellow background */}
           {isFirst ? (
             // First excerpt: full attribution with divider
-            <div className="mb-6">
+            <div className="mb-6 max-w-content mx-auto">
               {title && (
                 <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
               )}
@@ -91,7 +91,7 @@ export default function ArticleEmbed({
             </div>
           ) : (
             // Subsequent excerpt: muted right-aligned marker with divider
-            <div className="mb-6">
+            <div className="mb-6 max-w-content mx-auto">
               <div className="flex justify-end">
                 <span className="text-sm text-gray-400 flex items-center gap-1.5">
                   <svg
@@ -114,7 +114,7 @@ export default function ArticleEmbed({
               <hr className="mt-2 border-gray-300" />
             </div>
           )}
-          <article className="prose prose-gray max-w-none">
+          <article className="prose prose-gray max-w-content mx-auto">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeRaw]}
