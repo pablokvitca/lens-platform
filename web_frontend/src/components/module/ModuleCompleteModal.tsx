@@ -1,7 +1,3 @@
-"use client";
-
-import Link from "next/link";
-
 interface NextModule {
   slug: string;
   title: string;
@@ -127,19 +123,19 @@ export default function ModuleCompleteModal({
           {!hasCompletedUnit && "Ready to continue your AI safety journey?"}
         </p>
         <div className="flex flex-col gap-3">
-          <Link
+          <a
             href={primaryCta.href}
             className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
           >
             {primaryCta.label}
-          </Link>
+          </a>
           {secondaryCta && (
-            <Link
+            <a
               href={secondaryCta.href}
               className="w-full text-gray-600 py-2 px-4 hover:text-gray-800 transition-colors"
             >
               {secondaryCta.label}
-            </Link>
+            </a>
           )}
         </div>
       </div>
