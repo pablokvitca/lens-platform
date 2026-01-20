@@ -27,4 +27,8 @@ export default defineConfig({
   build: {
     target: "esnext",
   },
+  ssr: {
+    // react-use has ESM export issues, mark it as noExternal to bundle it
+    noExternal: ["react-use"],
+  },
 });

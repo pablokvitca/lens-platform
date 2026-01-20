@@ -298,6 +298,9 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   useEffect(() => {
     if (!module) return;
 
+    // Capture module in a const so TypeScript knows it's not null in the async function
+    const currentModule = module;
+
     async function init() {
       try {
         const storedId = getStoredSessionId();
@@ -322,14 +325,14 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
         }
 
         // Create new session
-        const sid = await createSession(module.slug);
+        const sid = await createSession(currentModule.slug);
         storeSessionId(sid);
         setSessionId(sid);
 
         // Track module start (only for new sessions)
         if (!hasTrackedModuleStart.current) {
           hasTrackedModuleStart.current = true;
-          trackModuleStarted(module.slug, module.title);
+          trackModuleStarted(currentModule.slug, currentModule.title);
         }
       } catch (e) {
         console.error("[Module] Session init failed:", e);
@@ -342,7 +345,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
         }
 
         Sentry.captureException(e, {
-          tags: { error_type: "session_init_failed", module_slug: module.slug },
+          tags: { error_type: "session_init_failed", module_slug: currentModule.slug },
         });
       }
     }
