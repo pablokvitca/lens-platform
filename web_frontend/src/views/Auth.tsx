@@ -1,19 +1,18 @@
-"use client";
-
 import { useEffect, useState, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { usePageContext } from "vike-react/usePageContext";
+import { navigate } from "vike/client/router";
 import { API_URL } from "../config";
 import { DiscordIcon } from "../components/icons/DiscordIcon";
 
 type AuthStatus = "loading" | "success" | "error";
 
 export default function Auth() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
+  const pageContext = usePageContext();
+  const searchParams = pageContext.urlParsed?.search || {};
   const hasValidated = useRef(false);
 
-  const code = searchParams?.get("code") ?? null;
-  const next = searchParams?.get("next") ?? "/signup";
+  const code = (searchParams as Record<string, string>).code ?? null;
+  const next = (searchParams as Record<string, string>).next ?? "/signup";
 
   // Derive initial state from whether code exists
   const [status, setStatus] = useState<AuthStatus>(() =>
@@ -51,7 +50,7 @@ export default function Auth() {
           setStatus("success");
           // Small delay to show success message, then navigate
           setTimeout(() => {
-            router.push(data.next || next);
+            navigate(data.next || next);
           }, 500);
         } else {
           setStatus("error");
@@ -74,7 +73,7 @@ export default function Auth() {
         setStatus("error");
         setErrorMessage("Unable to connect to the server. Please try again.");
       });
-  }, [code, next, router]);
+  }, [code, next]);
 
   const handleDiscordLogin = () => {
     const origin = encodeURIComponent(window.location.origin);
