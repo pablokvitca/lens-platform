@@ -1,0 +1,116 @@
+# Roadmap: Mobile Responsiveness
+
+## Overview
+
+This roadmap transforms the AI Safety Course Platform from desktop-only to fully mobile-responsive, enabling students to consume lessons, interact with the chatbot, and watch embedded videos on their phones. The 5-phase approach starts with foundational viewport and typography fixes, progresses through layout and content component adaptations, tackles the complex chat interface, and concludes with motion polish and visual consistency.
+
+## Phases
+
+**Phase Numbering:**
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 1: Foundation & Typography** - Viewport units, safe areas, and mobile typography baseline
+- [ ] **Phase 2: Responsive Layout** - Navigation collapse, drawer overlays, and layout structure
+- [ ] **Phase 3: Content Components** - Video embeds, article padding, and progress navigation
+- [ ] **Phase 4: Chat Interface** - Mobile chat with keyboard handling and touch gestures
+- [ ] **Phase 5: Motion & Polish** - Animations, visual consistency, and final testing
+
+## Phase Details
+
+### Phase 1: Foundation & Typography
+**Goal**: Mobile viewport renders correctly without bugs — no iOS Safari quirks, readable text, safe areas respected
+**Depends on**: Nothing (first phase)
+**Requirements**: FOUND-01, FOUND-02, FOUND-03, FOUND-04, TYPE-01, TYPE-02
+**Success Criteria** (what must be TRUE):
+  1. Student can open any page on iPhone without seeing the MobileWarning blocker
+  2. Full-height elements (like chat container) fill the visible viewport without content hiding behind iOS Safari address bar
+  3. Student can read lesson body text on iPhone SE (320px) without zooming or horizontal scrolling
+  4. Content does not overlap with iPhone notch or Dynamic Island on any page
+  5. Heading sizes are proportionally smaller on mobile while maintaining clear hierarchy
+**Plans**: 2 plans (Wave 1 parallel)
+
+Plans:
+- [ ] 01-01-PLAN.md — Remove mobile blocker and configure viewport foundations
+- [ ] 01-02-PLAN.md — Migrate viewport height units to dvh
+
+### Phase 2: Responsive Layout
+**Goal**: Students can navigate the app on mobile — header collapses to hamburger, drawers work as overlays, all touch targets are accessible
+**Depends on**: Phase 1
+**Requirements**: NAV-01, NAV-02, NAV-03, NAV-04, LAYOUT-01, LAYOUT-02, LAYOUT-03
+**Success Criteria** (what must be TRUE):
+  1. Student sees hamburger menu icon on mobile header and can tap to open navigation
+  2. Tapping any navigation link or button registers on first tap (44px touch targets)
+  3. Header hides when student scrolls down through lesson content, reappears when scrolling up
+  4. ModuleDrawer opens as full-screen overlay on mobile (not partial slide-out)
+  5. CourseSidebar slides in from edge as drawer on mobile, dismissible by tap outside
+**Plans**: TBD
+
+Plans:
+- [ ] 02-01: TBD
+- [ ] 02-02: TBD
+- [ ] 02-03: TBD
+
+### Phase 3: Content Components
+**Goal**: Lesson content displays optimally on mobile — videos fill width, articles have comfortable reading margins, progress navigation is touch-friendly
+**Depends on**: Phase 1
+**Requirements**: CONTENT-01, CONTENT-02, CONTENT-03, PROG-01, PROG-02
+**Success Criteria** (what must be TRUE):
+  1. Embedded YouTube videos scale to full screen width on mobile with correct aspect ratio
+  2. Video player controls (play, pause, fullscreen) are easily tappable on mobile
+  3. Article content has appropriate padding on mobile (not cramped to edges, not excessive margins)
+  4. Stage progress bar dots and arrows are easily tappable (44px touch targets)
+  5. Tapping stage progress dots advances to the correct stage without mis-taps
+**Plans**: TBD
+
+Plans:
+- [ ] 03-01: TBD
+- [ ] 03-02: TBD
+
+### Phase 4: Chat Interface
+**Goal**: Students can use the AI chatbot on mobile — input visible above keyboard, messages readable, touch interactions smooth
+**Depends on**: Phase 1, Phase 2
+**Requirements**: CHAT-01, CHAT-02, CHAT-03, CHAT-04, TYPE-03
+**Success Criteria** (what must be TRUE):
+  1. Chat container uses full available height on mobile without content hiding behind browser chrome
+  2. Chat input field remains visible above keyboard when typing on iOS Safari
+  3. Send and microphone buttons are easily tappable (44px minimum)
+  4. Student can swipe left/right to navigate through chat history stages
+  5. Chat message bubbles have readable typography with proper spacing between messages
+**Plans**: TBD
+
+Plans:
+- [ ] 04-01: TBD
+- [ ] 04-02: TBD
+
+### Phase 5: Motion & Polish
+**Goal**: Mobile experience feels polished — smooth animations, consistent visual language, verified on real devices
+**Depends on**: Phase 2, Phase 3, Phase 4
+**Requirements**: MOTION-01, MOTION-02, MOTION-03, MOTION-04, VISUAL-01, VISUAL-02, VISUAL-03
+**Success Criteria** (what must be TRUE):
+  1. Drawers and overlays animate smoothly when opening/closing (no jarring cuts or lag)
+  2. Page transitions feel connected — content slides rather than instant cuts
+  3. Buttons and interactive elements respond immediately to touch (visual feedback on press)
+  4. Mobile layouts maintain the same visual language as desktop (colors, spacing rhythm, component shapes)
+  5. Loading states (skeleton screens, spinners) display correctly on mobile
+**Plans**: TBD
+
+Plans:
+- [ ] 05-01: TBD
+- [ ] 05-02: TBD
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
+Note: Phases 2 and 3 can run in parallel after Phase 1 completes.
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. Foundation & Typography | 0/2 | Not started | - |
+| 2. Responsive Layout | 0/3 | Not started | - |
+| 3. Content Components | 0/2 | Not started | - |
+| 4. Chat Interface | 0/2 | Not started | - |
+| 5. Motion & Polish | 0/2 | Not started | - |
