@@ -63,6 +63,7 @@ export type ArticleSection = {
   type: "article";
   meta: ArticleMeta;
   segments: ModuleSegment[];
+  optional?: boolean;
 };
 
 export type VideoSection = {
@@ -70,6 +71,7 @@ export type VideoSection = {
   videoId: string;
   meta: VideoMeta;
   segments: ModuleSegment[];
+  optional?: boolean;
 };
 
 export type ChatSection = {

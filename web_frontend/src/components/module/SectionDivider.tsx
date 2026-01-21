@@ -2,6 +2,7 @@
 
 type SectionDividerProps = {
   type: "video" | "article" | "chat";
+  optional?: boolean;
 };
 
 function LargeIcon({ type }: { type: "video" | "article" }) {
@@ -29,17 +30,24 @@ function LargeIcon({ type }: { type: "video" | "article" }) {
   );
 }
 
-export default function SectionDivider({ type }: SectionDividerProps) {
+export default function SectionDivider({ type, optional }: SectionDividerProps) {
   // Chat stages use the article icon
   const iconType = type === "chat" ? "article" : type;
 
   return (
-    <div className="flex items-center gap-4 px-6 py-6">
-      <div className="flex-1 border-t border-gray-300" />
-      <div className="flex items-center justify-center w-20 h-20 text-gray-500">
-        <LargeIcon type={iconType} />
+    <div className="flex flex-col items-center gap-2 px-6 py-6">
+      <div className="flex items-center gap-4 w-full">
+        <div className="flex-1 border-t border-gray-300" />
+        <div className="flex items-center justify-center w-20 h-20 text-gray-500">
+          <LargeIcon type={iconType} />
+        </div>
+        <div className="flex-1 border-t border-gray-300" />
       </div>
-      <div className="flex-1 border-t border-gray-300" />
+      {optional && (
+        <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+          Optional
+        </span>
+      )}
     </div>
   );
 }

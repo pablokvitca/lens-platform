@@ -666,7 +666,12 @@ def bundle_narrative_module(module) -> dict:
                 meta = {"title": None, "author": None, "sourceUrl": None}
 
             segments = [bundle_segment(s, section) for s in section.segments]
-            return {"type": "article", "meta": meta, "segments": segments}
+            return {
+                "type": "article",
+                "meta": meta,
+                "segments": segments,
+                "optional": section.optional,
+            }
 
         elif isinstance(section, VideoSection):
             # Load video metadata
@@ -687,6 +692,7 @@ def bundle_narrative_module(module) -> dict:
                 "videoId": video_id,
                 "meta": meta,
                 "segments": segments,
+                "optional": section.optional,
             }
 
         elif isinstance(section, ChatSection):

@@ -55,3 +55,60 @@ def test_extract_section_no_anchors():
     full_text = "Complete article content here."
     section = extract_article_section(full_text, None, None)
     assert section == full_text
+
+
+def test_bundle_narrative_module_includes_optional_field():
+    """Should include optional field when bundling article and video sections."""
+    from unittest.mock import patch
+
+    from core.modules.content import bundle_narrative_module
+    from core.modules.markdown_parser import (
+        ArticleSection,
+        VideoSection,
+        TextSegment,
+        ParsedModule,
+    )
+
+    class MockMetadata:
+        title = "Mock Title"
+        author = "Mock Author"
+        source_url = "https://example.com"
+        channel = "Mock Channel"
+        video_id = "abc123"
+
+    class MockResult:
+        metadata = MockMetadata()
+        content = "Mock content"
+
+    # Create a module with optional and non-optional sections
+    module = ParsedModule(
+        slug="test-module",
+        title="Test Module",
+        sections=[
+            ArticleSection(
+                source="test-article.md",
+                segments=[TextSegment(content="Test content")],
+                optional=True,
+            ),
+            VideoSection(
+                source="test-video.md",
+                segments=[TextSegment(content="Test content")],
+                optional=False,
+            ),
+        ],
+    )
+
+    with (
+        patch(
+            "core.modules.content.load_article_with_metadata", return_value=MockResult()
+        ),
+        patch(
+            "core.modules.content.load_video_transcript_with_metadata",
+            return_value=MockResult(),
+        ),
+    ):
+        result = bundle_narrative_module(module)
+
+    # Verify optional field is present and correct
+    assert result["sections"][0]["optional"] is True
+    assert result["sections"][1]["optional"] is False

@@ -199,10 +199,12 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
     if (!module) return [];
     return module.sections.map((section): Stage => {
       const stageType = section.type === "text" ? "article" : section.type;
+      const isOptional =
+        "optional" in section && section.optional === true;
       if (stageType === "article") {
-        return { type: "article", source: "", from: null, to: null };
+        return { type: "article", source: "", from: null, to: null, optional: isOptional };
       } else if (stageType === "video" && section.type === "video") {
-        return { type: "video", videoId: section.videoId, from: 0, to: null };
+        return { type: "video", videoId: section.videoId, from: 0, to: null, optional: isOptional };
       } else {
         return {
           type: "chat",
@@ -224,7 +226,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
           ? `Section ${index + 1}`
           : section.meta?.title || `${section.type || "Section"} ${index + 1}`,
       duration: null,
-      optional: false,
+      optional: "optional" in section && section.optional === true,
     }));
   }, [module]);
 
@@ -796,7 +798,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                 </>
               ) : section.type === "article" ? (
                 <>
-                  <SectionDivider type="article" />
+                  <SectionDivider type="article" optional={section.optional} />
                   <ArticleSectionWrapper>
                     {(() => {
                       // Split segments into pre-excerpt, excerpt, post-excerpt groups
@@ -866,7 +868,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                 </>
               ) : (
                 <>
-                  <SectionDivider type={section.type} />
+                  <SectionDivider type={section.type} optional={section.optional} />
                   {section.segments?.map((segment, segmentIndex) =>
                     renderSegment(segment, section, sectionIndex, segmentIndex),
                   )}
