@@ -1,5 +1,6 @@
 // web_frontend/src/components/module/ArticleEmbed.tsx
 
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -26,7 +27,7 @@ export default function ArticleEmbed({
 }: ArticleEmbedProps) {
   // Support both isFirstExcerpt and deprecated showHeader prop
   const isFirst = isFirstExcerpt ?? showHeader ?? true;
-  const { content, title, author, sourceUrl } = article;
+  const { content, title, author, sourceUrl, collapsed_before, collapsed_after } = article;
   const sectionContext = useArticleSectionContext();
 
   // Get heading ID - uses shared counter from context if available,
@@ -39,6 +40,152 @@ export default function ArticleEmbed({
     return generateHeadingId(text);
   };
 
+  // Shared markdown components for both main content and collapsed sections
+  const markdownComponents = {
+    a: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-gray-700 underline decoration-gray-400 hover:decoration-gray-600"
+      >
+        {children}
+      </a>
+    ),
+    h1: ({ children }: { children?: React.ReactNode }) => (
+      <h1 className="text-2xl font-bold mt-8 mb-4">{children}</h1>
+    ),
+    h2: ({ children }: { children?: React.ReactNode }) => {
+      const text = String(children);
+      const id = getHeadingId(text);
+      return (
+        <h2
+          id={id}
+          ref={(el) => {
+            if (el) sectionContext?.onHeadingRender(id, el);
+          }}
+          className="text-xl font-bold mt-6 mb-3 scroll-mt-24"
+        >
+          {children}
+        </h2>
+      );
+    },
+    h3: ({ children }: { children?: React.ReactNode }) => {
+      const text = String(children);
+      const id = getHeadingId(text);
+      return (
+        <h3
+          id={id}
+          ref={(el) => {
+            if (el) sectionContext?.onHeadingRender(id, el);
+          }}
+          className="text-lg font-bold mt-5 mb-2 scroll-mt-24"
+        >
+          {children}
+        </h3>
+      );
+    },
+    h4: ({ children }: { children?: React.ReactNode }) => (
+      <h4 className="text-base font-bold mt-4 mb-2">{children}</h4>
+    ),
+    p: ({ children }: { children?: React.ReactNode }) => (
+      <p className="mb-4 leading-relaxed">{children}</p>
+    ),
+    ul: ({ children }: { children?: React.ReactNode }) => (
+      <ul className="list-disc list-inside mb-4 space-y-1">{children}</ul>
+    ),
+    ol: ({ children }: { children?: React.ReactNode }) => (
+      <ol className="list-decimal list-inside mb-4 space-y-1">{children}</ol>
+    ),
+    strong: ({ children }: { children?: React.ReactNode }) => (
+      <strong className="font-semibold">{children}</strong>
+    ),
+    em: ({ children }: { children?: React.ReactNode }) => (
+      <em className="italic">{children}</em>
+    ),
+    blockquote: ({ children }: { children?: React.ReactNode }) => (
+      <blockquote className="border-l-4 border-gray-300 pl-4 italic my-4">
+        {children}
+      </blockquote>
+    ),
+    hr: () => <hr className="my-8 border-gray-300" />,
+    table: ({ children }: { children?: React.ReactNode }) => (
+      <div className="overflow-x-auto my-4">
+        <table className="min-w-full border-collapse border border-gray-300">
+          {children}
+        </table>
+      </div>
+    ),
+    thead: ({ children }: { children?: React.ReactNode }) => (
+      <thead className="bg-gray-200">{children}</thead>
+    ),
+    tbody: ({ children }: { children?: React.ReactNode }) => (
+      <tbody>{children}</tbody>
+    ),
+    tr: ({ children }: { children?: React.ReactNode }) => (
+      <tr className="border-b border-gray-300">{children}</tr>
+    ),
+    th: ({ children }: { children?: React.ReactNode }) => (
+      <th className="px-4 py-2 text-left font-semibold border border-gray-300">
+        {children}
+      </th>
+    ),
+    td: ({ children }: { children?: React.ReactNode }) => (
+      <td className="px-4 py-2 border border-gray-300">{children}</td>
+    ),
+  };
+
+  // Collapsed section component with animation
+  const CollapsedSection = ({ content, position: _position }: { content: string; position: "before" | "after" }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return (
+      <div className="max-w-content mx-auto mb-4">
+        <div className="flex items-center gap-1 py-1">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="cursor-pointer text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1"
+          >
+            <svg
+              className={`w-3 h-3 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+            <span>[...]</span>
+          </button>
+          {isOpen && <span className="text-sm text-gray-400 ml-1">This part of the article was omitted for brevity</span>}
+        </div>
+        <div
+          className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+            isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <article className="prose prose-gray max-w-content mx-auto text-gray-600 pt-1 pl-5">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw]}
+                components={markdownComponents}
+              >
+                {content}
+              </ReactMarkdown>
+            </article>
+            <div className="text-sm text-gray-400 mt-2 pl-5">— End of omitted text —</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
       {/* Article content with warm background - header inside */}
@@ -47,7 +194,7 @@ export default function ArticleEmbed({
           {/* Excerpt marker inside yellow background */}
           {isFirst ? (
             // First excerpt: full attribution with divider
-            <div className="mb-6 max-w-content mx-auto">
+            <div className="mb-3 max-w-content mx-auto">
               {title && (
                 <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
               )}
@@ -81,11 +228,11 @@ export default function ArticleEmbed({
                   </a>
                 )}
               </div>
-              <hr className="mt-4 border-gray-300" />
+              <hr className="mt-3 border-gray-300" />
             </div>
           ) : (
             // Subsequent excerpt: muted right-aligned marker with divider
-            <div className="mb-6 max-w-content mx-auto">
+            <div className="mb-3 max-w-content mx-auto">
               <div className="flex justify-end">
                 <span className="text-sm text-gray-400 flex items-center gap-1.5">
                   <svg
@@ -108,109 +255,22 @@ export default function ArticleEmbed({
               <hr className="mt-2 border-gray-300" />
             </div>
           )}
+
+          {/* Collapsed content before this excerpt (after header) */}
+          {collapsed_before && <CollapsedSection content={collapsed_before} position="before" />}
+
           <article className="prose prose-gray max-w-content mx-auto">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeRaw]}
-              components={{
-                a: ({ children, href }) => (
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gray-700 underline decoration-gray-400 hover:decoration-gray-600"
-                  >
-                    {children}
-                  </a>
-                ),
-                h1: ({ children }) => (
-                  <h1 className="text-2xl font-bold mt-8 mb-4">{children}</h1>
-                ),
-                h2: ({ children }) => {
-                  const text = String(children);
-                  const id = getHeadingId(text);
-                  return (
-                    <h2
-                      id={id}
-                      ref={(el) => {
-                        if (el) sectionContext?.onHeadingRender(id, el);
-                      }}
-                      className="text-xl font-bold mt-6 mb-3 scroll-mt-24"
-                    >
-                      {children}
-                    </h2>
-                  );
-                },
-                h3: ({ children }) => {
-                  const text = String(children);
-                  const id = getHeadingId(text);
-                  return (
-                    <h3
-                      id={id}
-                      ref={(el) => {
-                        if (el) sectionContext?.onHeadingRender(id, el);
-                      }}
-                      className="text-lg font-bold mt-5 mb-2 scroll-mt-24"
-                    >
-                      {children}
-                    </h3>
-                  );
-                },
-                h4: ({ children }) => (
-                  <h4 className="text-base font-bold mt-4 mb-2">{children}</h4>
-                ),
-                p: ({ children }) => (
-                  <p className="mb-4 leading-relaxed">{children}</p>
-                ),
-                ul: ({ children }) => (
-                  <ul className="list-disc list-inside mb-4 space-y-1">
-                    {children}
-                  </ul>
-                ),
-                ol: ({ children }) => (
-                  <ol className="list-decimal list-inside mb-4 space-y-1">
-                    {children}
-                  </ol>
-                ),
-                strong: ({ children }) => (
-                  <strong className="font-semibold">{children}</strong>
-                ),
-                em: ({ children }) => <em className="italic">{children}</em>,
-                blockquote: ({ children }) => (
-                  <blockquote className="border-l-4 border-gray-300 pl-4 italic my-4">
-                    {children}
-                  </blockquote>
-                ),
-                hr: () => <hr className="my-8 border-gray-300" />,
-                table: ({ children }) => (
-                  <div className="overflow-x-auto my-4">
-                    <table className="min-w-full border-collapse border border-gray-300">
-                      {children}
-                    </table>
-                  </div>
-                ),
-                thead: ({ children }) => (
-                  <thead className="bg-gray-200">{children}</thead>
-                ),
-                tbody: ({ children }) => <tbody>{children}</tbody>,
-                tr: ({ children }) => (
-                  <tr className="border-b border-gray-300">{children}</tr>
-                ),
-                th: ({ children }) => (
-                  <th className="px-4 py-2 text-left font-semibold border border-gray-300">
-                    {children}
-                  </th>
-                ),
-                td: ({ children }) => (
-                  <td className="px-4 py-2 border border-gray-300">
-                    {children}
-                  </td>
-                ),
-              }}
+              components={markdownComponents}
             >
               {content}
             </ReactMarkdown>
           </article>
+
+          {/* Collapsed content after this excerpt */}
+          {collapsed_after && <CollapsedSection content={collapsed_after} position="after" />}
         </div>
       </div>
     </div>

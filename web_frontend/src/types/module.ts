@@ -18,6 +18,8 @@ export type TextSegment = {
 export type ArticleExcerptSegment = {
   type: "article-excerpt";
   content: string; // Pre-extracted content from API
+  collapsed_before: string | null; // Omitted content before this excerpt
+  collapsed_after: string | null; // Omitted content after this excerpt (last excerpt only)
 };
 
 export type VideoExcerptSegment = {
@@ -114,6 +116,8 @@ export type ArticleData = {
   author: string | null;
   sourceUrl: string | null;
   isExcerpt?: boolean;
+  collapsed_before?: string | null; // Omitted content before this excerpt
+  collapsed_after?: string | null; // Omitted content after this excerpt
 };
 
 // Stage types for progress bar (discriminated union matching section types)

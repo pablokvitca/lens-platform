@@ -632,6 +632,8 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
           author: articleMeta?.author ?? null,
           sourceUrl: articleMeta?.sourceUrl ?? null,
           isExcerpt: true,
+          collapsed_before: segment.collapsed_before,
+          collapsed_after: segment.collapsed_after,
         };
 
         // Count how many article-excerpt segments came before this one
