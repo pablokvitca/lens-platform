@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-01-21)
 Phase: 1 of 5 (Foundation & Typography)
 Plan: 2 of 2 in current phase
 Status: Phase complete
-Last activity: 2026-01-21 — Completed 01-02-PLAN.md
+Last activity: 2026-01-21 — Completed 01-01-PLAN.md and 01-02-PLAN.md
 
 Progress: [██░░░░░░░░] 20%
 
@@ -20,18 +20,18 @@ Progress: [██░░░░░░░░] 20%
 
 **Velocity:**
 - Total plans completed: 2
-- Average duration: ~2 min
-- Total execution time: ~4 min
+- Average duration: ~3 min
+- Total execution time: ~6 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-foundation-typography | 2 | ~4 min | ~2 min |
+| 01-foundation-typography | 2 | ~6 min | ~3 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (1 min), 01-02 (1 min)
-- Trend: Fast execution (simple CSS changes)
+- Last 5 plans: 01-01 (5 min), 01-02 (1 min)
+- Trend: Fast execution (CSS and component cleanup)
 
 *Updated after each plan completion*
 
@@ -42,12 +42,15 @@ Progress: [██░░░░░░░░] 20%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+- 18px body text exceeds iOS 16px zoom threshold
+- Mobile-first typography scale with non-proportional desktop step-up
+- Safe area CSS variables defined in globals.css, consumed in Phase 2
 - Use Tailwind v4 built-in h-dvh/min-h-dvh utilities (no custom CSS needed)
 - dvh units for all full-height containers for iOS Safari compatibility
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
@@ -59,5 +62,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 01-02-PLAN.md (Phase 1 complete)
+Stopped at: Completed Phase 1 (01-01 and 01-02)
 Resume file: None
