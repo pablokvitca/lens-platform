@@ -5,110 +5,155 @@
 ## Languages
 
 **Primary:**
-- Python 3.12+ - Backend (unified service: FastAPI + Discord bot)
-- TypeScript 5.x - Frontend (React + Vite + Vike)
-- JavaScript (Node.js 25.2.1) - Frontend tooling
+- Python 3.11+ (target version in `pyproject.toml`) - Backend (FastAPI, Discord bot, core business logic)
+- TypeScript 5.x - Frontend (React 19, Vike)
 
 **Secondary:**
-- SQL - Database (migrations via Alembic)
-- YAML - Configuration (APScheduler, other configs)
+- SQL - Database migrations (`migrations/`, `alembic/`)
+- Markdown - Educational content and documentation
 
 ## Runtime
 
 **Environment:**
-- Python 3.12+ (specified in Dockerfile)
-- Node.js 25.2.1 (for frontend build and dev)
+- Python 3.11+ (target), current system: Python 3.13.11
+- Node.js (current system: v25.2.1)
 
 **Package Manager:**
-- pip - Python dependencies
-- npm - JavaScript/Node dependencies
-- Lockfile: `package.json`/`package-lock.json` for frontend; `requirements.txt` pinned for backend
+- pip (Python) - `requirements.txt`
+- npm (Node.js) - `web_frontend/package.json`
+- Lockfile: `web_frontend/package-lock.json` (frontend)
 
 ## Frameworks
 
 **Core:**
-- FastAPI 0.109.0+ - HTTP API server (serves web API and static SPA)
-- discord.py 2.3.0+ - Discord bot (WebSocket connection to Discord)
-- Uvicorn 0.27.0+ - ASGI server for FastAPI
-
-**Frontend:**
-- React 19.2.3 - UI framework
-- Vike 0.4.252 - SSG + SPA router (file-based routing)
-- Vite 7.3.1 - Frontend build tool and dev server
-- Tailwind CSS 4.x - Utility-first CSS framework
+- FastAPI >=0.109.0 - HTTP API server (`main.py`, `web_api/routes/`)
+- discord.py >=2.3.0 - Discord bot (`discord_bot/`)
+- SQLAlchemy[asyncio] >=2.0.0 - Database ORM (`core/database.py`, `core/tables.py`)
+- React 19.2.3 - Frontend UI (`web_frontend/src/`)
+- Vike 0.4.252 - File-based routing and SSG (`web_frontend/src/pages/`)
+- Vite 7.3.1 - Frontend build tool (`web_frontend/vite.config.ts`)
+- Tailwind CSS 4 - Styling (`web_frontend/src/styles/`)
 
 **Testing:**
-- pytest - Python test runner with asyncio support
-- ESLint 9.x - JavaScript/TypeScript linting
+- pytest - Python testing
+- Playwright 1.57.0 - E2E testing (root `package.json`)
 
 **Build/Dev:**
-- Alembic 1.13.0+ - Database migrations
-- ruff 0.8.0+ - Python linting and formatting
-- @vitejs/plugin-react 5.1.2 - React support for Vite
+- uvicorn[standard] >=0.27.0 - ASGI server
+- ruff >=0.8.0 - Python linting and formatting
+- ESLint 9 - TypeScript/React linting
+- Alembic >=1.13.0 - Database migrations
 
 ## Key Dependencies
 
 **Critical:**
-- sqlalchemy[asyncio] 2.0.0+ - ORM and async database access
-- asyncpg 0.29.0+ - PostgreSQL driver (used with SQLAlchemy)
-- psycopg2-binary 2.9.9+ - PostgreSQL driver (alternative, for migrations)
-- pyjwt 2.8.0+ - JWT token creation/verification (session auth)
+- asyncpg >=0.29.0 - Async PostgreSQL driver for SQLAlchemy
+- pyjwt >=2.8.0 - JWT authentication (`web_api/auth.py`)
+- httpx >=0.27.0 - Async HTTP client for Discord OAuth, GitHub API
+- litellm >=1.40.0 - LLM provider abstraction (`core/modules/llm.py`)
 
 **Infrastructure:**
-- python-dotenv 1.0.0+ - Environment variable management
-- httpx 0.27.0+ - Async HTTP client (for API calls)
-- litellm 1.40.0+ - LLM provider abstraction (Claude, Gemini, GPT support)
+- sendgrid >=6.11.0 - Email notifications (`core/notifications/channels/email.py`)
+- google-api-python-client >=2.100.0 - Google Calendar API (`core/calendar/`)
+- google-auth >=2.25.0 - Google authentication
+- apscheduler >=3.10.0 - Background job scheduling (`core/notifications/scheduler.py`)
+- sentry-sdk[fastapi] >=1.40.0 - Error tracking
+- python-dotenv >=1.0.0 - Environment configuration
+- cohort-scheduler (git) - Custom scheduling algorithm
 
-**Integrations:**
-- discord.py 2.3.0+ - Discord API client
-- sendgrid 6.11.0+ - Email delivery service
-- google-api-python-client 2.100.0+ - Google Calendar API
-- google-auth 2.25.0+ - Google authentication/service accounts
-- sentry-sdk[fastapi] 1.40.0+ - Error tracking and performance monitoring
-
-**Scheduling:**
-- APScheduler 3.10.0+ - Background job scheduler (notification reminders, RSVP sync)
-- pytz 2023.3+ - Timezone handling
-- cohort-scheduler - Custom scheduling algorithm (from git: https://github.com/cpdally/cohort-scheduler.git)
-
-**Frontend Integration:**
-- @sentry/react 10.35.0 - Frontend error tracking
-- @sentry/vite-plugin 4.7.0 - Sentry release tracking
-- posthog-js 1.325.0 - Product analytics
-- react-markdown 10.1.0 - Markdown rendering
-- lucide-react 0.562.0 - Icon library
-- @floating-ui/react 0.27.16 - Floating UI positioning
+**Frontend Critical:**
+- @sentry/react ^10.35.0 - Frontend error tracking (`web_frontend/src/errorTracking.ts`)
+- posthog-js ^1.325.0 - Product analytics (`web_frontend/src/analytics.ts`)
+- vike-react ^0.6.18 - Vike React integration
+- react-markdown ^10.1.0 - Markdown rendering
+- lucide-react ^0.562.0 - Icon library
+- @floating-ui/react ^0.27.16 - Tooltips and popovers
 
 ## Configuration
 
 **Environment:**
-- `.env.local` (gitignored) - Local dev overrides
-- `.env` - Default environment variables
-- Environment variables control: database URL, API keys, Discord tokens, JWT secret, logging levels
+- `.env.example` - Template for required environment variables
+- `.env.local` - Local overrides (gitignored)
+- `web_frontend/.env.example` - Frontend environment template
+
+**Key Environment Variables:**
+```
+# Database
+DATABASE_URL              # PostgreSQL connection string
+
+# Discord
+DISCORD_BOT_TOKEN         # Bot authentication
+DISCORD_CLIENT_ID         # OAuth client ID
+DISCORD_CLIENT_SECRET     # OAuth secret
+DISCORD_SERVER_ID         # Target server
+
+# Auth
+JWT_SECRET                # JWT signing key
+
+# External Services
+SENDGRID_API_KEY          # Email service
+GOOGLE_CALENDAR_CREDENTIALS_FILE  # Calendar service account JSON
+GOOGLE_CALENDAR_EMAIL     # Calendar email identity
+ANTHROPIC_API_KEY         # Default LLM provider
+
+# Content
+EDUCATIONAL_CONTENT_BRANCH  # GitHub content branch (staging/main)
+GITHUB_TOKEN              # GitHub API access
+GITHUB_WEBHOOK_SECRET     # Webhook signature verification
+
+# Observability
+SENTRY_DSN                # Backend error tracking
+VITE_SENTRY_DSN           # Frontend error tracking
+VITE_POSTHOG_KEY          # Analytics
+VITE_POSTHOG_HOST         # Analytics host (eu.posthog.com)
+```
 
 **Build:**
-- `web_frontend/vite.config.ts` - Vite configuration (dev server, build, proxy)
-- `tsconfig.json` - TypeScript compiler options (target ES2022, strict mode, path aliases)
-- `pytest.ini` - Pytest configuration (asyncio mode, import mode)
-- `Dockerfile` - Container build (Python 3.12, includes Node.js for frontend build)
+- `pyproject.toml` - Ruff configuration (line-length: 88, target: py311)
+- `web_frontend/tsconfig.json` - TypeScript (ES2022, strict mode)
+- `web_frontend/vite.config.ts` - Vite build configuration
+- `web_frontend/eslint.config.mjs` - ESLint configuration
+- `web_frontend/postcss.config.mjs` - PostCSS for Tailwind
+- `alembic.ini` - Database migration configuration
 
 ## Platform Requirements
 
 **Development:**
-- Python 3.12+
-- Node.js 25.2.1 (or compatible v25.x)
-- npm (comes with Node.js)
-- PostgreSQL database (Supabase or local)
-- Discord bot token (for Discord integration)
-- Google service account JSON (for Calendar integration, optional)
-- SendGrid API key (for email notifications, optional)
-- Sentry DSN (for error tracking, optional)
+- Python 3.11+
+- Node.js (LTS recommended)
+- PostgreSQL (via Docker or Supabase)
+- Discord bot token and OAuth credentials
+- Optional: Google service account for Calendar
 
 **Production:**
-- Railway.app (or Docker-compatible container environment)
-- PostgreSQL database (Supabase recommended)
-- All environment variables from `.env.example`
-- Workspace auto-ports: API :8000 (or :8000+ws_num), Frontend :3000 (or :3000+ws_num)
+- Single Railway service running unified backend
+- PostgreSQL (Supabase-hosted)
+- All external service credentials configured
+
+**Server Startup:**
+```bash
+python main.py            # Production (serves frontend from dist/)
+python main.py --dev      # Dev mode (API only, run Vite separately)
+python main.py --no-bot   # Without Discord bot
+python main.py --no-db    # Skip database (frontend-only dev)
+```
+
+**Frontend Build:**
+```bash
+cd web_frontend
+npm run dev               # Vite dev server with HMR
+npm run build             # Production build to dist/
+npm run lint              # ESLint check
+```
+
+## Port Configuration
+
+Auto-assigned based on workspace directory name:
+- No suffix: API :8000, Frontend :3000
+- `-ws1`: API :8001, Frontend :3001
+- `-ws2`: API :8002, Frontend :3002
+
+Override via `API_PORT`/`FRONTEND_PORT` env vars or CLI `--port`.
 
 ---
 

@@ -4,277 +4,170 @@
 
 ## Pattern Overview
 
-**Overall:** Unified backend with layered adapter pattern
+**Overall:** 3-Layer Architecture with Unified Backend
 
 **Key Characteristics:**
-- One Python process runs FastAPI + Discord bot as peer services in the same asyncio event loop
-- Three-layer architecture: platform-agnostic core, adapter layer (FastAPI + Discord), client layer (web + Discord native)
-- Clear separation between adapters - FastAPI and Discord layers never import from each other
-- Asynchronous throughout using asyncio and SQLAlchemy async
+- Single Python process running FastAPI + Discord bot in one asyncio event loop
+- Platform-agnostic business logic in `core/` shared by both adapters
+- Adapters (Discord, FastAPI) never import from each other - communicate only through `core/`
+- React frontend (Vike/Vite) served statically in production, separate dev server in development
 
 ## Layers
 
-**Layer 1: Core (`core/`)**
-- Purpose: Platform-agnostic business logic with no framework dependencies
+**Layer 1 - Core Business Logic:**
+- Purpose: Platform-agnostic business logic, database access, external integrations
 - Location: `core/`
-- Contains: Scheduling algorithm, user management, auth flows, notifications, calendar integration, content fetching
-- Depends on: SQLAlchemy async, httpx, external APIs (Discord, Google Calendar, SendGrid, LiteLLM)
-- Used by: Both FastAPI routes and Discord cogs
+- Contains: User management, scheduling algorithms, notifications, calendar integration, content loading
+- Depends on: Database (PostgreSQL), external APIs (Discord OAuth, Google Calendar, SendGrid, LiteLLM)
+- Used by: Discord bot (Layer 2a), FastAPI (Layer 2b)
 
-**Layer 2a: Discord Adapter (`discord_bot/`)**
-- Purpose: Discord UI/event handling; delegates to core business logic
+**Layer 2a - Discord Adapter:**
+- Purpose: Discord slash commands and events, thin adapter to core
 - Location: `discord_bot/`
-- Contains: Cogs (thin command handlers), Discord bot initialization
-- Depends on: Core, discord.py
-- Used by: Discord clients via WebSocket
+- Contains: Cogs (command handlers), Discord UI components (Views, Buttons, Selects)
+- Depends on: `core/`, discord.py library
+- Used by: Discord users via slash commands
 
-**Layer 2b: FastAPI (`web_api/`)**
-- Purpose: HTTP API for web frontend; delegates to core business logic
+**Layer 2b - FastAPI Adapter:**
+- Purpose: HTTP API for React frontend
 - Location: `web_api/`
-- Contains: RESTful routes for auth, users, modules, facilitators, cohorts, courses, content
-- Depends on: Core, FastAPI
-- Used by: React frontend via HTTP/REST
+- Contains: Route handlers, JWT authentication, request/response models
+- Depends on: `core/`, FastAPI, httpx
+- Used by: React frontend (Layer 3)
 
-**Layer 3a: Discord Client**
-- Purpose: Discord native UI
-- Location: External (Discord platform)
-- Channels: Slash commands, buttons, selects, embeds, DMs
-
-**Layer 3b: React Frontend (`web_frontend/`)**
-- Purpose: Web-based UI for enrollment, course viewing, scheduling
-- Location: `web_frontend/src/`
-- Contains: Vike pages, React components, hooks, API client functions
-- Depends on: Web API endpoints, TypeScript, React 19, Tailwind CSS v4
-- Used by: Browsers via HTTP/HTML/JS
+**Layer 3 - React Frontend:**
+- Purpose: User-facing web interface
+- Location: `web_frontend/`
+- Contains: React components, Vike pages, API client, Tailwind styles
+- Depends on: FastAPI API (Layer 2b)
+- Used by: End users via browser
 
 ## Data Flow
 
-**User Authentication (Discord OAuth):**
-1. User clicks login in React frontend
+**Authentication Flow (Discord OAuth):**
+
+1. User clicks "Sign in with Discord" on frontend
 2. Frontend redirects to `/auth/discord` (FastAPI)
-3. FastAPI redirects to Discord OAuth endpoint
-4. User authorizes in Discord
-5. Discord redirects to `/auth/discord/callback` (FastAPI)
-6. FastAPI exchanges code for access token via Discord API
-7. FastAPI fetches user info, creates/updates in database
-8. FastAPI creates JWT token, sets session cookie
-9. Frontend receives cookie, can access authenticated endpoints
+3. FastAPI redirects to Discord OAuth URL with state
+4. User authorizes on Discord
+5. Discord redirects to `/auth/discord/callback` with code
+6. FastAPI exchanges code for access token, fetches user info
+7. `core.get_or_create_user()` creates/updates user in database
+8. JWT issued and set as cookie, redirect to frontend
 
-**User Authentication (Discord Bot Auth Code Flow):**
-1. User types `/signup` in Discord
-2. Discord bot calls `create_auth_code()` (core)
-3. Core creates row in `auth_codes` table with 10-minute TTL
-4. Bot sends URL with code to user
-5. User clicks link → browser navigates to `/auth/code?code=X` (FastAPI)
-6. FastAPI validates code (exists, not used, not expired)
-7. FastAPI marks code as used, creates JWT, sets cookie
-8. User is now authenticated in web
+**Module Session Flow (Learning Content):**
 
-**Cohort Scheduling:**
-1. Admin runs `/schedule` in Discord (Discord cog)
-2. Cog calls `schedule_cohort()` (core)
-3. Core fetches signups from database (users + availability)
-4. Core runs stochastic greedy scheduling algorithm (1000 iterations)
-5. Core persists groups to database
-6. Cog retrieves groups, creates Discord channels/events for each
-7. Cog sends group assignment notifications via `notify_group_assigned()` (core)
+1. User starts module → frontend calls `POST /api/module-sessions`
+2. FastAPI route creates session via `core.modules.sessions.create_session()`
+3. Session stored in `module_sessions` table with initial state
+4. User progresses → frontend calls `POST /api/module-sessions/{id}/advance`
+5. Backend updates `current_stage_index`, returns new stage content
+6. LLM interactions streamed via SSE from `POST /api/module-sessions/{id}/message`
 
-**Meeting RSVP Sync (Periodic Job):**
-1. Scheduler runs `sync_upcoming_meeting_rsvps()` every 6 hours (core)
-2. Core fetches upcoming meetings from database
-3. Core queries Google Calendar API for RSVP status
-4. Core updates RSVP records in database
-5. Notifications dispatched to users if status changes
+**Cohort Enrollment Flow:**
 
-**Multi-Channel Notifications:**
-1. Code calls `notify_welcome()` or other notification action (core)
-2. Notification action calls `send_notification(user_id, message_type, context)` (core/notifications)
-3. Dispatcher routes to appropriate channels:
-   - Email: Formats template, sends via SendGrid API
-   - Discord DM: Routes to Discord bot, sends as DM
-   - Discord mention: Routes to bot, sends as channel mention
-4. Scheduler can delay notifications for later delivery
+1. User provides availability via web form or Discord `/signup`
+2. `core.save_user_profile()` stores availability in `users` table
+3. Admin runs `/schedule` Discord command
+4. `core.schedule_cohort()` runs scheduling algorithm (stochastic greedy)
+5. Groups created in `groups` table, users assigned via `groups_users`
+6. `core.notify_group_assigned()` sends notifications (email + Discord DM)
 
-**Educational Module Access:**
-1. User navigates to `/course/:id` in React frontend
-2. Frontend fetches module metadata via `/api/modules/:id` (FastAPI)
-3. FastAPI returns module structure + LLM chat session ID
-4. Frontend renders markdown content (pre-fetched from GitHub)
-5. User opens chat → frontend sends message to `/api/modules/:id/chat` (FastAPI)
-6. FastAPI routes to `core/modules/chat.py` which calls LiteLLM for response
-7. Response stored in session and returned to frontend
-
-## State Management
-
-**Persistent State:**
-- User profiles, availability, enrollments: PostgreSQL via SQLAlchemy
-- Scheduling results: Groups, group memberships, meeting times in database
-- Auth codes: Temporary codes in auth_codes table with TTL
-- Chat transcripts: Stored in transcripts table, keyed by session_id
-
-**Transient State:**
-- OAuth states: In-memory dict in `web_api/routes/auth.py` with 10-minute TTL
-- Bot ready status: Checked via `bot.is_ready()` boolean
-- Scheduler jobs: Managed by APScheduler, periodic tasks
+**State Management:**
+- Server-side: PostgreSQL database, session state in `module_sessions` table
+- Client-side: React state, no global state management library
+- Auth: JWT in HttpOnly cookie, validated per-request
 
 ## Key Abstractions
 
-**Person (dataclass in `core/scheduling.py`):**
-- Purpose: Represents a user for scheduling with availability
-- Fields: id, name, intervals (list of minute tuples), if_needed_intervals, timezone
-- Pattern: Input to scheduling algorithm, converted from database signup records
+**Person (Scheduling):**
+- Purpose: Represents a user with availability for scheduling algorithm
+- Examples: `core/scheduling.py`
+- Pattern: Dataclass wrapping user ID, timezone, availability intervals
 
-**Group (from cohort_scheduler package):**
-- Purpose: Represents a scheduled cohort with assigned users
-- Contains: group_id, name, people list, facilitator_id, selected_time
-- Pattern: Output of scheduling algorithm, persisted to database
+**Module/Stage (Content):**
+- Purpose: Represents educational content structure
+- Examples: `core/modules/types.py`, `core/modules/loader.py`
+- Pattern: Typed dataclasses loaded from YAML, stages are polymorphic (article, video, chat)
 
-**CohortSchedulingResult (dataclass in `core/scheduling.py`):**
-- Purpose: Encapsulates result of scheduling operation
-- Fields: cohort_id, cohort_name, groups_created, users_grouped, users_ungroupable, groups list, warnings, ungroupable_details
-- Pattern: Returned by `schedule_cohort()`, used by Discord cog to create channels
+**Session:**
+- Purpose: Tracks user progress through a module
+- Examples: `core/modules/sessions.py`, `core/tables.py` (module_sessions)
+- Pattern: Database row with stage index, message history (JSONB), timestamps
 
-**Notification Context (dicts in `core/notifications/`):**
-- Purpose: Pass structured data to notification templates
-- Pattern: `notify_group_assigned(user_id, cohort_name, group_name, meeting_time, ...)` builds context dict
-- Templates render context as emails (Jinja2) or Discord messages (format strings)
+**Notification:**
+- Purpose: Multi-channel notification abstraction
+- Examples: `core/notifications/dispatcher.py`, `core/notifications/channels/`
+- Pattern: Dispatcher routes to channels (email, Discord DM), templates render content
 
 ## Entry Points
 
-**HTTP Server (`main.py`)**
+**Unified Backend (`main.py`):**
 - Location: `/Users/luca/dev/ai-safety-course-platform/main.py`
 - Triggers: `python main.py [--dev] [--no-bot] [--port PORT]`
-- Responsibilities:
-  - Parse CLI flags early to set DEV_MODE before importing auth
-  - Initialize Sentry for error tracking
-  - Check database connection
-  - Initialize content cache from GitHub
-  - Start APScheduler for periodic jobs
-  - Create FastAPI app with CORS middleware
-  - Mount API routes from `web_api/routes/`
-  - Mount static files (frontend build)
-  - Serve SPA with catchall routing
-  - Lifespan context: start Discord bot, initialize scheduler, graceful shutdown
+- Responsibilities: Initialize FastAPI app, start Discord bot as background task, manage lifecycle
 
-**Discord Bot (`discord_bot/main.py`)**
-- Location: `discord_bot/main.py`
-- Triggers: Loaded as cog during FastAPI startup
-- Responsibilities:
-  - Create Bot instance with intents (message_content, voice_states, members, presences)
-  - Load cogs on_ready event
-  - Sync slash commands (manual via !sync)
-  - Handle global error handler for app commands
-  - Run in background task alongside FastAPI in same event loop
+**FastAPI Routes:**
+- Location: `web_api/routes/*.py`
+- Triggers: HTTP requests to `/api/*`, `/auth/*`
+- Responsibilities: Handle HTTP requests, validate auth, delegate to core
 
-**FastAPI Routes**
-- Auth router (`web_api/routes/auth.py`): Discord OAuth, auth code validation, session management
-- Users router (`web_api/routes/users.py`): User profile endpoints
-- Modules router (`web_api/routes/modules.py`): Module list, module metadata
-- Module router (`web_api/routes/module.py`): Single module content, chat
-- Cohorts router (`web_api/routes/cohorts.py`): Cohort queries
-- Courses router (`web_api/routes/courses.py`): Course list, course details
-- Content router (`web_api/routes/content.py`): Educational content from GitHub
-- Facilitator router (`web_api/routes/facilitator.py`): Facilitator-specific endpoints
-- Speech router (`web_api/routes/speech.py`): Text-to-speech
+**Discord Cogs:**
+- Location: `discord_bot/cogs/*.py`
+- Triggers: Discord slash commands, events
+- Responsibilities: Handle Discord interactions, delegate to core
 
-**React Frontend (`web_frontend/src/pages/`)**
-- Location: `web_frontend/src/pages/`
-- Channels: Vike file-based routing
-- Key pages:
-  - `index/+Page.tsx`: Landing/home
-  - `auth/+Page.tsx`: Auth callback handler
-  - `enroll/+Page.tsx`: Enrollment wizard
-  - `course/+Page.tsx`: Course browser
-  - `module/@id/+Page.tsx`: Single module viewer
-  - `availability/+Page.tsx`: Availability selection
-  - `facilitator/+Page.tsx`: Facilitator dashboard
-- Pattern: Each page can have `+Page.tsx` (component), `+data.ts` (data loading), `+Head.tsx` (metadata)
+**Frontend Pages:**
+- Location: `web_frontend/src/pages/*/+Page.tsx`
+- Triggers: Browser navigation
+- Responsibilities: Render UI, call API, manage local state
 
 ## Error Handling
 
-**Strategy:** Try-catch at adapter boundaries, validation at core layer
+**Strategy:** Exceptions bubble up, handled at adapter layer
 
 **Patterns:**
+- Core raises domain exceptions (e.g., `SessionNotFoundError`, `SessionAlreadyClaimedError`)
+- FastAPI routes catch and convert to `HTTPException` with appropriate status codes
+- Discord cogs catch and send ephemeral error messages
+- Sentry captures unhandled exceptions in both backend and frontend
 
-**FastAPI Route Level** (in `web_api/routes/*.py`):
+**Backend Error Flow:**
 ```python
-# Immediate HTTP exceptions for invalid input
-raise HTTPException(status_code=400, detail="Invalid timezone")
+# core/modules/sessions.py
+raise SessionNotFoundError(f"Session not found: {session_id}")
 
-# Try/except for unexpected errors
+# web_api/routes/modules.py
 try:
-    result = await some_core_function()
-except ValueError as e:
-    raise HTTPException(status_code=400, detail=str(e))
-except Exception:
-    raise HTTPException(status_code=500, detail="Internal error")
+    session = await get_session(session_id)
+except SessionNotFoundError:
+    raise HTTPException(status_code=404, detail="Session not found")
 ```
 
-**Core Layer** (in `core/*.py`):
-```python
-# Raise exceptions for business logic violations
-if not availability:
-    raise ValueError("User must have at least one availability slot")
-
-# Return error tuples for non-fatal issues
-error = "authentication_failed"
-return None, error
-```
-
-**Discord Cog Level** (in `discord_bot/cogs/*.py`):
-```python
-# Send error messages to Discord user
-try:
-    await some_core_function()
-except ValueError as e:
-    await interaction.response.send_message(f"Error: {e}", ephemeral=True)
-except Exception as e:
-    await interaction.response.send_message("Internal error", ephemeral=True)
-    # Log exception
-```
-
-**Notification Error Handling** (in `core/notifications/`):
-- Non-critical failures (SendGrid down) log and continue
-- Missing users are skipped during bulk sends
-- Template render errors caught and logged, don't block other notifications
+**Frontend Error Flow:**
+- API client functions throw on non-OK responses
+- Components catch and display error UI
+- Sentry captures with context (endpoint, user info)
 
 ## Cross-Cutting Concerns
 
 **Logging:**
-- Strategy: Print statements for startup/shutdown, exception logs via Sentry
-- Sentry initialized at top of `main.py` with `traces_sample_rate=0.1`
-- Environment-based sampling: 10% of transactions in all environments
-- Discord bot errors caught and re-raised (propagates to Sentry)
+- Backend: Python `print()` statements for startup, critical events
+- Frontend: `console.error()` for API failures, Sentry for errors
 
 **Validation:**
-- Input validation at adapter layer (FastAPI Pydantic, Discord interaction checks)
-- Business logic validation at core layer (availability overlap, scheduling constraints)
-- Database schema validation via SQLAlchemy types and constraints
+- Backend: Pydantic models in FastAPI routes, SQLAlchemy for database constraints
+- Frontend: TypeScript types, runtime validation in API client
 
 **Authentication:**
-- JWT tokens created by `web_api/auth.py:create_jwt()`, verified with `verify_jwt()`
-- Session cookie set via `set_session_cookie()` helper
-- Discord bot context available via `interaction.user` for permissions
-- FastAPI dependencies: `get_current_user()` (required), `get_optional_user()` (optional)
+- JWT tokens in HttpOnly cookies
+- `web_api.auth.get_current_user()` FastAPI dependency extracts user from token
+- `web_api.auth.get_optional_user()` for endpoints that work with/without auth
 
-**Authorization:**
-- Discord permissions checked via `@app_commands.checks.has_permissions(administrator=True)`
-- Admin routes check `is_admin` flag on user record
-- Facilitator access checked via `is_facilitator()` function
-- No row-level security currently implemented (all users can see their own data)
-
-**Configuration Management:**
-- Centralized in `core/config.py`
-- Functions: `is_dev_mode()`, `is_production()`, `get_api_port()`, `get_frontend_port()`, `get_frontend_url()`, `get_allowed_origins()`
-- Dev mode paths: separate API/frontend servers, JSON responses at /
-- Production paths: single-service SPA with FastAPI serving static frontend build
-- Workspace number auto-detected from directory name (e.g., "-ws2" → 8002/3002)
-
-**CORS:**
-- Configured in `main.py` with `get_allowed_origins()` from core config
-- Allows credentials (cookies), all methods, all headers
-- Includes localhost variants for dev (5173 Vite, 8000-8003 API, 3000-3001 frontend)
-- Adds production FRONTEND_URL and explicit FRONTEND_URL env var
+**Database Access:**
+- Async SQLAlchemy Core (not ORM) via `core/database.py`
+- `get_connection()` for reads, `get_transaction()` for writes with auto-commit/rollback
+- Connection pooling configured for Supabase pgbouncer compatibility
 
 ---
 

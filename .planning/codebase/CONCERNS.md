@@ -4,249 +4,166 @@
 
 ## Tech Debt
 
-**Incomplete Module Progress Notification Logic:**
-- Issue: Conditional reminder system has placeholder implementation
-- Files: `core/notifications/scheduler.py:227`
-- Impact: Module progress nudges never execute; condition check always returns `True`
-- Fix approach: Implement actual progress checking in `_check_condition()` - query database for module completion status per user
+**Unimplemented TODO: Module Progress Check**
+- Issue: Conditional reminder sending for module progress is stubbed out - always returns True
+- Files: `core/notifications/scheduler.py` (lines 223-229)
+- Impact: Module progress nudge reminders fire regardless of user completion status, reducing their effectiveness
+- Fix approach: Implement `_check_condition()` to query user progress from database before sending reminders
 
-**Manual Content Refresh Missing Admin Authentication:**
-- Issue: `/api/content/refresh` endpoint has no auth protection
-- Files: `web_api/routes/content.py:94`
-- Impact: Any user can trigger expensive content refreshes, potential DoS vector
-- Fix approach: Add `@require_admin` decorator to `manual_refresh()` endpoint and implement admin role check
+**Unimplemented TODO: Admin Authentication for Manual Cache Refresh**
+- Issue: `/api/content/refresh` endpoint has no authentication - anyone can trigger cache refresh
+- Files: `web_api/routes/content.py` (lines 88-104)
+- Impact: Potential for abuse/DoS by repeatedly triggering cache refreshes
+- Fix approach: Add `Depends(get_current_user)` with admin role check
 
-**Debug Flag in Production Chat:**
-- Issue: DEBUG environment variable can expose system prompts in live chat responses
-- Files: `core/modules/chat.py:165-167`
-- Impact: Confidential LLM system instructions leaked to users if DEBUG=1 set in production
-- Fix approach: Restrict DEBUG mode to development only; raise error if enabled in production (`RAILWAY_ENVIRONMENT`)
+**Unimplemented TODO: Local Time Conversion in Welcome Messages**
+- Issue: Group welcome messages show meeting times in UTC only, not converted to each member's timezone
+- Files: `discord_bot/cogs/groups_cog.py` (lines 399-409)
+- Impact: Poor UX for users in non-UTC timezones; they must mentally convert times
+- Fix approach: Use member timezone from database to format local time string
 
-**Inconsistent Error Handling and Logging:**
-- Issue: Mixed `print()` calls (57 occurrences) vs structured logging (23 occurrences)
-- Files: Core modules across multiple files
-- Impact: Production logs difficult to parse; missing structured fields for alerting
-- Fix approach: Standardize on `logging` module with proper log levels; remove `print()` calls; add request tracking IDs
+**Legacy JSON Storage Still Present**
+- Issue: Old file-based JSON storage (`user_data.json`, `courses.json`) remains alongside PostgreSQL database
+- Files: `core/data.py` (entire file)
+- Impact: Confusion about data source of truth; potential for data inconsistency
+- Fix approach: Remove `core/data.py` after confirming all consumers migrated to database queries
 
-**UTC to Local Time Conversion Stub:**
-- Issue: Scheduled event messages show UTC time to all users regardless of timezone
-- Files: `discord_bot/cogs/groups_cog.py:406`
-- Impact: Users see meeting times in wrong timezone, confusion during group formation
-- Fix approach: Use user timezone from database to convert `recurring_meeting_time_utc` to local time per member
+**Deprecated Discord Command**
+- Issue: `/toggle-facilitator` command is marked for removal - uses Discord roles instead of database
+- Files: `discord_bot/cogs/enrollment_cog.py` (lines 66-122)
+- Impact: Confusion about facilitator management; inconsistent with web-based approach
+- Fix approach: Remove command or refactor to update database facilitator status
 
-**Missing Webhook Signature Verification:**
-- Issue: GitHub webhook secret not validated before cache refresh
-- Files: `web_api/routes/content.py` calls `verify_webhook_signature()` but...
-- Impact: If secret is misconfigured, silent failures; no fallback if signature check disabled
-- Fix approach: Add explicit validation that `GITHUB_WEBHOOK_SECRET` is set at startup; log verify attempts
+**ContentPreviewModal Not Implemented**
+- Issue: Modal shows placeholder text - not functional for new module system
+- Files: `web_frontend/src/components/course/ContentPreviewModal.tsx` (entire file)
+- Impact: Users cannot preview content from course overview; broken feature
+- Fix approach: Reimplement using narrative module sections format
 
 ## Known Bugs
 
-**Old Lesson Content Modal Unimplemented:**
-- Symptoms: Content preview modal renders nothing for new module system
-- Files: `web_frontend/src/components/course/ContentPreviewModal.tsx:4`
-- Trigger: Click preview button on course overview page
-- Workaround: Use course sidebar to view actual module content instead
+**No known critical bugs documented in code.**
 
-**Enrollment Cog Management Functions Misplaced:**
-- Symptoms: Code comments suggest functions should be renamed or moved
-- Files: `discord_bot/cogs/enrollment_cog.py:37`, `discord_bot/cogs/enrollment_cog.py:66`
-- Trigger: Reviewing enrollment cog structure
-- Workaround: None; documentation comments only; functionality works as-is
+Potential issues found:
+- Debug logging statements left in production code paths (see Fragile Areas section)
 
 ## Security Considerations
 
-**Development Test User Creates Authentication Bypass:**
-- Risk: Any unauthenticated user in DEV_MODE gets database record as `dev_test_user_123`
-- Files: `web_api/routes/modules.py:112-114`
-- Current mitigation: Dev mode check before assignment; won't happen in production
-- Recommendations: Add explicit `if not os.getenv("RAILWAY_ENVIRONMENT"):` guard; log test user creation; consider using fixed test Discord ID instead of magic string
+**Unauthenticated Cache Refresh Endpoint**
+- Risk: Anyone can trigger content cache refresh via POST to `/api/content/refresh`
+- Files: `web_api/routes/content.py` (line 88)
+- Current mitigation: None
+- Recommendations: Add authentication requirement; rate limiting
 
-**JWT Secret Missing in Development:**
-- Risk: `JWT_SECRET` not enforced in dev, auth could fail silently
-- Files: `web_api/auth.py:21-24`
-- Current mitigation: Only enforces in production (`RAILWAY_ENVIRONMENT`)
-- Recommendations: Generate random JWT_SECRET at startup if missing; store in `.env.local` (gitignored); warn prominently if running in dev without secret
+**Broad Exception Catching**
+- Risk: 130+ instances of `except Exception` catch all errors, potentially masking security issues or unexpected behavior
+- Files: Throughout codebase (see grep results)
+- Current mitigation: Most log the error before handling
+- Recommendations: Narrow exception types where possible; ensure errors are logged
 
-**Window Location Redirect Without Validation:**
-- Risk: OAuth flow encodes current path/origin into redirect URL without sanitization
-- Files: `web_frontend/src/hooks/useAuth.ts:141-143`, `web_frontend/src/views/Auth.tsx:34,79-80`
-- Current mitigation: Values are encodeURIComponent'd, origin comes from `window.location.origin`
-- Recommendations: Validate redirect target against whitelist of safe paths; prevent redirects to external domains
+**Secrets Accessed via Environment Variables (Correct)**
+- Risk: Low - secrets properly accessed via `os.environ`/`os.getenv`
+- Files: `web_api/auth.py`, `core/content/github_fetcher.py`, etc.
+- Current mitigation: No hardcoded secrets found; `.env` files gitignored
+- Recommendations: Document required secrets in onboarding; use secrets manager in production
 
-**CORS Misconfiguration in Development:**
-- Risk: Localhost variants for multiple workspaces (8000-8003) hardcoded
-- Files: `core/config.py:47-61`
-- Current mitigation: Only applies in dev; production uses explicit `FRONTEND_URL`
-- Recommendations: Generate CORS origins dynamically from `API_PORT`; remove hardcoded port list
-
-**Missing Rate Limiting on Content Webhook:**
-- Risk: GitHub webhook endpoint has no rate limiting; repeated requests trigger expensive refreshes
-- Files: `web_api/routes/content.py:30-85`
-- Current mitigation: Lock-based deduplication queues rapid webhooks
-- Recommendations: Add explicit rate limiting per IP; implement backpressure if refresh takes >60s
+**Path Traversal Protection**
+- Risk: SPA catchall route could expose files outside web root
+- Files: `main.py` (lines 320-325)
+- Current mitigation: `is_safe_path()` function validates paths stay within `client_path`
+- Recommendations: Current implementation appears secure; maintain this pattern
 
 ## Performance Bottlenecks
 
-**Scheduler Module Size and Complexity:**
-- Problem: Single 525-line file handles entire scheduling algorithm
-- Files: `core/scheduling.py`
-- Cause: Scheduling logic combines person dataclasses, cohort persistence, ungroupable tracking in one file
-- Improvement path: Break into `scheduling/algorithm.py`, `scheduling/persistence.py`, `scheduling/analysis.py`
+**Stampy Cog Debug Logging**
+- Problem: Extensive timing instrumentation with print statements on every chunk
+- Files: `discord_bot/cogs/stampy_cog.py` (multiple lines around 317-461)
+- Cause: Debug code left enabled in production
+- Improvement path: Wrap in conditional `if STAMPY_DEBUG:` or use proper logging levels
 
-**No Query Optimization for Group Realization:**
-- Problem: Discord group creation queries database for each member separately
-- Files: `discord_bot/cogs/groups_cog.py:100-300`
-- Cause: Sequential `get_user_by_discord_id()` calls in loops instead of bulk fetch
-- Improvement path: Batch load all users in one query; create single transaction for channel permissions
+**Content Module Debug Logging**
+- Problem: Print statements in content loading path for every article load
+- Files: `core/modules/content.py` (lines 208-217, 597-607)
+- Cause: Debug code for h2 header tracing left enabled
+- Improvement path: Remove debug prints or wrap in debug flag
 
-**Missing Database Connection Pool Tuning:**
-- Problem: Pool size fixed at 5, may be too small for concurrent requests
-- Files: `core/database.py:52-53`
-- Cause: No profiling of concurrent request patterns
-- Improvement path: Monitor pool exhaustion in production; auto-tune based on load (consider HikariCP-style adaptive pooling)
-
-**Calendar Invites Not Batched:**
-- Problem: Each group member gets individual calendar API call
-- Files: `core/meetings.py:96-103`
-- Cause: Loop-based invite sending
-- Improvement path: Batch create invites where possible; consider async concurrent requests with rate limiting
+**Large Discord Cog Files**
+- Problem: `ping_cog.py` is 694 lines, mostly test commands
+- Files: `discord_bot/cogs/ping_cog.py`
+- Cause: Test/debug commands mixed with production code
+- Improvement path: Move test commands to separate `test_cog.py` or admin-only module
 
 ## Fragile Areas
 
-**LLM Integration without Fallback:**
-- Files: `core/modules/llm.py`, `core/modules/chat.py`
-- Why fragile: Single point of failure - if LiteLLM provider unavailable, module chat completely broken; no graceful degradation
-- Safe modification: Wrap calls in try-except with timeout; return "Temporarily unavailable" message to user
-- Test coverage: No unit tests for provider failure scenarios; only happy path tested
+**Stampy Streaming Response Logic**
+- Files: `discord_bot/cogs/stampy_cog.py` (lines 271-606)
+- Why fragile: Complex state management across thinking/streaming/citations phases; multiple Discord API calls with rate limiting; fire-and-forget tasks for thinking finalization
+- Safe modification: Test with slow responses and rapid message edits; verify rate limit handling
+- Test coverage: No unit tests found for StampyCog streaming logic
 
-**APScheduler Job Persistence with Silent Fallback:**
-- Files: `core/notifications/scheduler.py:68-89`
-- Why fragile: If database unavailable at startup, silently switches to in-memory mode; jobs lost on restart
-- Safe modification: Always check database connectivity before accepting jobs; reject with 503 if DB unavailable
-- Test coverage: No tests for persistence recovery after DB reconnection
+**Groups Realization Flow**
+- Files: `discord_bot/cogs/groups_cog.py` (lines 88-291)
+- Why fragile: Many side effects: creates Discord channels/events, database records, calendar invites, notification schedules; uses fire-and-forget `asyncio.create_task`
+- Safe modification: Test in staging Discord server first; have rollback plan for Discord resources
+- Test coverage: Limited - relies on E2E testing
 
-**Markdown Parser with No Validation:**
-- Files: `core/modules/markdown_parser.py`, `core/modules/markdown_validator.py`
-- Why fragile: If YAML frontmatter malformed, parser may silently skip sections
-- Safe modification: Add strict parsing mode; raise exception on malformed content instead of defaults
-- Test coverage: Validator tests exist but parser tests focus on happy path
-
-**Discord Member Not-In-Guild Handling:**
-- Files: `discord_bot/cogs/groups_cog.py:143-284`
-- Why fragile: Silently skips members not in guild; no notification to admin that groups are incomplete
-- Safe modification: Collect all skip reasons; block group realization if >X% of members skipped; require explicit confirmation
-- Test coverage: No tests for member skipping scenarios
-
-**Auth Code Flow with Local Overrides:**
-- Files: `web_api/routes/auth.py`, `.env.local` (gitignored)
-- Why fragile: `.env.local` overrides can cause local-only bugs that don't reproduce in CI
-- Safe modification: Warn on startup if `.env.local` differs from `.env`; sync critical vars automatically
-- Test coverage: No tests simulating `.env.local` overrides
+**Content Cache Initialization**
+- Files: `core/content/github_fetcher.py`, `core/content/cache.py`
+- Why fragile: App startup depends on successful GitHub fetch; failures cause startup abort
+- Safe modification: Ensure GitHub API availability; test with rate limits
+- Test coverage: Good unit test coverage in `core/content/tests/`
 
 ## Scaling Limits
 
-**Database Connection Pool (Current: 5, Overflow: 10):**
-- Current capacity: 5 concurrent queries + 10 in queue = 15 max
-- Limit: Exceeding 15 concurrent DB operations blocks with timeout
-- Scaling path: Profile production traffic; adjust `pool_size` and `max_overflow` based on peak concurrency (Railway tier supports ~50 connections)
+**In-Memory Content Cache**
+- Current capacity: All courses, modules, articles, video transcripts held in memory
+- Limit: Will grow linearly with content; no eviction policy
+- Scaling path: Add LRU eviction or move to Redis/external cache
 
-**APScheduler In-Memory Job Store:**
-- Current capacity: Depends on available system memory; unclear limit
-- Limit: Running thousands of scheduled notifications may cause memory leak if not monitored
-- Scaling path: Migrate all jobs to database jobstore (currently SQLAlchemy-backed but fallback is in-memory)
-
-**Content Cache Without Size Management:**
-- Current capacity: No limit on cache size; uses filesystem
-- Limit: If educational content repo grows large, cache refresh takes increasingly long
-- Scaling path: Implement incremental cache with LRU eviction; add cache size metrics
-
-**Discord API Rate Limits:**
-- Current capacity: No explicit rate limiting on Discord API calls
-- Limit: Group realization sends many permission/message/event calls; easily hits 10 req/sec limits
-- Scaling path: Implement exponential backoff; batch Discord operations; use queue-based processing
+**APScheduler Job Store**
+- Current capacity: Jobs stored in PostgreSQL `apscheduler_jobs` table
+- Limit: Falls back to memory-only mode on DB connection timeout
+- Scaling path: Current design supports scaling; monitor job table size
 
 ## Dependencies at Risk
 
-**Cohort Scheduler Package:**
-- Risk: External package controls scheduling algorithm; no vendored copy
-- Impact: Update breaking changes require codebase refactor; no algorithm visibility
-- Migration plan: If issues arise, implement custom scheduling or switch to `ortools`
+**No critically deprecated dependencies identified.**
 
-**APScheduler with SQLAlchemy Backend:**
-- Risk: APScheduler requires sync SQLAlchemy; platform uses async SQLAlchemy (asyncpg)
-- Impact: Sync adapter creates potential deadlocks; database URL conversion needed (`postgresql+asyncpg://` → `postgresql://`)
-- Migration plan: Monitor for deadlock issues; consider migrating to `APScheduler 4.0` with async support when available
-
-**LiteLLM Abstraction Layer:**
-- Risk: LiteLLM adds HTTP request overhead for every LLM call; single point of failure if LiteLLM goes down
-- Impact: Chat responses slow if LiteLLM service unavailable; no built-in fallback
-- Migration plan: Add direct Anthropic SDK integration as fallback; implement caching of frequently asked responses
-
-**Vike Framework (v0.4):**
-- Risk: Vike is pre-v1; breaking changes possible; migration from Next.js ongoing
-- Impact: Vike-specific routing and prerendering may not work as expected; SSG prerendering unfinished
-- Migration plan: Monitor Vike releases; have rollback plan to Next.js if issues arise
+Note: Check periodically for:
+- `discord.py` - Active development; API changes possible
+- `vike` - Relatively new framework; breaking changes in v0.4→v1.0
 
 ## Missing Critical Features
 
-**Test User Management:**
-- Problem: Test users for Discord bot testing are hardcoded; no test data seeding
-- Blocks: CI/CD cannot test full bot flows without real Discord account
-- Approach: Create `scripts/seed-test-users.py` to populate test Discord IDs in database; use deterministic test data
+**No Module Progress Tracking in Notifications**
+- Problem: `_check_condition()` for module progress always returns True
+- Blocks: Intelligent module progress nudges
+- Files: `core/notifications/scheduler.py` (lines 223-229)
 
-**Webhook Signature Verification for All Integrations:**
-- Problem: Only GitHub webhook has signature verification; email/Sentry webhooks don't
-- Blocks: Security audit requires all webhooks signed
-- Approach: Add signature verification to all external webhooks; document secret management
-
-**Graceful Degradation for Missing Integrations:**
-- Problem: Google Calendar, SendGrid, etc. failures crash endpoints
-- Blocks: Platform unavailable if single integration down
-- Approach: Wrap integration calls in try-except; return partial results with warnings instead of 500
-
-**Module Content Preloading:**
-- Problem: Module content loaded on-demand per request
-- Blocks: Scaling to many users causes repeated file I/O
-- Approach: Preload common modules at startup; add content cache with TTL
+**No Rate Limiting on API Endpoints**
+- Problem: No rate limiting middleware configured
+- Blocks: Production-grade API security
+- Files: `main.py` (FastAPI setup)
 
 ## Test Coverage Gaps
 
-**LLM Provider Failure Scenarios:**
-- What's not tested: Timeout, rate limiting, invalid response from LiteLLM
-- Files: `core/modules/llm.py`, `core/modules/chat.py`
-- Risk: Users can hit timeout errors in chat with no error message
-- Priority: High
+**Discord Bot Cogs**
+- What's not tested: `stampy_cog.py` streaming logic, `groups_cog.py` realization flow, most cog command handlers
+- Files: `discord_bot/cogs/*.py`
+- Risk: Complex Discord API interactions could break silently
+- Priority: High - these are user-facing features
 
-**Database Connection Failures:**
-- What's not tested: Database reconnection after timeout; connection pool exhaustion
-- Files: `core/database.py`
-- Risk: Unknown behavior if database flaps; connection leak possible
-- Priority: High
+**Frontend Components**
+- What's not tested: No test files found in `web_frontend/src/`
+- Files: `web_frontend/src/components/**/*.tsx`, `web_frontend/src/views/**/*.tsx`
+- Risk: UI regressions not caught before deployment
+- Priority: Medium - lint/TypeScript catches some issues
 
-**Scheduler Persistence Recovery:**
-- What's not tested: Job recovery after scheduler restart; orphaned jobs in database
-- Files: `core/notifications/scheduler.py`
-- Risk: Jobs may be lost or duplicated if scheduler crashes mid-execution
-- Priority: Medium
-
-**Discord Group Realization Edge Cases:**
-- What's not tested: Member not in guild; permission errors; partial failures
-- Files: `discord_bot/cogs/groups_cog.py`
-- Risk: Groups partially created with no rollback; inconsistent state
-- Priority: Medium
-
-**OAuth Redirect Validation:**
-- What's not tested: Open redirect attacks; malformed `next`/`origin` parameters
-- Files: `web_api/routes/auth.py`
-- Risk: Users redirected to malicious sites after login
-- Priority: Critical
-
-**Markdown Content Injection:**
-- What's not tested: XSS via markdown in article/video content
-- Files: `core/modules/markdown_parser.py`
-- Risk: Malicious content from GitHub repo could execute client-side
-- Priority: Critical
+**API Route Error Paths**
+- What's not tested: Many exception handlers in `web_api/routes/` not covered
+- Files: `web_api/routes/modules.py` has 20+ except blocks
+- Risk: Error responses may not match API contracts
+- Priority: Medium - integration tests provide some coverage
 
 ---
 
