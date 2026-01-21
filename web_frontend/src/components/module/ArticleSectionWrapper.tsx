@@ -19,7 +19,9 @@ export default function ArticleSectionWrapper({
   const headingElementsRef = useRef<Map<string, HTMLElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
   // ToC items for direct DOM manipulation (bypasses React re-renders)
-  const tocItemsRef = useRef<Map<string, { index: number; element: HTMLElement }>>(new Map());
+  const tocItemsRef = useRef<
+    Map<string, { index: number; element: HTMLElement }>
+  >(new Map());
   const currentHeadingIdRef = useRef<string | null>(null);
 
   // Pre-computed heading IDs from extractAllHeadings, keyed by text
@@ -80,7 +82,7 @@ export default function ArticleSectionWrapper({
     (id: string, index: number, element: HTMLElement) => {
       tocItemsRef.current.set(id, { index, element });
     },
-    []
+    [],
   );
 
   // Update ToC item styles directly in the DOM (no React re-render)
@@ -135,7 +137,7 @@ export default function ArticleSectionWrapper({
         // Observation zone is top 35% of viewport
         rootMargin: "0px 0px -65% 0px",
         threshold: 0,
-      }
+      },
     );
 
     observerRef.current = observer;
