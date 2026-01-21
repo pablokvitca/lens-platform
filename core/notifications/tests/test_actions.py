@@ -46,5 +46,5 @@ class TestScheduleMeetingReminders:
                 discord_channel_id="123456",
             )
 
-        # Should schedule 4 jobs: 24h, 1h, 3d lesson nudge, 1d lesson nudge
+        # Should schedule 4 jobs: 24h, 1h, 3d module nudge, 1d module nudge
         assert mock_schedule.call_count == 4

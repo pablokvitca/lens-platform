@@ -12,8 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from core.tables import cohorts, users, signups, groups, groups_users
-from core.enums import CohortRole, GroupUserRole, GroupUserStatus
+from core.tables import cohorts, users, signups, groups
+from core.enums import CohortRole
 
 
 async def create_test_cohort(
@@ -98,17 +98,17 @@ async def create_test_group(
     meeting_time: str = "Monday 09:00-10:00",
     discord_text_channel_id: str = None,
     discord_voice_channel_id: str = None,
+    status: str = None,
 ) -> dict:
     """Create a group for testing."""
-    result = await conn.execute(
-        insert(groups)
-        .values(
-            cohort_id=cohort_id,
-            group_name=group_name,
-            recurring_meeting_time_utc=meeting_time,
-            discord_text_channel_id=discord_text_channel_id,
-            discord_voice_channel_id=discord_voice_channel_id,
-        )
-        .returning(groups)
-    )
+    values = {
+        "cohort_id": cohort_id,
+        "group_name": group_name,
+        "recurring_meeting_time_utc": meeting_time,
+        "discord_text_channel_id": discord_text_channel_id,
+        "discord_voice_channel_id": discord_voice_channel_id,
+    }
+    if status:
+        values["status"] = status
+    result = await conn.execute(insert(groups).values(**values).returning(groups))
     return dict(result.mappings().first())

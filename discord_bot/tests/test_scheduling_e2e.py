@@ -34,7 +34,7 @@ from .helpers import (
 )
 from core.queries.groups import add_user_to_group
 from core.tables import cohorts, users, signups, groups, groups_users
-from core.lessons.course_loader import load_course
+from core.modules.course_loader import load_course
 
 
 # Load environment (.env first, then .env.local overrides)
@@ -385,7 +385,7 @@ class TestRealizeGroupsE2E:
         assert default_role in category_overwrites, (
             "Category: @everyone not in permission overwrites"
         )
-        assert category_overwrites[default_role].view_channel == False, (
+        assert not category_overwrites[default_role].view_channel, (
             "Category: @everyone can still view"
         )
 
@@ -440,7 +440,7 @@ class TestRealizeGroupsE2E:
             "Voice channel ID should be numeric string"
         )
 
-        assert updated_cohort is not None, f"Cohort not found in database"
+        assert updated_cohort is not None, "Cohort not found in database"
         assert updated_cohort["discord_category_id"] is not None, (
             "Category ID not saved to cohort"
         )

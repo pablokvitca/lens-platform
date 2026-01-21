@@ -4,7 +4,6 @@ APScheduler-based job scheduler for notifications.
 Jobs are persisted to PostgreSQL so they survive restarts.
 """
 
-import asyncio
 import fnmatch
 import os
 from datetime import datetime
@@ -73,7 +72,7 @@ def init_scheduler(skip_if_db_unavailable: bool = True) -> AsyncIOScheduler | No
         if skip_if_db_unavailable and "timeout" in str(e).lower():
             # Database unavailable - fall back to in-memory scheduler
             print(
-                f"Warning: Could not connect to database for scheduler: timeout expired"
+                "Warning: Could not connect to database for scheduler: timeout expired"
             )
             print("  └─ Scheduler running in memory-only mode (jobs won't persist)")
             _scheduler = AsyncIOScheduler(
@@ -124,7 +123,7 @@ def schedule_reminder(
         user_ids: List of user IDs to notify
         context: Template variables
         channel_id: Optional Discord channel for channel messages
-        condition: Optional condition to check before sending (e.g., lesson progress)
+        condition: Optional condition to check before sending (e.g., module progress)
     """
     if not _scheduler:
         print("Warning: Scheduler not initialized, cannot schedule reminder")
@@ -185,7 +184,7 @@ async def _execute_reminder(
         send_channel_notification,
     )
 
-    # Check condition if specified (e.g., lesson progress)
+    # Check condition if specified (e.g., module progress)
     if condition:
         should_send = await _check_condition(condition, user_ids)
         if not should_send:
@@ -210,7 +209,7 @@ async def _check_condition(condition: dict, user_ids: list[int]) -> bool:
     """
     Check if a reminder condition is met.
 
-    Used for conditional reminders like lesson progress nudges.
+    Used for conditional reminders like module progress nudges.
 
     Args:
         condition: Dict with condition type and parameters
@@ -221,11 +220,11 @@ async def _check_condition(condition: dict, user_ids: list[int]) -> bool:
     """
     condition_type = condition.get("type")
 
-    if condition_type == "lesson_progress":
-        # Check if user hasn't completed required lessons
-        meeting_id = condition.get("meeting_id")
-        threshold = condition.get("threshold", 1.0)  # 1.0 = 100%
-        # TODO: Implement lesson progress check
+    if condition_type == "module_progress":
+        # Check if user hasn't completed required modules
+        condition.get("meeting_id")
+        condition.get("threshold", 1.0)  # 1.0 = 100%
+        # TODO: Implement module progress check
         # For now, always return True
         return True
 

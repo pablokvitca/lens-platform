@@ -4,19 +4,23 @@
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from core.lessons.course_loader import (
+from core.modules.course_loader import (
     load_course,
-    get_next_lesson,
-    get_lessons,
+    get_next_module,
     CourseNotFoundError,
+    _extract_slug_from_path,
 )
-from core.lessons.types import LessonRef, Meeting
-from core.lessons import (
-    load_lesson,
-    get_user_lesson_progress,
-    get_stage_title,
-    get_stage_duration,
-    LessonNotFoundError,
+from core.modules.markdown_parser import ModuleRef, MeetingMarker
+from core.modules import (
+    load_module,
+    get_user_module_progress,
+    ModuleNotFoundError,
+)
+from core.modules.markdown_parser import (
+    VideoSection,
+    ArticleSection,
+    TextSection,
+    ChatSection,
 )
 from web_api.auth import get_optional_user
 from core import get_or_create_user
@@ -24,20 +28,20 @@ from core import get_or_create_user
 router = APIRouter(prefix="/api/courses", tags=["courses"])
 
 
-@router.get("/{course_slug}/next-lesson")
-async def get_next_lesson_endpoint(
+@router.get("/{course_slug}/next-module")
+async def get_next_module_endpoint(
     course_slug: str,
-    current: str = Query(..., description="Current lesson slug"),
+    current: str = Query(..., description="Current module slug"),
 ):
-    """Get what comes after the current lesson.
+    """Get what comes after the current module.
 
     Returns:
-        - 200 with {nextLessonSlug, nextLessonTitle} if next item is a lesson
+        - 200 with {nextModuleSlug, nextModuleTitle} if next item is a module
         - 200 with {completedUnit: N} if next item is a meeting (unit boundary)
         - 204 No Content if end of course
     """
     try:
-        result = get_next_lesson(course_slug, current)
+        result = get_next_module(course_slug, current)
     except CourseNotFoundError:
         raise HTTPException(status_code=404, detail=f"Course not found: {course_slug}")
 
@@ -47,10 +51,10 @@ async def get_next_lesson_endpoint(
     if result["type"] == "unit_complete":
         return {"completedUnit": result["unit_number"]}
 
-    # result["type"] == "lesson"
+    # result["type"] == "module"
     return {
-        "nextLessonSlug": result["slug"],
-        "nextLessonTitle": result["title"],
+        "nextModuleSlug": result["slug"],
+        "nextModuleTitle": result["title"],
     }
 
 
@@ -75,34 +79,37 @@ async def get_course_progress(course_slug: str, request: Request):
         raise HTTPException(status_code=404, detail=f"Course not found: {course_slug}")
 
     # Get user's progress
-    progress = await get_user_lesson_progress(user_id)
+    progress = await get_user_module_progress(user_id)
 
-    # Build units by splitting progression on Meeting objects
+    # Build units by splitting progression on MeetingMarker objects
     units = []
-    current_lessons = []
+    current_modules = []
     current_meeting_number = None
 
     for item in course.progression:
-        if isinstance(item, Meeting):
-            # When we hit a meeting, save the current unit if it has lessons
-            if current_lessons:
+        if isinstance(item, MeetingMarker):
+            # When we hit a meeting, save the current unit if it has modules
+            if current_modules:
                 units.append(
                     {
                         "meetingNumber": item.number,
-                        "lessons": current_lessons,
+                        "modules": current_modules,
                     }
                 )
-                current_lessons = []
+                current_modules = []
             current_meeting_number = item.number
-        elif isinstance(item, LessonRef):
-            # Load lesson details
+        elif isinstance(item, ModuleRef):
+            # Extract module slug from path (e.g., "modules/introduction" -> "introduction")
+            module_slug = _extract_slug_from_path(item.path)
+
+            # Load module details
             try:
-                lesson = load_lesson(item.slug)
-            except LessonNotFoundError:
+                module = load_module(module_slug)
+            except ModuleNotFoundError:
                 continue
 
-            lesson_progress = progress.get(
-                item.slug,
+            module_progress = progress.get(
+                module_slug,
                 {
                     "status": "not_started",
                     "current_stage_index": None,
@@ -110,38 +117,53 @@ async def get_course_progress(course_slug: str, request: Request):
                 },
             )
 
-            # Build stages info
+            # Build sections info (named "stages" for API compatibility)
             stages = []
-            for stage in lesson.stages:
+            for section in module.sections:
+                # Get section title based on type
+                if isinstance(section, (VideoSection, ArticleSection)):
+                    title = (
+                        section.source.split("/")[-1]
+                        .replace(".md", "")
+                        .replace("-", " ")
+                        .title()
+                    )
+                elif isinstance(section, TextSection):
+                    title = "Text"
+                elif isinstance(section, ChatSection):
+                    title = "Discussion"
+                else:
+                    title = section.type.title()
+
                 stages.append(
                     {
-                        "type": stage.type,
-                        "title": get_stage_title(stage),
-                        "duration": get_stage_duration(stage) or None,
-                        "optional": getattr(stage, "optional", False),
+                        "type": section.type,
+                        "title": title,
+                        "duration": None,  # Duration calculation not available for new format
+                        "optional": getattr(section, "optional", False),
                     }
                 )
 
-            current_lessons.append(
+            current_modules.append(
                 {
-                    "slug": lesson.slug,
-                    "title": lesson.title,
+                    "slug": module.slug,
+                    "title": module.title,
                     "optional": item.optional,
                     "stages": stages,
-                    "status": lesson_progress["status"],
-                    "currentStageIndex": lesson_progress["current_stage_index"],
-                    "sessionId": lesson_progress["session_id"],
+                    "status": module_progress["status"],
+                    "currentStageIndex": module_progress["current_stage_index"],
+                    "sessionId": module_progress["session_id"],
                 }
             )
 
-    # Handle any remaining lessons after the last meeting (or if no meetings)
-    if current_lessons:
+    # Handle any remaining modules after the last meeting (or if no meetings)
+    if current_modules:
         # If there were no meetings at all, use meeting number 1 as default
         meeting_num = (current_meeting_number + 1) if current_meeting_number else 1
         units.append(
             {
                 "meetingNumber": meeting_num,
-                "lessons": current_lessons,
+                "modules": current_modules,
             }
         )
 

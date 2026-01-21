@@ -15,7 +15,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from core.queries.cohorts import (
     get_schedulable_cohorts,
     get_realizable_cohorts,
-    get_cohort_by_id,
 )
 from core.queries.groups import (
     create_group,
@@ -92,8 +91,8 @@ class TestGetRealizableCohorts:
 
     @pytest.mark.asyncio
     async def test_excludes_fully_realized_cohorts(self, db_conn):
-        """Should not return cohorts where all groups have Discord channels."""
-        # Setup: cohort with realized group
+        """Should not return cohorts where all groups are active (realized)."""
+        # Setup: cohort with realized group (status='active')
         cohort = await create_test_cohort(db_conn, name="Realized Cohort")
         await create_test_group(
             db_conn,
@@ -101,6 +100,7 @@ class TestGetRealizableCohorts:
             "Group 1",
             discord_text_channel_id="111",
             discord_voice_channel_id="222",
+            status="active",
         )
 
         # Execute
@@ -132,7 +132,7 @@ class TestCreateGroup:
         assert group["group_name"] == "Group Alpha"
         assert group["cohort_id"] == cohort["cohort_id"]
         assert group["recurring_meeting_time_utc"] == "Wednesday 15:00-16:00"
-        assert group["status"] == "forming"
+        assert group["status"] == "preview"
 
 
 class TestAddUserToGroup:

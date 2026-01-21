@@ -52,32 +52,39 @@ else:
 # (auth.py computes DISCORD_REDIRECT_URI based on DEV_MODE at import time)
 if __name__ == "__main__":
     import argparse
+    import re
+
+    # Extract workspace number from directory name (e.g., "platform-ws2" → 2)
+    # Used to auto-assign ports: ws1 gets 8001/3001, ws2 gets 8002/3002, etc.
+    # No workspace suffix → 8000/3000 (default)
+    _workspace_match = re.search(r"-ws(\d+)$", Path.cwd().name)
+    _ws_num = int(_workspace_match.group(1)) if _workspace_match else 0
+    _default_api_port = 8000 + _ws_num
+    _default_frontend_port = 3000 + _ws_num
 
     _early_parser = argparse.ArgumentParser(add_help=False)
     _early_parser.add_argument("--dev", action="store_true")
     _early_parser.add_argument("--no-db", action="store_true")
     _early_parser.add_argument(
-        "--port", type=int, default=int(os.getenv("API_PORT", "8000"))
-    )
-    _early_parser.add_argument(
-        "--vite-port", type=int, default=int(os.getenv("VITE_PORT", "5173"))
+        "--port", type=int, default=int(os.getenv("API_PORT", str(_default_api_port)))
     )
     _early_args, _ = _early_parser.parse_known_args()
     if _early_args.dev:
         os.environ["DEV_MODE"] = "true"
         os.environ["API_PORT"] = str(_early_args.port)
-        os.environ["VITE_PORT"] = str(_early_args.vite_port)
+        os.environ["FRONTEND_PORT"] = str(_default_frontend_port)
     else:
         # Production single-service mode: frontend served from same port as API
         os.environ["API_PORT"] = str(_early_args.port)
     if _early_args.no_db:
         os.environ["SKIP_DB_CHECK"] = "true"
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from core.database import close_engine, check_connection
 from core import get_allowed_origins, is_dev_mode
 from core.config import check_required_env_vars
+from core.content import initialize_cache, ContentBranchNotConfiguredError
 from core.notifications import init_scheduler, shutdown_scheduler
 from core.calendar.rsvp import sync_upcoming_meeting_rsvps
 from core.notifications.channels.discord import set_bot as set_notification_bot
@@ -91,16 +98,16 @@ from discord_bot.main import bot
 # Import routes using full paths (don't add web_api to sys.path to avoid main.py conflict)
 from web_api.routes.auth import router as auth_router
 from web_api.routes.users import router as users_router
-from web_api.routes.lesson import router as lesson_router
-from web_api.routes.lessons import router as lessons_router
+from web_api.routes.module import router as module_router
+from web_api.routes.modules import router as modules_router
 from web_api.routes.speech import router as speech_router
 from web_api.routes.cohorts import router as cohorts_router
 from web_api.routes.courses import router as courses_router
 from web_api.routes.facilitator import router as facilitator_router
+from web_api.routes.content import router as content_router
 
 # Track bot task for cleanup
 _bot_task: asyncio.Task | None = None
-_vite_process: asyncio.subprocess.Process | None = None
 
 
 async def start_bot():
@@ -134,78 +141,29 @@ async def stop_bot():
         print("Discord bot stopped")
 
 
-async def start_vite_dev():
-    """
-    Start Vite dev server as subprocess.
-
-    Only runs when DEV_MODE is enabled (via --dev flag).
-    The Vite server provides HMR for frontend development.
-    Port is read from VITE_PORT env var (default: 5173).
-    """
-    global _vite_process
-
-    if os.getenv("DEV_MODE", "").lower() not in ("true", "1", "yes"):
-        return
-
-    port = int(os.getenv("VITE_PORT", "5173"))
-
-    try:
-        _vite_process = await asyncio.create_subprocess_exec(
-            "npm",
-            "run",
-            "dev",
-            "--",
-            "--port",
-            str(port),
-            "--strictPort",  # Fail if port is busy instead of auto-escalating
-            cwd=project_root / "web_frontend",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT,
-        )
-        print(f"Vite dev server started on port {port} (PID {_vite_process.pid})")
-
-        # Stream Vite output (don't await - let it run in background)
-        asyncio.create_task(_stream_vite_output())
-    except Exception as e:
-        print(f"Failed to start Vite dev server: {e}")
-
-
-async def _stream_vite_output():
-    """Stream Vite subprocess output to console."""
-    if _vite_process and _vite_process.stdout:
-        async for line in _vite_process.stdout:
-            print(f"[vite] {line.decode().rstrip()}")
-
-
-async def stop_vite_dev():
-    """Stop Vite dev server gracefully."""
-    global _vite_process
-
-    if _vite_process:
-        try:
-            _vite_process.terminate()
-            await asyncio.wait_for(_vite_process.wait(), timeout=5.0)
-            print("Vite dev server stopped")
-        except ProcessLookupError:
-            # Process already exited
-            print("Vite dev server already stopped")
-        except asyncio.TimeoutError:
-            _vite_process.kill()
-            print("Vite dev server killed (timeout)")
-        _vite_process = None
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     FastAPI lifespan context manager.
 
-    Starts peer services (Discord bot, Vite dev server) as background tasks.
-    They run concurrently with FastAPI in the same event loop.
+    Starts the Discord bot as a background task.
+    It runs concurrently with FastAPI in the same event loop.
     """
     global _bot_task
 
     skip_db = os.getenv("SKIP_DB_CHECK", "").lower() in ("true", "1", "yes")
+
+    # Initialize educational content cache from GitHub
+    try:
+        await initialize_cache()
+    except ContentBranchNotConfiguredError as e:
+        print(f"✗ Content cache: {e}")
+        print("  └─ Set EDUCATIONAL_CONTENT_BRANCH=staging (or main for production)")
+        sys.exit(1)
+    except Exception as e:
+        print(f"✗ Content cache failed: {e}")
+        print("  └─ Check GITHUB_TOKEN and network connectivity")
+        sys.exit(1)
 
     # Check database connection (runs in uvicorn's event loop - no issues)
     if not skip_db:
@@ -252,14 +210,10 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(on_bot_ready())
 
-    # Start Vite dev server if in dev mode
-    await start_vite_dev()
-
     yield  # FastAPI runs here, bot runs alongside it
 
     # Graceful shutdown of all peer services
     print("Shutting down peer services...")
-    await stop_vite_dev()
     shutdown_scheduler()
     await stop_bot()
     await close_engine()  # Close database connections
@@ -289,12 +243,13 @@ app.add_middleware(
 # Include routers
 app.include_router(auth_router)
 app.include_router(users_router)
-app.include_router(lesson_router)
-app.include_router(lessons_router)
+app.include_router(module_router)
+app.include_router(modules_router)
 app.include_router(speech_router)
 app.include_router(cohorts_router)
 app.include_router(courses_router)
 app.include_router(facilitator_router)
+app.include_router(content_router)
 
 
 # New paths for static files
@@ -306,20 +261,19 @@ spa_path = project_root / "web_frontend" / "dist"  # React SPA build
 
 @app.get("/")
 async def root():
-    """Serve landing page if it exists, otherwise return API status."""
+    """Serve landing page or API status."""
     if is_dev_mode():
         return {
             "status": "ok",
-            "message": "API-only mode. Access frontend at Vite dev server.",
+            "message": "API-only mode. Run Vite frontend separately.",
             "bot_ready": bot.is_ready() if bot else False,
         }
-    landing_file = static_path / "landing.html"
+    # In production, the catch-all route also handles the root path
+    # This route takes precedence over the catch-all, but keep for clarity
+    landing_file = spa_path / "client" / "index.html"
     if landing_file.exists():
         return FileResponse(landing_file)
-    return {
-        "status": "ok",
-        "bot_ready": bot.is_ready() if bot else False,
-    }
+    return {"status": "ok", "bot_ready": bot.is_ready() if bot else False}
 
 
 @app.get("/api/status")
@@ -341,36 +295,87 @@ async def health():
     }
 
 
-# SPA catch-all - serve React app for frontend routes (only in production, not dev mode)
+# Vike SSG + SPA static file serving (only in production, not dev mode)
 if spa_path.exists() and not is_dev_mode():
-    # Mount static assets from built SPA first (before catch-all)
-    assets_path = spa_path / "assets"
+    # Mount static assets from built frontend
+    assets_path = spa_path / "client" / "assets"
     if assets_path.exists():
         app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
 
     @app.get("/{full_path:path}")
     async def spa_catchall(full_path: str):
-        """Serve React SPA for all frontend routes.
+        """Serve Vike SSG pages or SPA fallback.
 
+        For SSG pages: Serve pre-rendered HTML directly
+        For SPA pages: Serve 200.html (Vike's SPA fallback) or index.html
         API routes (/api/*, /auth/*) are excluded - they 404 if no match.
-        Static files (favicon, images, etc.) are served directly.
-        Everything else serves index.html and React Router handles it.
         """
         # Don't catch API routes - let them 404 properly
         if full_path.startswith("api/") or full_path.startswith("auth/"):
             raise HTTPException(status_code=404, detail="Not found")
 
-        # Serve static files from dist if they exist (favicon, images, etc.)
-        static_file = spa_path / full_path
+        client_path = spa_path / "client"
+        client_path_resolved = client_path.resolve()
+
+        def is_safe_path(path: Path) -> bool:
+            """Verify path is within client_path to prevent path traversal attacks."""
+            try:
+                resolved = path.resolve()
+                return resolved.is_relative_to(client_path_resolved)
+            except (ValueError, RuntimeError):
+                return False
+
+        # Try exact file match first (for static assets like favicon, images)
+        static_file = client_path / full_path
+        if not is_safe_path(static_file):
+            raise HTTPException(status_code=404, detail="Not found")
         if static_file.exists() and static_file.is_file():
             return FileResponse(static_file)
 
-        return FileResponse(spa_path / "index.html")
+        # Try SSG pre-rendered HTML (e.g., /course/default -> /course/default/index.html)
+        # Handle both with and without trailing slash
+        path_to_check = full_path.rstrip("/")
+        if path_to_check == "":
+            path_to_check = "index"
+
+        ssg_file = client_path / path_to_check / "index.html"
+        if not is_safe_path(ssg_file):
+            raise HTTPException(status_code=404, detail="Not found")
+        if ssg_file.exists():
+            return FileResponse(ssg_file)
+
+        # Check for direct .html file (e.g., /404 -> /404.html)
+        direct_html = client_path / f"{path_to_check}.html"
+        if not is_safe_path(direct_html):
+            raise HTTPException(status_code=404, detail="Not found")
+        if direct_html.exists():
+            return FileResponse(direct_html)
+
+        # SPA fallback - serve 200/index.html (our pre-rendered SPA shell)
+        # or root index.html if 200 doesn't exist
+        spa_fallback = client_path / "200" / "index.html"
+        if spa_fallback.exists():
+            return FileResponse(spa_fallback)
+
+        # Fallback to root index.html (SSG landing page as last resort)
+        index_fallback = client_path / "index.html"
+        if index_fallback.exists():
+            return FileResponse(index_fallback)
+
+        raise HTTPException(status_code=404, detail="Not found")
 
 
 if __name__ == "__main__":
     import argparse
+    import re
     import uvicorn
+
+    # Extract workspace number from directory name (e.g., "platform-ws2" → 2)
+    # Used to auto-assign ports: ws1 gets 8000/3000, ws2 gets 8001/3001, etc.
+    workspace_match = re.search(r"-ws(\d+)$", Path.cwd().name)
+    ws_num = int(workspace_match.group(1)) if workspace_match else 1
+    default_api_port = 8000 + (ws_num - 1)
+    default_frontend_port = 3000 + (ws_num - 1)
 
     parser = argparse.ArgumentParser(description="AI Safety Course Platform Server")
     parser.add_argument(
@@ -381,19 +386,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--port",
         type=int,
-        default=int(os.getenv("API_PORT", "8000")),
-        help="Port for API server (default: from API_PORT env or 8000)",
+        default=int(os.getenv("API_PORT", str(default_api_port))),
+        help=f"Port for API server (default: {default_api_port} for ws{ws_num})",
     )
     parser.add_argument(
         "--dev",
         action="store_true",
-        help="Enable dev mode: spawns Vite dev server with HMR",
-    )
-    parser.add_argument(
-        "--vite-port",
-        type=int,
-        default=int(os.getenv("VITE_PORT", "5173")),
-        help="Port for Vite dev server (default: from VITE_PORT env or 5173)",
+        help="Enable dev mode (API returns JSON at /, doesn't serve SPA)",
     )
     parser.add_argument(
         "--no-db",
@@ -401,16 +400,6 @@ if __name__ == "__main__":
         help="Skip database connection check (for frontend-only development)",
     )
     args = parser.parse_args()
-
-    # Log when using default ports (helps Claude understand port configuration)
-    api_port_from_env = os.getenv("API_PORT")
-    vite_port_from_env = os.getenv("VITE_PORT")
-    if not api_port_from_env or not vite_port_from_env:
-        print("Note: Ports not fully configured in .env.local")
-        if not api_port_from_env:
-            print(f"  API_PORT not set, using default: {args.port}")
-        if not vite_port_from_env:
-            print(f"  VITE_PORT not set, using default: {args.vite_port}")
 
     # Set WORKSPACE from directory name (for server identification across workspaces)
     workspace_name = Path.cwd().name
@@ -429,7 +418,7 @@ if __name__ == "__main__":
                 "pid": os.getpid(),
                 "workspace": workspace_name,
                 "api_port": args.port,
-                "vite_port": args.vite_port if args.dev else None,
+                "frontend_port": default_frontend_port if args.dev else None,
             }
         )
     )
@@ -444,10 +433,11 @@ if __name__ == "__main__":
         os.environ["DISABLE_DISCORD_BOT"] = "true"
     if args.dev:
         os.environ["DEV_MODE"] = "true"
-        os.environ["VITE_PORT"] = str(args.vite_port)
-        os.environ["API_PORT"] = str(args.port)  # For Vite proxy
-        print(f"Dev mode enabled - Vite will run on port {args.vite_port}")
-        print(f"Access frontend at: http://localhost:{args.vite_port}")
+        os.environ["API_PORT"] = str(args.port)
+        os.environ["FRONTEND_PORT"] = str(default_frontend_port)
+        print(
+            f"Dev mode enabled (ws{ws_num}): API :{args.port}, Next.js :{default_frontend_port}"
+        )
 
     # Check required environment variables
     print("Checking environment variables...")

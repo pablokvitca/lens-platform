@@ -9,27 +9,21 @@ export type StageInfo = {
   optional: boolean;
 };
 
-export type LessonStatus = "completed" | "in_progress" | "not_started";
+export type ModuleStatus = "completed" | "in_progress" | "not_started";
 
-export type LessonInfo = {
+export type ModuleInfo = {
   slug: string;
   title: string;
   stages: StageInfo[];
-  status: LessonStatus;
+  status: ModuleStatus;
   currentStageIndex: number | null;
   sessionId: number | null;
   optional: boolean;
 };
 
-export type ModuleInfo = {
-  id: string;
-  title: string;
-  lessons: LessonInfo[];
-};
-
 export type UnitInfo = {
   meetingNumber: number | null;
-  lessons: LessonInfo[];
+  modules: ModuleInfo[];
 };
 
 export type CourseProgress = {

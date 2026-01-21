@@ -25,7 +25,7 @@ from dotenv import load_dotenv
 
 load_dotenv(".env.local")
 
-from sqlalchemy import insert, text
+from sqlalchemy import insert
 from core.database import get_connection
 from core.tables import (
     users,
@@ -33,7 +33,7 @@ from core.tables import (
     cohorts,
     groups,
     groups_users,
-    lesson_sessions,
+    module_sessions,
     content_events,
 )
 from core.enums import ContentEventType
@@ -229,8 +229,8 @@ async def create_test_data():
 
         await conn.commit()
         print("\nTest data created successfully!")
-        print(f"\nTo view: http://localhost:5174/facilitator")
-        print(f"To delete: python scripts/delete_test_facilitator_data.py")
+        print("\nTo view: http://localhost:5174/facilitator")
+        print("To delete: python scripts/delete_test_facilitator_data.py")
 
 
 async def create_user_progress(conn, user):
@@ -260,10 +260,10 @@ async def create_user_progress(conn, user):
         chat_messages = random.choice(LOREM_CHATS) if random.random() > 0.3 else []
 
         session_result = await conn.execute(
-            insert(lesson_sessions)
+            insert(module_sessions)
             .values(
                 user_id=user["user_id"],
-                lesson_id=lesson_id,
+                module_slug=lesson_id,
                 current_stage_index=2 if is_completed else random.randint(0, 2),
                 messages=chat_messages,
                 started_at=datetime.now(timezone.utc)
@@ -273,7 +273,7 @@ async def create_user_progress(conn, user):
                 if is_completed
                 else None,
             )
-            .returning(lesson_sessions)
+            .returning(module_sessions)
         )
         session = dict(session_result.mappings().first())
 
@@ -294,7 +294,7 @@ async def create_user_progress(conn, user):
                     insert(content_events).values(
                         user_id=user["user_id"],
                         session_id=session["session_id"],
-                        lesson_id=lesson_id,
+                        module_slug=lesson_id,
                         stage_index=stage_index,
                         stage_type=stage_type,
                         event_type=ContentEventType.heartbeat,

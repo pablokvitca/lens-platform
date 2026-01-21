@@ -7,7 +7,7 @@ Removes all data with the 'fac_test_' prefix:
 - Groups
 - Cohorts
 - Courses
-- Related lesson sessions and heartbeats (via cascade)
+- Related module sessions and heartbeats (via cascade)
 
 Run: python scripts/delete_test_facilitator_data.py
 """
@@ -64,8 +64,8 @@ async def delete_test_data():
         )
 
         # Delete in order (respecting foreign keys)
-        # content_events cascade from lesson_sessions
-        # lesson_sessions cascade from users
+        # content_events cascade from module_sessions
+        # module_sessions cascade from users
         # groups_users cascade from users and groups
 
         # 1. Delete content_events for test users
@@ -77,14 +77,14 @@ async def delete_test_data():
         )
         print("  Deleted content_events")
 
-        # 2. Delete lesson_sessions for test users
+        # 2. Delete module_sessions for test users
         await conn.execute(
             text(f"""
-                DELETE FROM lesson_sessions
+                DELETE FROM module_sessions
                 WHERE user_id IN (SELECT user_id FROM users WHERE discord_id LIKE '{PREFIX}%')
             """)
         )
-        print("  Deleted lesson_sessions")
+        print("  Deleted module_sessions")
 
         # 3. Delete groups_users for test users
         await conn.execute(

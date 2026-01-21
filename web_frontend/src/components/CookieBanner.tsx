@@ -1,4 +1,3 @@
-// web_frontend/src/components/CookieBanner.tsx
 import { useState, useEffect } from "react";
 import { detectUserCountry, requiresCookieConsent } from "../geolocation";
 import { optIn, optOut, hasConsentChoice } from "../analytics";

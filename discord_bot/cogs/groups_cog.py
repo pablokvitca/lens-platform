@@ -20,10 +20,8 @@ from core.queries.cohorts import get_realizable_cohorts, save_cohort_category_id
 from core.queries.groups import (
     get_cohort_groups_for_realization,
     save_discord_channel_ids,
-    get_group_welcome_data,
     get_realized_groups_for_discord_user,
 )
-from core.cohorts import format_local_time
 from core.notifications import notify_group_assigned
 from core.meetings import (
     create_meetings_for_group,
@@ -144,8 +142,8 @@ class GroupsCog(commands.Cog):
         created_count = 0
         skipped_members = []  # Track members not in guild
         for group_data in cohort_data["groups"]:
-            # Skip if already realized
-            if group_data["discord_text_channel_id"]:
+            # Skip if already realized (not in preview status)
+            if group_data.get("status") != "preview":
                 continue
 
             await progress_msg.edit(
@@ -402,7 +400,7 @@ class GroupsCog(commands.Cog):
         meeting_time = group_data.get("recurring_meeting_time_utc", "TBD")
 
         for member in group_data["members"]:
-            tz = member.get("timezone") or "UTC"
+            member.get("timezone") or "UTC"
             discord_id = member.get("discord_id")
 
             # TODO: Convert UTC time to local for each member

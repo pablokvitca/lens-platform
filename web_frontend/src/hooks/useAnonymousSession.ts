@@ -1,10 +1,10 @@
 // web_frontend/src/hooks/useAnonymousSession.ts
 import { useCallback } from "react";
 
-const SESSION_KEY_PREFIX = "lesson_session_";
+const SESSION_KEY_PREFIX = "module_session_";
 
-export function useAnonymousSession(lessonId: string) {
-  const storageKey = `${SESSION_KEY_PREFIX}${lessonId}`;
+export function useAnonymousSession(moduleId: string) {
+  const storageKey = `${SESSION_KEY_PREFIX}${moduleId}`;
 
   const getStoredSessionId = useCallback((): number | null => {
     const stored = localStorage.getItem(storageKey);
@@ -17,7 +17,7 @@ export function useAnonymousSession(lessonId: string) {
     (sessionId: number) => {
       localStorage.setItem(storageKey, sessionId.toString());
     },
-    [storageKey]
+    [storageKey],
   );
 
   const clearSessionId = useCallback(() => {

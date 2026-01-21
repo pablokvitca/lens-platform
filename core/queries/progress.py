@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from ..tables import (
@@ -10,8 +10,7 @@ from ..tables import (
     groups,
     groups_users,
     users,
-    lesson_sessions,
-    cohorts,
+    module_sessions,
 )
 from ..enums import ContentEventType
 
@@ -33,7 +32,6 @@ async def get_group_members_summary(
     group_row = group_result.first()
     if not group_row:
         return []
-    cohort_id = group_row.cohort_id
 
     # Subquery: count heartbeats per user
     heartbeat_counts = (
@@ -50,11 +48,11 @@ async def get_group_members_summary(
     # Subquery: count completed lessons per user
     completed_lessons = (
         select(
-            lesson_sessions.c.user_id,
-            func.count(lesson_sessions.c.session_id).label("lessons_completed"),
+            module_sessions.c.user_id,
+            func.count(module_sessions.c.session_id).label("lessons_completed"),
         )
-        .where(lesson_sessions.c.completed_at.isnot(None))
-        .group_by(lesson_sessions.c.user_id)
+        .where(module_sessions.c.completed_at.isnot(None))
+        .group_by(module_sessions.c.user_id)
         .subquery()
     )
 
@@ -107,7 +105,7 @@ async def get_user_progress_for_group(
     """
     Get detailed progress for a user within a group's cohort context.
 
-    Returns per-lesson and per-stage breakdowns.
+    Returns per-module and per-stage breakdowns.
     """
     # Get group's cohort
     group_result = await conn.execute(
@@ -115,23 +113,23 @@ async def get_user_progress_for_group(
     )
     group_row = group_result.first()
     if not group_row:
-        return {"lessons": [], "total_time_seconds": 0, "last_active_at": None}
+        return {"modules": [], "total_time_seconds": 0, "last_active_at": None}
 
-    # Get user's lesson sessions
+    # Get user's module sessions
     sessions_result = await conn.execute(
         select(
-            lesson_sessions.c.session_id,
-            lesson_sessions.c.lesson_slug,
-            lesson_sessions.c.completed_at,
-            lesson_sessions.c.started_at,
-        ).where(lesson_sessions.c.user_id == user_id)
+            module_sessions.c.session_id,
+            module_sessions.c.module_slug,
+            module_sessions.c.completed_at,
+            module_sessions.c.started_at,
+        ).where(module_sessions.c.user_id == user_id)
     )
-    sessions = {row.lesson_slug: dict(row._mapping) for row in sessions_result}
+    sessions = {row.module_slug: dict(row._mapping) for row in sessions_result}
 
-    # Get heartbeat counts per lesson/stage
+    # Get heartbeat counts per module/stage
     heartbeat_query = (
         select(
-            content_events.c.lesson_slug,
+            content_events.c.module_slug,
             content_events.c.stage_index,
             content_events.c.stage_type,
             func.count(content_events.c.event_id).label("heartbeat_count"),
@@ -141,33 +139,33 @@ async def get_user_progress_for_group(
             & (content_events.c.event_type == ContentEventType.heartbeat)
         )
         .group_by(
-            content_events.c.lesson_slug,
+            content_events.c.module_slug,
             content_events.c.stage_index,
             content_events.c.stage_type,
         )
     )
     heartbeat_result = await conn.execute(heartbeat_query)
 
-    # Organize by lesson
-    lessons_map: dict[str, dict] = {}
+    # Organize by module
+    modules_map: dict[str, dict] = {}
     total_time = 0
 
     for row in heartbeat_result.mappings():
-        lesson_slug = row["lesson_slug"]
+        module_slug = row["module_slug"]
         stage_time = row["heartbeat_count"] * HEARTBEAT_INTERVAL_SECONDS
         total_time += stage_time
 
-        if lesson_slug not in lessons_map:
-            session = sessions.get(lesson_slug, {})
-            lessons_map[lesson_slug] = {
-                "lesson_slug": lesson_slug,
+        if module_slug not in modules_map:
+            session = sessions.get(module_slug, {})
+            modules_map[module_slug] = {
+                "module_slug": module_slug,
                 "completed": session.get("completed_at") is not None,
                 "time_spent_seconds": 0,
                 "stages": [],
             }
 
-        lessons_map[lesson_slug]["time_spent_seconds"] += stage_time
-        lessons_map[lesson_slug]["stages"].append(
+        modules_map[module_slug]["time_spent_seconds"] += stage_time
+        modules_map[module_slug]["stages"].append(
             {
                 "stage_index": row["stage_index"],
                 "stage_type": row["stage_type"].value
@@ -177,9 +175,9 @@ async def get_user_progress_for_group(
             }
         )
 
-    # Sort stages within each lesson
-    for lesson in lessons_map.values():
-        lesson["stages"].sort(key=lambda s: s["stage_index"])
+    # Sort stages within each module
+    for module in modules_map.values():
+        module["stages"].sort(key=lambda s: s["stage_index"])
 
     # Get last active
     last_active_result = await conn.execute(
@@ -190,7 +188,7 @@ async def get_user_progress_for_group(
     last_active = last_active_result.scalar()
 
     return {
-        "lessons": list(lessons_map.values()),
+        "modules": list(modules_map.values()),
         "total_time_seconds": total_time,
         "last_active_at": last_active.isoformat() if last_active else None,
     }
@@ -202,19 +200,19 @@ async def get_user_chat_sessions(
     """
     Get chat sessions for a user.
 
-    Returns lesson_sessions with messages, ordered by most recent.
+    Returns module_sessions with messages, ordered by most recent.
     """
     result = await conn.execute(
         select(
-            lesson_sessions.c.session_id,
-            lesson_sessions.c.lesson_slug,
-            lesson_sessions.c.messages,
-            lesson_sessions.c.started_at,
-            lesson_sessions.c.completed_at,
-            lesson_sessions.c.last_active_at,
+            module_sessions.c.session_id,
+            module_sessions.c.module_slug,
+            module_sessions.c.messages,
+            module_sessions.c.started_at,
+            module_sessions.c.completed_at,
+            module_sessions.c.last_active_at,
         )
-        .where(lesson_sessions.c.user_id == user_id)
-        .order_by(lesson_sessions.c.last_active_at.desc())
+        .where(module_sessions.c.user_id == user_id)
+        .order_by(module_sessions.c.last_active_at.desc())
     )
 
     sessions = []
@@ -232,7 +230,7 @@ async def get_user_chat_sessions(
         sessions.append(
             {
                 "session_id": row["session_id"],
-                "lesson_slug": row["lesson_slug"],
+                "module_slug": row["module_slug"],
                 "messages": row["messages"] or [],
                 "started_at": row["started_at"].isoformat()
                 if row["started_at"]

@@ -80,7 +80,7 @@ from .config import (
     is_dev_mode,
     is_production,
     get_api_port,
-    get_vite_port,
+    get_frontend_port,
     get_frontend_url,
     get_allowed_origins,
 )
@@ -129,7 +129,10 @@ __all__ = [
     "Person",
     "DAY_MAP",
     "CohortSchedulingResult",
+    "UngroupableReason",
+    "UngroupableDetail",
     "calculate_total_available_time",
+    "analyze_ungroupable_users",
     "schedule_cohort",
     # User management (async)
     "get_user_profile",
@@ -165,7 +168,7 @@ __all__ = [
     "is_dev_mode",
     "is_production",
     "get_api_port",
-    "get_vite_port",
+    "get_frontend_port",
     "get_frontend_url",
     "get_allowed_origins",
     # Notifications

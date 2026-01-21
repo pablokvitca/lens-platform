@@ -28,7 +28,7 @@ export function useActivityTracker({
     if (!enabled) return;
 
     try {
-      await fetch(`${API_URL}/api/lesson-sessions/${sessionId}/heartbeat`, {
+      await fetch(`${API_URL}/api/module-sessions/${sessionId}/heartbeat`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

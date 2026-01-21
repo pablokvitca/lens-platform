@@ -1,10 +1,8 @@
-// web_frontend/src/components/Layout.tsx
 import { useState } from "react";
-import { Link, Outlet } from "react-router-dom";
-import { DISCORD_INVITE_URL } from "../config";
 import CookieSettings from "./CookieSettings";
+import { DiscordInviteButton, UserMenu } from "./nav";
 
-export default function Layout() {
+export default function Layout({ children }: { children: React.ReactNode }) {
   const [showCookieSettings, setShowCookieSettings] = useState(false);
 
   return (
@@ -18,27 +16,25 @@ export default function Layout() {
                 alt="Lens Academy"
                 className="h-8"
               />
-              <span className="text-xl font-semibold text-slate-800">Lens Academy</span>
+              <span className="text-xl font-semibold text-slate-800">
+                Lens Academy
+              </span>
             </a>
             <div className="flex items-center gap-4">
-              <Link
-                to="/course"
+              <a
+                href="/course"
                 className="text-slate-600 font-medium text-sm hover:text-slate-900 transition-colors duration-200"
               >
                 Course
-              </Link>
-              <a
-                href={DISCORD_INVITE_URL}
-                className="px-5 py-2 rounded-full border-2 border-slate-200 text-slate-700 font-medium text-sm hover:border-slate-300 hover:bg-slate-50 transition-all duration-200"
-              >
-                Join us on Discord
               </a>
+              <DiscordInviteButton />
+              <UserMenu />
             </div>
           </div>
         </div>
       </nav>
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 flex-1">
-        <Outlet />
+        {children}
       </main>
       <footer className="border-t border-slate-200 py-6 mt-auto">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
