@@ -881,6 +881,8 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
               <MarkCompleteButton
                 isCompleted={completedSections.has(sectionIndex)}
                 onComplete={() => handleMarkComplete(sectionIndex)}
+                onNext={handleNext}
+                hasNext={sectionIndex < module.sections.length - 1}
               />
             </div>
           );
