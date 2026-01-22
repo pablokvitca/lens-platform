@@ -745,7 +745,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   }
 
   return (
-    <div className="min-h-dvh bg-white">
+    <div className="min-h-dvh bg-white overflow-x-clip">
       <div className="sticky top-0 z-50 bg-white">
         <ModuleHeader
           moduleTitle={module.title}

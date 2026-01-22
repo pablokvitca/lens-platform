@@ -29,6 +29,8 @@
 html {
   touch-action: manipulation; /* Disable double-tap zoom for faster taps */
   -webkit-text-size-adjust: 100%; /* Prevent font scaling in landscape */
+  width: 100%;
+  overflow-x: clip; /* clip instead of hidden - works on mobile + doesn't break sticky */
 }
 
 body {
@@ -36,7 +38,9 @@ body {
   color: var(--foreground);
   font-size: 18px;
   line-height: 1.6;
-  max-width: 100%; /* Prevent horizontal overflow */
+  width: 100%;
+  max-width: 100%; /* NOT 100vw - 100vw includes scrollbar width */
+  overflow-x: clip; /* clip instead of hidden - works on mobile */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -169,4 +173,13 @@ body {
 @keyframes view-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* Hide scrollbar while allowing scroll */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

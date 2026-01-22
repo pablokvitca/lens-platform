@@ -1,4 +1,6 @@
 import { useCallback } from "react";
+import { useMedia } from "react-use";
+import { User } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { Popover } from "../Popover";
 import { API_URL } from "../../config";
@@ -17,6 +19,7 @@ export function UserMenu({ signInRedirect }: UserMenuProps = {}) {
     login,
     logout,
   } = useAuth();
+  const isMobile = useMedia("(max-width: 767px)", false);
 
   // Custom login that uses signInRedirect if provided
   const handleLogin = useCallback(() => {
@@ -37,9 +40,14 @@ export function UserMenu({ signInRedirect }: UserMenuProps = {}) {
     return (
       <button
         onClick={handleLogin}
-        className="text-slate-600 font-medium text-sm hover:text-slate-900 transition-colors duration-200"
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-600 font-medium text-sm hover:text-slate-900 transition-colors duration-200"
+        aria-label="Sign in"
       >
-        Sign in
+        {isMobile ? (
+          <User className="w-5 h-5" />
+        ) : (
+          "Sign in"
+        )}
       </button>
     );
   }

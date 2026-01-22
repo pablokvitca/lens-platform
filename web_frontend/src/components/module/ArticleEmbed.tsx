@@ -108,7 +108,7 @@ export default function ArticleEmbed({
               <hr className="mt-2 border-gray-300" />
             </div>
           )}
-          <article className="prose prose-gray max-w-content mx-auto">
+          <article className="prose prose-gray max-w-content mx-auto overflow-x-hidden">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeRaw]}
@@ -197,7 +197,7 @@ export default function ArticleEmbed({
                   );
                 },
                 pre: ({ children }) => (
-                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg text-sm overflow-hidden my-4 whitespace-pre-wrap break-words">
+                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg text-sm overflow-x-auto my-4">
                     {children}
                   </pre>
                 ),
@@ -205,7 +205,7 @@ export default function ArticleEmbed({
                   <img
                     src={src}
                     alt={alt || ''}
-                    className="w-[calc(100%+2rem)] max-w-none -mx-4 my-4 sm:w-full sm:mx-0 sm:rounded-lg"
+                    className="w-full max-w-full my-4 sm:w-[calc(100%+2rem)] sm:max-w-none sm:-mx-4 sm:rounded-lg"
                   />
                 ),
                 hr: () => <hr className="my-8 border-gray-300" />,
