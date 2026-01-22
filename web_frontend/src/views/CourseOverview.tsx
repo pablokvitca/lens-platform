@@ -120,10 +120,13 @@ export default function CourseOverview({
       <div className="p-4 sm:p-6">
         {/* Course title skeleton */}
         <Skeleton className="h-8 w-64 mb-6" />
-        {/* Module cards skeleton */}
+        {/* Module cards skeleton with stagger animation */}
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="p-4 border border-slate-200 rounded-lg">
+            <div
+              key={i}
+              className={`p-4 border border-slate-200 rounded-lg stagger-item stagger-delay-${i}`}
+            >
               <Skeleton className="h-6 w-48 mb-2" />
               <Skeleton className="h-4 w-full mb-1" />
               <Skeleton className="h-4 w-3/4" />
