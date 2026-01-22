@@ -94,11 +94,11 @@ Plans:
   3. Buttons and interactive elements respond immediately to touch (visual feedback on press)
   4. Mobile layouts maintain the same visual language as desktop (colors, spacing rhythm, component shapes)
   5. Loading states (skeleton screens, spinners) display correctly on mobile
-**Plans**: TBD
+**Plans**: 2 plans (Wave 1 parallel)
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
+- [ ] 05-01-PLAN.md — Animation system: spring easing, drawer animations, touch feedback
+- [ ] 05-02-PLAN.md — Page transitions (View Transitions API) and skeleton loading states
 
 ## Progress
 
