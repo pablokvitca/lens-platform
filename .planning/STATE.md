@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-01-21)
 ## Current Position
 
 Phase: 2 of 5 (Responsive Layout)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-22 — Completed 02-01-PLAN.md
+Last activity: 2026-01-22 — Completed 02-02-PLAN.md
 
-Progress: [███░░░░░░░] 30%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: ~3 min
-- Total execution time: ~9 min
+- Total execution time: ~13 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-foundation-typography | 2 | ~6 min | ~3 min |
-| 02-responsive-layout | 1 | ~3 min | ~3 min |
+| 02-responsive-layout | 2 | ~7 min | ~3.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (5 min), 01-02 (1 min), 02-01 (3 min)
+- Last 5 plans: 01-01 (5 min), 01-02 (1 min), 02-01 (3 min), 02-02 (4 min)
 - Trend: Consistent ~3 min execution
 
 *Updated after each plan completion*
@@ -51,6 +51,9 @@ Recent decisions affecting current work:
 - 100px threshold for scroll direction to prevent flickering (02-01)
 - Menu slides from right for natural mobile gesture flow (02-01)
 - z-50 for header, z-60 for menu overlay stacking (02-01)
+- 80% width on mobile for drawers (vs max-w-md) per CONTEXT.md guidance (02-02)
+- Semi-transparent backdrop (bg-black/50) for drawer visibility on mobile (02-02)
+- Body scroll lock only on mobile when drawer open (02-02)
 
 ### Pending Todos
 
@@ -66,5 +69,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Completed 02-01-PLAN.md
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None
