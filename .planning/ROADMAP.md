@@ -63,11 +63,11 @@ Plans:
   3. Article content has appropriate padding on mobile (not cramped to edges, not excessive margins)
   4. Stage progress bar dots and arrows are easily tappable (44px touch targets)
   5. Tapping stage progress dots advances to the correct stage without mis-taps
-**Plans**: TBD
+**Plans**: 2 plans (Wave 1 parallel)
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md — Content display: VideoEmbed responsive container, ArticleEmbed mobile padding and typography
+- [ ] 03-02-PLAN.md — Progress navigation: haptics utility, StageProgressBar 44px touch targets
 
 ### Phase 4: Chat Interface
 **Goal**: Students can use the AI chatbot on mobile — input visible above keyboard, messages readable, touch interactions smooth
