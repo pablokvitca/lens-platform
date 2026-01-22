@@ -94,11 +94,13 @@ Plans:
   3. Buttons and interactive elements respond immediately to touch (visual feedback on press)
   4. Mobile layouts maintain the same visual language as desktop (colors, spacing rhythm, component shapes)
   5. Loading states (skeleton screens, spinners) display correctly on mobile
-**Plans**: 2 plans (Wave 1 parallel)
+**Plans**: 4 plans (Wave 1: 01, 02; Wave 2: 03, 04 gap closure)
 
 Plans:
-- [ ] 05-01-PLAN.md — Animation system: spring easing, drawer animations, touch feedback
-- [ ] 05-02-PLAN.md — Page transitions (View Transitions API) and skeleton loading states
+- [x] 05-01-PLAN.md — Animation system: spring easing, drawer animations, touch feedback
+- [x] 05-02-PLAN.md — Page transitions (View Transitions API) and skeleton loading states
+- [ ] 05-03-PLAN.md — Gap closure: touch feedback completion for chat, progress, completion buttons
+- [ ] 05-04-PLAN.md — Gap closure: skeleton loading states and stagger animation usage
 
 ## Progress
 
@@ -112,4 +114,4 @@ Note: Phases 2 and 3 can run in parallel after Phase 1 completes.
 | 2. Responsive Layout | 3/3 | Complete | 2026-01-22 |
 | 3. Content Components | 2/2 | Complete | 2026-01-22 |
 | 4. Chat Interface | 2/2 | Complete | 2026-01-22 |
-| 5. Motion & Polish | 0/2 | Not started | - |
+| 5. Motion & Polish | 2/4 | Gap closure | - |
