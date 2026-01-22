@@ -51,11 +51,14 @@ All v1.0 decisions are now archived in:
 
 ### Pending Todos
 
-4 todos in `.planning/todos/pending/`:
-- Fix mobile article horizontal scroll (includes image cutoff)
-- Fix stage progress bar display on mobile
+1 todo in `.planning/todos/pending/`:
 - Collapse references section on mobile
-- Fix Feedback button overlap on mobile
+
+### Completed Todos
+
+- ✅ Fix mobile article horizontal scroll (overflow-x: clip fix)
+- ✅ Fix stage progress bar display on mobile (simplified to < 1/6 > nav)
+- ✅ Fix Feedback button overlap on mobile (bottom-28 positioning)
 
 ### Blockers/Concerns
 
