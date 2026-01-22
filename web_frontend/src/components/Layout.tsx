@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMedia } from "react-use";
 import { Menu } from "lucide-react";
 import CookieSettings from "./CookieSettings";
-import { DiscordInviteButton, MobileMenu, UserMenu } from "./nav";
+import { BottomNav, DiscordInviteButton, MobileMenu, UserMenu } from "./nav";
 import { useScrollDirection } from "../hooks/useScrollDirection";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -64,7 +64,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 flex-1">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 md:pb-0 flex-1">
         {children}
       </main>
 
@@ -95,6 +95,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       />
 
       <MobileMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
+
+      <BottomNav />
     </div>
   );
 }
