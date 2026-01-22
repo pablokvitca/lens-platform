@@ -72,18 +72,17 @@ Plans:
 ### Phase 4: Chat Interface
 **Goal**: Students can use the AI chatbot on mobile — input visible above keyboard, messages readable, touch interactions smooth
 **Depends on**: Phase 1, Phase 2
-**Requirements**: CHAT-01, CHAT-02, CHAT-03, CHAT-04, TYPE-03
+**Requirements**: CHAT-01, CHAT-02, CHAT-03, TYPE-03 (CHAT-04 removed per CONTEXT.md)
 **Success Criteria** (what must be TRUE):
   1. Chat container uses full available height on mobile without content hiding behind browser chrome
   2. Chat input field remains visible above keyboard when typing on iOS Safari
   3. Send and microphone buttons are easily tappable (44px minimum)
-  4. Student can swipe left/right to navigate through chat history stages
-  5. Chat message bubbles have readable typography with proper spacing between messages
-**Plans**: TBD
+  4. Chat message bubbles have readable typography with proper spacing between messages
+**Plans**: 2 plans (Wave 1: 01; Wave 2: 02)
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md — Chat container dvh, scrollIntoView keyboard handling, message spacing
+- [ ] 04-02-PLAN.md — 44px touch targets for send/mic buttons, haptic feedback on send
 
 ### Phase 5: Motion & Polish
 **Goal**: Mobile experience feels polished — smooth animations, consistent visual language, verified on real devices
