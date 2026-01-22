@@ -455,7 +455,7 @@ export default function NarrativeChatSection({
             <div>
               {/* Previous messages - natural height */}
               {currentExchangeStartIndex > 0 && (
-                <div className="space-y-3 pb-3">
+                <div className="space-y-4 pb-4">
                   {messages.slice(0, currentExchangeStartIndex).map((msg, i) =>
                     msg.role === "system" ? (
                       <div key={i} className="flex justify-center my-3">
@@ -501,7 +501,7 @@ export default function NarrativeChatSection({
                       : undefined,
                 }}
               >
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {/* Current exchange messages */}
                   {messages.slice(currentExchangeStartIndex).map((msg, i) =>
                     msg.role === "system" ? (
