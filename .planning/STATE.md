@@ -51,7 +51,10 @@ All v1.0 decisions are now archived in:
 
 ### Pending Todos
 
-None.
+3 todos in `.planning/todos/pending/`:
+- Fix mobile article horizontal scroll
+- Collapse references section on mobile
+- Fix Feedback button overlap on mobile
 
 ### Blockers/Concerns
 
