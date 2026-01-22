@@ -1,5 +1,6 @@
 import { useMedia } from "react-use";
 import { Home, BookOpen } from "lucide-react";
+import { useViewTransition } from "@/hooks/useViewTransition";
 
 interface NavItemProps {
   href: string;
@@ -9,12 +10,20 @@ interface NavItemProps {
 }
 
 function NavItem({ href, icon, label, isActive }: NavItemProps) {
+  const { navigateWithTransition } = useViewTransition();
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigateWithTransition(href);
+  };
+
   return (
     <a
       href={href}
+      onClick={handleClick}
       className={`
         min-h-[44px] min-w-[44px] flex flex-col items-center justify-center gap-0.5
-        transition-colors duration-200
+        transition-all duration-200 active:scale-[0.97]
         ${isActive ? "text-blue-600" : "text-slate-500 hover:text-slate-700"}
       `}
     >

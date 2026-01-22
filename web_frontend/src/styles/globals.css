@@ -141,3 +141,32 @@ body {
 .stagger-delay-3 { animation-delay: 150ms; }
 .stagger-delay-4 { animation-delay: 200ms; }
 .stagger-delay-5 { animation-delay: 250ms; }
+
+/* View Transitions API styles */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+}
+
+/* Crossfade: old fades out, new fades in */
+::view-transition-old(root) {
+  animation: view-fade-out 200ms ease-out;
+}
+
+::view-transition-new(root) {
+  animation: view-fade-in 200ms ease-in;
+}
+
+@keyframes view-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes view-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
