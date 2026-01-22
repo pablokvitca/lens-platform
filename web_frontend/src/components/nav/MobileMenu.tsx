@@ -46,7 +46,7 @@ export function MobileMenu({
         className={`
           fixed top-0 right-0 h-dvh w-[80%] max-w-sm
           bg-white z-60
-          transition-transform duration-300 ease-out
+          transition-transform duration-300 [transition-timing-function:var(--ease-spring)]
           ${isOpen ? "translate-x-0" : "translate-x-full"}
         `}
         style={{ paddingTop: "var(--safe-top)", paddingBottom: "var(--safe-bottom)" }}

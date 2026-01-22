@@ -68,7 +68,7 @@ export default function ModuleDrawer({
       {/* Backdrop to close drawer - dimmed on mobile */}
       {isOpen && (
         <div
-          className={`fixed inset-0 z-40 transition-opacity duration-200 ${
+          className={`fixed inset-0 z-40 transition-opacity duration-300 ${
             isMobile ? "bg-black/50" : ""
           }`}
           onMouseDown={handleClose}
@@ -77,7 +77,7 @@ export default function ModuleDrawer({
 
       {/* Drawer panel - slides in from left */}
       <div
-        className={`fixed top-0 left-0 h-full bg-white z-50 transition-transform duration-200 ${
+        className={`fixed top-0 left-0 h-full bg-white z-50 transition-transform duration-300 [transition-timing-function:var(--ease-spring)] ${
           isMobile ? "w-[80%]" : "w-[40%] max-w-md"
         } ${
           isOpen
