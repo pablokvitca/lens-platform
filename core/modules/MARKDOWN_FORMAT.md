@@ -11,7 +11,7 @@ slug: lesson-slug
 title: Lesson Title
 ---
 
-# Section
+# Section: Title
 fields...
 
 ## Segment
@@ -20,7 +20,7 @@ fields...
 ## Segment
 fields...
 
-# Section
+# Section: Another Title
 fields...
 ```
 
@@ -37,27 +37,47 @@ YAML frontmatter between `---` markers. Required fields:
 
 ### Sections (`#`)
 
-Top-level content blocks.
+Top-level content blocks. **Title is required.**
 
 **Valid types:** `Video`, `Article`, `Text`, `Chat`
 
-**Syntax rules:**
-- Type alone: `# Video`
-- Type with empty title: `# Video:`
-- Type with title: `# Video: Introduction`
+**Syntax:** `# Type: Title`
+
+**Examples:**
+```markdown
+# Video: A.I. - Humanity's Final Invention
+# Article: Existential Risk from AI
+# Text: Summary
+# Chat: Discussion
+```
 
 **Invalid:**
+- Missing title: `# Video` or `# Video:`
 - Missing colon before title: `# Video Introduction`
 - Space before colon: `# Video : Introduction`
 - Wrong level: `## Video` (Video must be `#`, not `##`)
 
 ### Segments (`##`)
 
-Child blocks within Video or Article sections.
+Child blocks within Video or Article sections. **Title is optional.**
 
 **Valid types:** `Text`, `Chat`, `Video-excerpt`, `Article-excerpt`
 
-**Same syntax rules as sections.**
+**Syntax:** `## Type` or `## Type: Optional Title`
+
+**Examples:**
+```markdown
+## Text
+## Chat
+## Video-excerpt
+## Article-excerpt
+## Chat: Discussion Questions
+```
+
+**Invalid:**
+- Missing colon before title: `## Chat Discussion`
+- Space before colon: `## Chat : Discussion`
+- Wrong level: `# Video-excerpt` (must be `##`)
 
 ### Type-Level Restrictions
 

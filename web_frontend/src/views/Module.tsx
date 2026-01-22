@@ -760,12 +760,12 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
             >
               {section.type === "text" ? (
                 <>
-                  <SectionDivider type="article" />
+                  <SectionDivider type="article" title={`Section ${sectionIndex + 1}`} />
                   <AuthoredText content={section.content} />
                 </>
               ) : section.type === "chat" ? (
                 <>
-                  <SectionDivider type="chat" />
+                  <SectionDivider type="chat" title={section.meta?.title} />
                   <NarrativeChatSection
                     messages={messages}
                     pendingMessage={pendingMessage}
@@ -779,7 +779,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                 </>
               ) : section.type === "article" ? (
                 <>
-                  <SectionDivider type="article" />
+                  <SectionDivider type="article" title={section.meta?.title} />
                   <ArticleSectionWrapper>
                     {(() => {
                       // Split segments into pre-excerpt, excerpt, post-excerpt groups
@@ -849,7 +849,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                 </>
               ) : (
                 <>
-                  <SectionDivider type={section.type} />
+                  <SectionDivider type={section.type} title={section.meta?.title} />
                   {section.segments?.map((segment, segmentIndex) =>
                     renderSegment(segment, section, sectionIndex, segmentIndex),
                   )}

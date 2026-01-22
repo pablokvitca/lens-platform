@@ -651,19 +651,23 @@ def bundle_narrative_module(module) -> dict:
     def bundle_section(section) -> dict:
         """Bundle a single section with metadata and content."""
         if isinstance(section, TextSection):
-            return {"type": "text", "content": section.content}
+            return {
+                "type": "text",
+                "meta": {"title": section.title or None},
+                "content": section.content,
+            }
 
         elif isinstance(section, ArticleSection):
             # Load article metadata
             try:
                 result = load_article_with_metadata(section.source)
                 meta = {
-                    "title": result.metadata.title,
+                    "title": section.title or result.metadata.title,
                     "author": result.metadata.author,
                     "sourceUrl": result.metadata.source_url,
                 }
             except FileNotFoundError:
-                meta = {"title": None, "author": None, "sourceUrl": None}
+                meta = {"title": section.title or None, "author": None, "sourceUrl": None}
 
             segments = [bundle_segment(s, section) for s in section.segments]
             return {"type": "article", "meta": meta, "segments": segments}
@@ -674,12 +678,12 @@ def bundle_narrative_module(module) -> dict:
                 result = load_video_transcript_with_metadata(section.source)
                 video_id = result.metadata.video_id
                 meta = {
-                    "title": result.metadata.title,
+                    "title": section.title or result.metadata.title,
                     "channel": result.metadata.channel,
                 }
             except FileNotFoundError:
                 video_id = None
-                meta = {"title": None, "channel": None}
+                meta = {"title": section.title or None, "channel": None}
 
             segments = [bundle_segment(s, section) for s in section.segments]
             return {
@@ -692,7 +696,7 @@ def bundle_narrative_module(module) -> dict:
         elif isinstance(section, ChatSection):
             return {
                 "type": "chat",
-                "meta": {"title": "Discussion"},
+                "meta": {"title": section.title or "Discussion"},
                 "instructions": section.instructions,
                 "hidePreviousContentFromUser": section.hide_previous_content_from_user,
                 "hidePreviousContentFromTutor": section.hide_previous_content_from_tutor,
