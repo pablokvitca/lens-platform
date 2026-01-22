@@ -116,7 +116,7 @@ export default function StageProgressBar({
         <button
           onClick={onPrevious}
           disabled={!canGoPrevious}
-          className="min-w-[44px] min-h-[44px] p-2 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default"
+          className="min-w-[44px] min-h-[44px] p-2 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default transition-all active:scale-95"
         >
           <svg
             className="w-5 h-5 sm:w-4 sm:h-4"
@@ -173,7 +173,7 @@ export default function StageProgressBar({
                   }
                   className={`
                     relative min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center
-                    transition-all duration-150 disabled:cursor-default
+                    transition-all duration-150 active:scale-95 disabled:cursor-default
                     ${
                       isOptional
                         ? "bg-transparent text-gray-400 border-2 border-dashed border-gray-400 hover:border-gray-500"
@@ -202,7 +202,7 @@ export default function StageProgressBar({
         <button
           onClick={onNext}
           disabled={!canGoNext}
-          className="min-w-[44px] min-h-[44px] p-2 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default"
+          className="min-w-[44px] min-h-[44px] p-2 rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default transition-all active:scale-95"
         >
           <svg
             className="w-5 h-5 sm:w-4 sm:h-4"
