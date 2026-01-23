@@ -119,18 +119,26 @@ async def get_available_cohorts(
     """
     Get future cohorts, separated into enrolled and available.
 
-    Args:
-        conn: Database connection
-        user_id: If provided, check enrollment status for this user
-
-    Returns:
-        {"enrolled": [...], "available": [...]}
+    Includes has_groups flag for each cohort (True if cohort has any groups).
+    Maps course_slug to course_name using load_course().
     """
     from datetime import date
 
+    from ..tables import groups
+
     today = date.today()
 
-    # Get all future active cohorts
+    # Subquery to check if cohort has groups
+    has_groups_subq = (
+        select(
+            groups.c.cohort_id,
+            func.count().label("group_count"),
+        )
+        .group_by(groups.c.cohort_id)
+        .subquery()
+    )
+
+    # Get all future active cohorts with has_groups
     query = (
         select(
             cohorts.c.cohort_id,
@@ -138,19 +146,28 @@ async def get_available_cohorts(
             cohorts.c.cohort_start_date,
             cohorts.c.course_slug,
             cohorts.c.duration_days,
+            func.coalesce(has_groups_subq.c.group_count, 0).label("group_count"),
         )
+        .outerjoin(has_groups_subq, cohorts.c.cohort_id == has_groups_subq.c.cohort_id)
         .where(cohorts.c.cohort_start_date > today)
         .where(cohorts.c.status == "active")
         .order_by(cohorts.c.cohort_start_date)
     )
 
     result = await conn.execute(query)
-    all_cohorts = [dict(row) for row in result.mappings()]
+    all_cohorts = []
+    for row in result.mappings():
+        cohort = dict(row)
+        cohort["has_groups"] = cohort.pop("group_count") > 0
+        # Map course_slug to course_name for frontend compatibility
+        course = load_course(cohort["course_slug"])
+        cohort["course_name"] = course.title
+        all_cohorts.append(cohort)
 
     if not user_id:
         return {"enrolled": [], "available": all_cohorts}
 
-    # Get user's signups (pending enrollments)
+    # Get user's signups
     enrollment_query = select(
         signups.c.cohort_id,
         signups.c.role,

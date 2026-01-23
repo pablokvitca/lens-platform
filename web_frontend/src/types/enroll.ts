@@ -11,13 +11,28 @@ export type TimeSlot = string; // "09:00", "14:00", etc.
 
 export type AvailabilityData = Record<DayName, TimeSlot[]>;
 
+// Group returned by API - all display info is pre-computed by backend
+export interface Group {
+  group_id: number;
+  group_name: string;
+  recurring_meeting_time_utc: string;
+  member_count: number;
+  first_meeting_at: string | null;
+  next_meeting_at: string | null;  // ISO datetime - frontend just formats this
+  has_started: boolean;
+  badge: "best_size" | null;  // Backend decides badge
+  is_current: boolean;  // True if user is already in this group
+  status: string;
+}
+
 export interface Cohort {
   cohort_id: number;
   cohort_name: string;
   cohort_start_date: string;
-  course_name: string;
+  course_name: string;  // Keep existing field name
   duration_days: number;
   role?: string;
+  has_groups?: boolean;
 }
 
 export interface EnrollFormData {
@@ -30,6 +45,7 @@ export interface EnrollFormData {
   timezone: string;
   selectedCohortId: number | null;
   selectedRole: string | null;
+  selectedGroupId: number | null;
 }
 
 export const DAY_NAMES: DayName[] = [

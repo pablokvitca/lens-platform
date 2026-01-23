@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { EnrollFormData, Cohort } from "../../types/enroll";
 import { EMPTY_AVAILABILITY, getBrowserTimezone } from "../../types/enroll";
 import PersonalInfoStep from "./PersonalInfoStep";
 import CohortRoleStep from "./CohortRoleStep";
 import AvailabilityStep from "./AvailabilityStep";
+import GroupSelectionStep from "./GroupSelectionStep";
 import EnrollSuccessMessage from "./EnrollSuccessMessage";
 import { useAuth } from "../../hooks/useAuth";
 import { API_URL } from "../../config";
@@ -30,14 +31,27 @@ export default function EnrollWizard() {
     timezone: getBrowserTimezone(),
     selectedCohortId: null,
     selectedRole: null,
+    selectedGroupId: null,
   });
   // Submission state tracked for future UI improvements (e.g., disable button during submit)
   const [, setIsSubmitting] = useState(false);
+
+  // Force availability mode when user clicks "switch to availability" from GroupSelectionStep
+  const [forceAvailabilityMode, setForceAvailabilityMode] = useState(false);
 
   // Cohort data
   const [enrolledCohorts, setEnrolledCohorts] = useState<Cohort[]>([]);
   const [availableCohorts, setAvailableCohorts] = useState<Cohort[]>([]);
   const [isFacilitator, setIsFacilitator] = useState(false);
+
+  // Determine if selected cohort has groups (for direct group join flow)
+  const selectedCohortHasGroups = useMemo(() => {
+    if (!formData.selectedCohortId) return false;
+    const cohort = availableCohorts.find(
+      (c) => c.cohort_id === formData.selectedCohortId
+    );
+    return cohort?.has_groups ?? false;
+  }, [formData.selectedCohortId, availableCohorts]);
 
   // Track enrollment started on mount
   useEffect(() => {
@@ -145,22 +159,29 @@ export default function EnrollWizard() {
           nickname: formData.displayName || null,
           email: formData.email || null,
           timezone: formData.timezone,
-          availability_local: JSON.stringify(formData.availability),
+          // Only send availability if not doing direct group join
+          availability_local: formData.selectedGroupId
+            ? null
+            : JSON.stringify(formData.availability),
           cohort_id: formData.selectedCohortId,
           role: formData.selectedRole,
           tos_accepted: formData.termsAccepted,
+          group_id: formData.selectedGroupId,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update profile");
+        const data = await response.json();
+        throw new Error(data.detail || "Failed to update profile");
       }
 
       trackEnrollmentCompleted();
       setCurrentStep("complete");
     } catch (error) {
       console.error("Failed to submit:", error);
-      alert("Failed to save your profile. Please try again.");
+      alert(
+        error instanceof Error ? error.message : "Failed to save. Please try again."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -213,13 +234,15 @@ export default function EnrollWizard() {
             formData.selectedRole ?? (isFacilitator ? null : "participant")
           }
           isFacilitator={isFacilitator}
-          onCohortSelect={(id) =>
+          onCohortSelect={(id) => {
             setFormData((prev) => ({
               ...prev,
               selectedCohortId: id,
               selectedRole: isFacilitator ? null : "participant",
-            }))
-          }
+              selectedGroupId: null,
+            }));
+            setForceAvailabilityMode(false);
+          }}
           onRoleSelect={(role) =>
             setFormData((prev) => ({ ...prev, selectedRole: role }))
           }
@@ -232,25 +255,50 @@ export default function EnrollWizard() {
         />
       )}
 
-      {currentStep === 3 && (
-        <AvailabilityStep
-          availability={formData.availability}
-          onAvailabilityChange={(data) =>
-            setFormData((prev) => ({ ...prev, availability: data }))
-          }
-          timezone={formData.timezone}
-          onTimezoneChange={(tz) =>
-            setFormData((prev) => ({ ...prev, timezone: tz }))
-          }
-          onBack={() => setCurrentStep(2)}
-          onSubmit={handleSubmit}
-          cohort={
-            availableCohorts.find(
-              (c) => c.cohort_id === formData.selectedCohortId,
-            ) ?? null
-          }
-        />
-      )}
+      {currentStep === 3 &&
+        (selectedCohortHasGroups && !forceAvailabilityMode ? (
+          <GroupSelectionStep
+            cohortId={formData.selectedCohortId!}
+            timezone={formData.timezone}
+            onTimezoneChange={(tz) =>
+              setFormData((prev) => ({ ...prev, timezone: tz }))
+            }
+            selectedGroupId={formData.selectedGroupId}
+            onGroupSelect={(groupId) =>
+              setFormData((prev) => ({ ...prev, selectedGroupId: groupId }))
+            }
+            onBack={() => setCurrentStep(2)}
+            onSubmit={handleSubmit}
+            onSwitchToAvailability={() => {
+              setFormData((prev) => ({
+                ...prev,
+                selectedCohortId: null,
+                selectedRole: null,
+                selectedGroupId: null,
+              }));
+              setForceAvailabilityMode(true);
+              setCurrentStep(2);
+            }}
+          />
+        ) : (
+          <AvailabilityStep
+            availability={formData.availability}
+            onAvailabilityChange={(data) =>
+              setFormData((prev) => ({ ...prev, availability: data }))
+            }
+            timezone={formData.timezone}
+            onTimezoneChange={(tz) =>
+              setFormData((prev) => ({ ...prev, timezone: tz }))
+            }
+            onBack={() => setCurrentStep(2)}
+            onSubmit={handleSubmit}
+            cohort={
+              availableCohorts.find(
+                (c) => c.cohort_id === formData.selectedCohortId
+              ) ?? null
+            }
+          />
+        ))}
     </div>
   );
 }

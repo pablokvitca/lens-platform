@@ -105,6 +105,7 @@ from web_api.routes.cohorts import router as cohorts_router
 from web_api.routes.courses import router as courses_router
 from web_api.routes.facilitator import router as facilitator_router
 from web_api.routes.content import router as content_router
+from web_api.routes.groups import router as groups_router
 
 # Track bot task for cleanup
 _bot_task: asyncio.Task | None = None
@@ -250,6 +251,7 @@ app.include_router(cohorts_router)
 app.include_router(courses_router)
 app.include_router(facilitator_router)
 app.include_router(content_router)
+app.include_router(groups_router)
 
 
 # New paths for static files
