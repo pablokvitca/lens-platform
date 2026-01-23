@@ -3,7 +3,6 @@ Groups Cog - Discord adapter for realizing groups from database.
 Creates Discord channels, scheduled events, and welcome messages.
 """
 
-import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -21,13 +20,19 @@ from core.queries.groups import (
     get_cohort_groups_for_realization,
     save_discord_channel_ids,
     get_realized_groups_for_discord_user,
+    get_group_with_details,
+    get_group_member_names,
 )
-from core.notifications import notify_group_assigned
-from core.meetings import (
-    create_meetings_for_group,
-    send_calendar_invites_for_group,
-    schedule_reminders_for_group,
+from core.meetings import create_meetings_for_group
+from core.lifecycle import (
+    sync_group_discord_permissions,
+    sync_group_calendar,
+    sync_group_reminders,
+    sync_group_rsvps,
 )
+from core.notifications.dispatcher import was_notification_sent
+from core.notifications.actions import notify_group_assigned
+from core.enums import NotificationReferenceType
 
 
 class GroupsCog(commands.Cog):
@@ -55,6 +60,55 @@ class GroupsCog(commands.Cog):
             connect=True,
             speak=True,
         )
+
+    async def _sync_group_lifecycle(
+        self,
+        group_id: int,
+        user_ids: list[int],
+    ) -> None:
+        """
+        Sync all lifecycle operations for a newly realized group.
+
+        This uses the same group-level sync functions as direct group joining,
+        ensuring one code path for all group membership operations.
+        """
+        # 1. Sync Discord permissions (diff-based - will grant to all members)
+        await sync_group_discord_permissions(group_id)
+
+        # 2. Sync calendar events and attendees for all future meetings
+        await sync_group_calendar(group_id)
+
+        # 3. Sync reminders for all future meetings
+        await sync_group_reminders(group_id)
+
+        # 4. Sync RSVPs for all future meetings
+        await sync_group_rsvps(group_id)
+
+        # 5. Send notifications (with deduplication)
+        async with get_connection() as conn:
+            group_details = await get_group_with_details(conn, group_id)
+            member_names = await get_group_member_names(conn, group_id)
+
+        if not group_details:
+            return
+
+        for user_id in user_ids:
+            already_notified = await was_notification_sent(
+                user_id=user_id,
+                message_type="group_assigned",
+                reference_type=NotificationReferenceType.group_id,
+                reference_id=group_id,
+            )
+            if not already_notified:
+                await notify_group_assigned(
+                    user_id=user_id,
+                    group_name=group_details["group_name"],
+                    meeting_time_utc=group_details["recurring_meeting_time_utc"],
+                    member_names=member_names,
+                    discord_channel_id=group_details.get("discord_text_channel_id", ""),
+                    reference_type=NotificationReferenceType.group_id,
+                    reference_id=group_id,
+                )
 
     async def cohort_autocomplete(
         self,
@@ -140,7 +194,6 @@ class GroupsCog(commands.Cog):
 
         # Create channels for each group
         created_count = 0
-        skipped_members = []  # Track members not in guild
         for group_data in cohort_data["groups"]:
             # Skip if already realized (not in preview status)
             if group_data.get("status") != "preview":
@@ -164,24 +217,6 @@ class GroupsCog(commands.Cog):
                 reason=f"Voice channel for {group_data['group_name']}",
             )
 
-            # Set member permissions (channels inherit @everyone denial from category)
-            for member_data in group_data["members"]:
-                discord_id = member_data.get("discord_id")
-                if discord_id:
-                    try:
-                        member = await interaction.guild.fetch_member(int(discord_id))
-                        await self._grant_channel_permissions(
-                            member, text_channel, voice_channel
-                        )
-                    except discord.NotFound:
-                        # Member not in guild - track for reporting
-                        skipped_members.append(
-                            {
-                                "discord_id": discord_id,
-                                "group_name": group_data["group_name"],
-                            }
-                        )
-
             # Create scheduled events
             await progress_msg.edit(
                 content=f"Creating events for {group_data['group_name']}..."
@@ -196,9 +231,8 @@ class GroupsCog(commands.Cog):
 
             # Create meeting records in database
             num_meetings = cohort_data.get("number_of_group_meetings", 8)
-            meeting_ids = []
             if first_meeting:
-                meeting_ids = await create_meetings_for_group(
+                await create_meetings_for_group(
                     group_id=group_data["group_id"],
                     cohort_id=cohort_data["cohort_id"],
                     group_name=group_data["group_name"],
@@ -207,21 +241,6 @@ class GroupsCog(commands.Cog):
                     discord_voice_channel_id=str(voice_channel.id),
                     discord_events=events,
                     discord_text_channel_id=str(text_channel.id),
-                )
-
-                # Send Google Calendar invites
-                await send_calendar_invites_for_group(
-                    group_id=group_data["group_id"],
-                    group_name=group_data["group_name"],
-                    meeting_ids=meeting_ids,
-                )
-
-                # Schedule APScheduler reminders
-                await schedule_reminders_for_group(
-                    group_id=group_data["group_id"],
-                    group_name=group_data["group_name"],
-                    meeting_ids=meeting_ids,
-                    discord_channel_id=str(text_channel.id),
                 )
 
             # Save channel IDs to database
@@ -241,12 +260,12 @@ class GroupsCog(commands.Cog):
                 events[0].url if events else None,
             )
 
-            # Send email/DM notifications to each member (fire and forget)
-            asyncio.create_task(
-                self._send_group_notifications(
-                    group_data,
-                    str(text_channel.id),
-                )
+            # Sync permissions, calendar, reminders, and notifications via lifecycle functions
+            # This uses the same code path as direct group joining
+            user_ids = [m["user_id"] for m in group_data["members"]]
+            await self._sync_group_lifecycle(
+                group_id=group_data["group_id"],
+                user_ids=user_ids,
             )
 
             created_count += 1
@@ -254,9 +273,7 @@ class GroupsCog(commands.Cog):
         # Summary
         embed = discord.Embed(
             title=f"Groups Realized: {cohort_data['cohort_name']}",
-            color=discord.Color.green()
-            if not skipped_members
-            else discord.Color.yellow(),
+            color=discord.Color.green(),
         )
         embed.add_field(
             name="Summary",
@@ -265,28 +282,9 @@ class GroupsCog(commands.Cog):
             f"**Total groups:** {len(cohort_data['groups'])}",
             inline=False,
         )
-
-        if skipped_members:
-            # Group skipped members by group
-            skipped_by_group = {}
-            for sm in skipped_members:
-                group_name = sm["group_name"]
-                if group_name not in skipped_by_group:
-                    skipped_by_group[group_name] = []
-                skipped_by_group[group_name].append(f"<@{sm['discord_id']}>")
-
-            skipped_lines = []
-            for group_name, members in skipped_by_group.items():
-                skipped_lines.append(f"**{group_name}:** {', '.join(members)}")
-
-            embed.add_field(
-                name=f"⚠️ Members Not in Guild ({len(skipped_members)})",
-                value="\n".join(skipped_lines)[:1024],  # Discord field limit
-                inline=False,
-            )
-            embed.set_footer(
-                text="These members will get access automatically when they join the server."
-            )
+        embed.set_footer(
+            text="Members not in the guild will get access automatically when they join."
+        )
 
         await progress_msg.edit(content=None, embed=embed)
 
@@ -429,53 +427,6 @@ class GroupsCog(commands.Cog):
 Questions? Ask in this channel. We're here to help each other learn!
 """
         await channel.send(message)
-
-    async def _send_group_notifications(
-        self,
-        group_data: dict,
-        discord_channel_id: str,
-    ) -> None:
-        """
-        Send group assignment notifications to each member.
-
-        Sends email/DM to each member about their group assignment.
-        Calendar invites are sent via Google Calendar API (see send_calendar_invites_for_group).
-        Meeting reminders are scheduled by schedule_reminders_for_group().
-        """
-        try:
-            # Build member names list
-            member_names = [
-                m.get("name")
-                or m.get("nickname")
-                or m.get("discord_username")
-                or f"User {m['user_id']}"
-                for m in group_data["members"]
-            ]
-
-            # Get meeting time info
-            meeting_time_utc = group_data.get("recurring_meeting_time_utc", "TBD")
-
-            # Notify each member
-            for member_data in group_data["members"]:
-                user_id = member_data.get("user_id")
-                if not user_id:
-                    continue
-
-                try:
-                    await notify_group_assigned(
-                        user_id=user_id,
-                        group_name=group_data["group_name"],
-                        meeting_time_utc=meeting_time_utc,
-                        member_names=member_names,
-                        discord_channel_id=discord_channel_id,
-                    )
-                except Exception as e:
-                    print(
-                        f"[Notifications] Failed to notify user {user_id} of group assignment: {e}"
-                    )
-
-        except Exception as e:
-            print(f"[Notifications] Error in _send_group_notifications: {e}")
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
