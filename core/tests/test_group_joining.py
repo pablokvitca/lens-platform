@@ -4,7 +4,7 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
-from core.group_joining import _calculate_next_meeting, get_user_current_group
+from core.group_joining import _calculate_next_meeting, get_user_current_group, assign_group_badge
 
 
 class TestCalculateNextMeeting:
@@ -70,3 +70,27 @@ class TestGetUserCurrentGroup:
         assert result is not None
         assert result["group_id"] == 5
         assert result["group_name"] == "Test Group"
+
+
+class TestAssignGroupBadge:
+    """Test badge assignment logic."""
+
+    def test_assigns_best_size_for_3_members(self):
+        """Groups with 3 members get best_size badge."""
+        assert assign_group_badge(3) == "best_size"
+
+    def test_assigns_best_size_for_4_members(self):
+        """Groups with 4 members get best_size badge."""
+        assert assign_group_badge(4) == "best_size"
+
+    def test_no_badge_for_2_members(self):
+        """Groups with 2 members get no badge."""
+        assert assign_group_badge(2) is None
+
+    def test_no_badge_for_5_members(self):
+        """Groups with 5 members get no badge."""
+        assert assign_group_badge(5) is None
+
+    def test_no_badge_for_0_members(self):
+        """Empty groups get no badge."""
+        assert assign_group_badge(0) is None

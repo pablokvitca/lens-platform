@@ -87,3 +87,10 @@ async def get_user_current_group(
     result = await conn.execute(query)
     row = result.mappings().first()
     return dict(row) if row else None
+
+
+def assign_group_badge(member_count: int) -> str | None:
+    """Assign badge based on member count. Backend decides all badges."""
+    if MIN_BADGE_SIZE <= member_count <= MAX_BADGE_SIZE:
+        return "best_size"
+    return None
