@@ -213,3 +213,118 @@ async def get_joinable_groups(
         groups_list.append(group)
 
     return groups_list
+
+
+async def join_group(
+    conn: AsyncConnection,
+    user_id: int,
+    group_id: int,
+    role: str = "participant",
+) -> dict[str, Any]:
+    """
+    Join a group (or switch to a different group).
+
+    This is THE single function for joining groups. ALL lifecycle operations
+    happen here:
+    1. Database: Update groups_users
+    2. Discord: Grant/revoke channel permissions (TODO: implement in lifecycle module)
+    3. Calendar: Send/cancel meeting invites (TODO: implement in lifecycle module)
+    4. Reminders: Add/remove user from meeting reminder jobs (TODO: implement in lifecycle module)
+
+    Args:
+        conn: Database connection (should be in a transaction)
+        user_id: User joining the group
+        group_id: Target group
+        role: "participant" or "facilitator"
+
+    Returns:
+        {"success": True, "group_id": int, "previous_group_id": int | None}
+        or {"success": False, "error": str} on failure
+    """
+    from .queries.groups import add_user_to_group
+
+    # Query 1: Check user's current group status
+    # This query returns: group_id, group_name, recurring_meeting_time_utc, group_user_id, role
+    # or None if user has no group
+    current_group_query = (
+        select(
+            groups.c.group_id,
+            groups.c.group_name,
+            groups.c.recurring_meeting_time_utc,
+            groups.c.cohort_id,
+            groups_users.c.group_user_id,
+            groups_users.c.role,
+        )
+        .join(groups_users, groups.c.group_id == groups_users.c.group_id)
+        .where(groups_users.c.user_id == user_id)
+        .where(groups_users.c.status == GroupUserStatus.active)
+    )
+    current_result = await conn.execute(current_group_query)
+    current_group = current_result.mappings().first()
+    current_group = dict(current_group) if current_group else None
+
+    # Query 2: Get the target group with first meeting time
+    first_meeting_subq = (
+        select(
+            meetings.c.group_id,
+            func.min(meetings.c.scheduled_at).label("first_meeting_at"),
+        )
+        .group_by(meetings.c.group_id)
+        .subquery()
+    )
+
+    group_query = (
+        select(
+            groups.c.group_id,
+            groups.c.cohort_id,
+            groups.c.group_name,
+            groups.c.status,
+            first_meeting_subq.c.first_meeting_at,
+        )
+        .outerjoin(first_meeting_subq, groups.c.group_id == first_meeting_subq.c.group_id)
+        .where(groups.c.group_id == group_id)
+    )
+    group_result = await conn.execute(group_query)
+    target_group = group_result.mappings().first()
+
+    if not target_group:
+        return {"success": False, "error": "group_not_found"}
+
+    first_meeting_at = target_group.get("first_meeting_at")
+
+    # Check if user is already in this group
+    if current_group and current_group["group_id"] == group_id:
+        return {"success": False, "error": "already_in_group"}
+
+    # If user has no current group and group has started, reject
+    now = datetime.now(timezone.utc)
+    if not current_group and first_meeting_at and first_meeting_at < now:
+        return {"success": False, "error": "group_already_started"}
+
+    # === LEAVE OLD GROUP (if switching) ===
+    previous_group_id = None
+    if current_group:
+        previous_group_id = current_group["group_id"]
+
+        # Update database: mark old membership as removed
+        await conn.execute(
+            update(groups_users)
+            .where(groups_users.c.group_user_id == current_group["group_user_id"])
+            .values(
+                status=GroupUserStatus.removed,
+                left_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+
+    # === JOIN NEW GROUP ===
+    await add_user_to_group(conn, group_id, user_id, role)
+
+    # TODO: Lifecycle operations (Discord, Calendar, Reminders) will be added
+    # when the lifecycle module is implemented
+
+    return {
+        "success": True,
+        "group_id": group_id,
+        "previous_group_id": previous_group_id,
+    }

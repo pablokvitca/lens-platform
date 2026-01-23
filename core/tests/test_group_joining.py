@@ -9,6 +9,7 @@ from core.group_joining import (
     get_user_current_group,
     assign_group_badge,
     get_joinable_groups,
+    join_group,
 )
 
 
@@ -191,3 +192,93 @@ class TestGetJoinableGroups:
 
         assert result[0]["is_current"] is True
         assert result[1]["is_current"] is False
+
+
+class TestJoinGroup:
+    """Test group joining logic."""
+
+    @pytest.mark.asyncio
+    async def test_adds_user_to_new_group(self):
+        """Should add user to groups_users when joining first group."""
+        mock_conn = AsyncMock()
+
+        # Mock: user has no current group
+        mock_no_group = MagicMock()
+        mock_no_group.mappings.return_value.first.return_value = None
+
+        # Mock: group exists and is joinable
+        mock_group = MagicMock()
+        mock_group.mappings.return_value.first.return_value = {
+            "group_id": 5,
+            "cohort_id": 10,
+            "first_meeting_at": datetime.now(timezone.utc) + timedelta(days=7),
+        }
+
+        # Mock: insert succeeds
+        mock_insert = MagicMock()
+        mock_insert.mappings.return_value.first.return_value = {"group_user_id": 99}
+
+        mock_conn.execute = AsyncMock(side_effect=[mock_no_group, mock_group, mock_insert])
+
+        result = await join_group(mock_conn, user_id=1, group_id=5)
+
+        assert result["success"] is True
+        assert result["group_id"] == 5
+
+    @pytest.mark.asyncio
+    async def test_switches_user_between_groups(self):
+        """Should remove from old group and add to new group when switching."""
+        mock_conn = AsyncMock()
+
+        # Mock: user has current group
+        mock_current = MagicMock()
+        mock_current.mappings.return_value.first.return_value = {
+            "group_id": 3,
+            "group_user_id": 50,
+        }
+
+        # Mock: new group exists
+        mock_group = MagicMock()
+        mock_group.mappings.return_value.first.return_value = {
+            "group_id": 5,
+            "cohort_id": 10,
+            "first_meeting_at": datetime.now(timezone.utc) + timedelta(days=7),
+        }
+
+        # Mock: update old group (mark as removed)
+        mock_update = MagicMock()
+
+        # Mock: insert into new group
+        mock_insert = MagicMock()
+        mock_insert.mappings.return_value.first.return_value = {"group_user_id": 99}
+
+        mock_conn.execute = AsyncMock(side_effect=[mock_current, mock_group, mock_update, mock_insert])
+
+        result = await join_group(mock_conn, user_id=1, group_id=5)
+
+        assert result["success"] is True
+        assert result["previous_group_id"] == 3
+
+    @pytest.mark.asyncio
+    async def test_rejects_joining_started_group_without_existing_group(self):
+        """Should reject if group has started and user has no current group."""
+        mock_conn = AsyncMock()
+
+        # Mock: user has no current group
+        mock_no_group = MagicMock()
+        mock_no_group.mappings.return_value.first.return_value = None
+
+        # Mock: group has already started
+        mock_group = MagicMock()
+        mock_group.mappings.return_value.first.return_value = {
+            "group_id": 5,
+            "cohort_id": 10,
+            "first_meeting_at": datetime.now(timezone.utc) - timedelta(days=1),  # Past
+        }
+
+        mock_conn.execute = AsyncMock(side_effect=[mock_no_group, mock_group])
+
+        result = await join_group(mock_conn, user_id=1, group_id=5)
+
+        assert result["success"] is False
+        assert result["error"] == "group_already_started"
