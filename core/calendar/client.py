@@ -1,9 +1,14 @@
 """Google Calendar API client initialization."""
 
+import logging
 import os
+from datetime import timedelta
 
+import sentry_sdk
 from google.oauth2 import service_account
 from googleapiclient.discovery import build, Resource
+
+logger = logging.getLogger(__name__)
 
 
 CALENDAR_EMAIL = os.environ.get("GOOGLE_CALENDAR_EMAIL", "calendar@lensacademy.org")
@@ -50,3 +55,169 @@ def get_calendar_service() -> Resource | None:
 def get_calendar_email() -> str:
     """Get the calendar email address used for invites."""
     return CALENDAR_EMAIL
+
+
+def batch_get_events(event_ids: list[str]) -> dict[str, dict] | None:
+    """
+    Fetch multiple calendar events in a single batch request.
+
+    Returns:
+        Dict mapping event_id -> event data, or None if calendar not configured.
+        Events that failed to fetch are omitted from the dict.
+    """
+    if not event_ids:
+        return {}
+
+    service = get_calendar_service()
+    if not service:
+        return None
+
+    calendar_id = get_calendar_email()
+    results: dict[str, dict] = {}
+
+    def callback(request_id: str, response: dict, exception):
+        if exception:
+            logger.error(f"Failed to fetch event {request_id}: {exception}")
+            sentry_sdk.capture_exception(exception)
+        else:
+            results[request_id] = response
+
+    batch = service.new_batch_http_request()
+    for event_id in event_ids:
+        batch.add(
+            service.events().get(calendarId=calendar_id, eventId=event_id),
+            callback=callback,
+            request_id=event_id,
+        )
+
+    batch.execute()
+    return results
+
+
+def batch_create_events(
+    events: list[dict],
+) -> dict[int, dict] | None:
+    """
+    Create multiple calendar events in a single batch request.
+
+    Args:
+        events: List of dicts, each with:
+            - meeting_id: Database meeting ID (used as key in results)
+            - title: Event title
+            - description: Event description
+            - start: Start datetime (timezone-aware)
+            - duration_minutes: Meeting duration
+            - attendees: List of email addresses
+
+    Returns:
+        Dict mapping meeting_id -> {"success": bool, "event_id": str | None, "error": str | None},
+        or None if calendar not configured.
+    """
+    if not events:
+        return {}
+
+    service = get_calendar_service()
+    if not service:
+        return None
+
+    calendar_id = get_calendar_email()
+    results: dict[int, dict] = {}
+
+    def callback(request_id: str, response: dict, exception):
+        meeting_id = int(request_id)
+        if exception:
+            logger.error(
+                f"Failed to create event for meeting {meeting_id}: {exception}"
+            )
+            sentry_sdk.capture_exception(exception)
+            results[meeting_id] = {
+                "success": False,
+                "event_id": None,
+                "error": str(exception),
+            }
+        else:
+            results[meeting_id] = {
+                "success": True,
+                "event_id": response["id"],
+                "error": None,
+            }
+
+    batch = service.new_batch_http_request()
+    for event_data in events:
+        start = event_data["start"]
+        end = start + timedelta(minutes=event_data["duration_minutes"])
+
+        event_body = {
+            "summary": event_data["title"],
+            "description": event_data["description"],
+            "start": {"dateTime": start.isoformat(), "timeZone": "UTC"},
+            "end": {"dateTime": end.isoformat(), "timeZone": "UTC"},
+            "attendees": [{"email": email} for email in event_data["attendees"]],
+            "guestsCanSeeOtherGuests": False,
+            "guestsCanModify": False,
+            "reminders": {"useDefault": False, "overrides": []},
+        }
+
+        batch.add(
+            service.events().insert(
+                calendarId=calendar_id,
+                body=event_body,
+                sendUpdates="all",
+            ),
+            callback=callback,
+            request_id=str(event_data["meeting_id"]),
+        )
+
+    batch.execute()
+    return results
+
+
+def batch_patch_events(
+    updates: list[dict],
+) -> dict[str, dict] | None:
+    """
+    Patch multiple calendar events in a single batch request.
+
+    Args:
+        updates: List of dicts, each with:
+            - event_id: Google Calendar event ID
+            - body: Patch body (e.g., {"attendees": [...]})
+            - send_updates: "all" to notify, "none" to skip (per-event)
+
+    Returns:
+        Dict mapping event_id -> {"success": bool, "error": str | None},
+        or None if calendar not configured.
+    """
+    if not updates:
+        return {}
+
+    service = get_calendar_service()
+    if not service:
+        return None
+
+    calendar_id = get_calendar_email()
+    results: dict[str, dict] = {}
+
+    def callback(request_id: str, response: dict, exception):
+        if exception:
+            logger.error(f"Failed to patch event {request_id}: {exception}")
+            sentry_sdk.capture_exception(exception)
+            results[request_id] = {"success": False, "error": str(exception)}
+        else:
+            results[request_id] = {"success": True, "error": None}
+
+    batch = service.new_batch_http_request()
+    for update in updates:
+        batch.add(
+            service.events().patch(
+                calendarId=calendar_id,
+                eventId=update["event_id"],
+                body=update["body"],
+                sendUpdates=update["send_updates"],
+            ),
+            callback=callback,
+            request_id=update["event_id"],
+        )
+
+    batch.execute()
+    return results

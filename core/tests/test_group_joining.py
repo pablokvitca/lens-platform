@@ -228,6 +228,8 @@ class TestJoinGroup:
 
         assert result["success"] is True
         assert result["group_id"] == 5
+        # Note: lifecycle sync is called by the API route AFTER transaction commits,
+        # not inside join_group. This ensures sync functions can see committed data.
 
     @pytest.mark.asyncio
     async def test_switches_user_between_groups(self):
@@ -265,6 +267,7 @@ class TestJoinGroup:
 
         assert result["success"] is True
         assert result["previous_group_id"] == 3
+        # Note: lifecycle sync is called by the API route AFTER transaction commits
 
     @pytest.mark.asyncio
     async def test_rejects_joining_started_group_without_existing_group(self):

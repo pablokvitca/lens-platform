@@ -152,182 +152,177 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
     }
 
 
-async def sync_meeting_calendar(meeting_id: int) -> dict:
-    """
-    Sync a meeting's calendar event with DB membership (diff-based).
-
-    1. Creates calendar event if it doesn't exist
-    2. Gets current attendees from Google Calendar
-    3. Compares with active group members from DB
-    4. Only adds/removes for the diff
-
-    Idempotent - safe to run multiple times.
-
-    Returns dict with counts: {"added": N, "removed": N, "unchanged": N, "created": bool}
-    """
-    from .database import get_connection, get_transaction
-    from .tables import meetings, groups, groups_users, users
-    from .enums import GroupUserStatus
-    from .calendar.client import get_calendar_service, get_calendar_email
-    from .calendar.events import create_meeting_event
-    from sqlalchemy import select, update
-
-    service = get_calendar_service()
-    if not service:
-        logger.warning("Calendar service not available")
-        return {"error": "calendar_unavailable"}
-
-    async with get_connection() as conn:
-        # Get meeting and group details
-        meeting_result = await conn.execute(
-            select(meetings, groups.c.group_name, groups.c.discord_text_channel_id)
-            .join(groups, meetings.c.group_id == groups.c.group_id)
-            .where(meetings.c.meeting_id == meeting_id)
-        )
-        meeting = meeting_result.mappings().first()
-        if not meeting:
-            return {"error": "meeting_not_found"}
-
-        group_id = meeting["group_id"]
-
-        # Get all active members' emails from DB (who SHOULD be invited)
-        members_result = await conn.execute(
-            select(users.c.email)
-            .join(groups_users, users.c.user_id == groups_users.c.user_id)
-            .where(groups_users.c.group_id == group_id)
-            .where(groups_users.c.status == GroupUserStatus.active)
-            .where(users.c.email.isnot(None))
-        )
-        expected_emails = {row["email"].lower() for row in members_result.mappings()}
-
-    event_id = meeting.get("google_calendar_event_id")
-
-    # Create calendar event if it doesn't exist
-    if not event_id:
-        try:
-            # create_meeting_event is synchronous - construct title/description
-            meeting_title = f"{meeting['group_name']} - Meeting"
-            meeting_description = "Study group meeting"
-
-            event_id = create_meeting_event(
-                title=meeting_title,
-                description=meeting_description,
-                start=meeting["scheduled_at"],
-                attendee_emails=list(expected_emails),
-            )
-            # Save event_id to database
-            async with get_transaction() as conn:
-                await conn.execute(
-                    update(meetings)
-                    .where(meetings.c.meeting_id == meeting_id)
-                    .values(google_calendar_event_id=event_id)
-                )
-            return {
-                "created": True,
-                "added": len(expected_emails),
-                "removed": 0,
-                "unchanged": 0,
-            }
-        except Exception as e:
-            logger.error(f"Error creating calendar event: {e}")
-            sentry_sdk.capture_exception(e)
-            return {"error": "event_creation_failed"}
-
-    # Get current attendees from Google Calendar
-    calendar_email = get_calendar_email()
-    try:
-        event = (
-            service.events()
-            .get(
-                calendarId=calendar_email,
-                eventId=event_id,
-            )
-            .execute()
-        )
-        current_emails = {
-            a.get("email", "").lower()
-            for a in event.get("attendees", [])
-            if a.get("email")
-        }
-    except Exception as e:
-        logger.error(f"Error fetching calendar event: {e}")
-        sentry_sdk.capture_exception(e)
-        return {"error": "event_fetch_failed"}
-
-    # Calculate diff
-    to_add = expected_emails - current_emails
-    to_remove = current_emails - expected_emails
-    unchanged = expected_emails & current_emails
-
-    # Apply changes if any
-    if to_add or to_remove:
-        new_attendees = [
-            {"email": email} for email in (current_emails | to_add) - to_remove
-        ]
-        try:
-            service.events().patch(
-                calendarId=calendar_email,
-                eventId=event_id,
-                body={"attendees": new_attendees},
-                sendUpdates="all" if to_add else "none",  # Only notify new attendees
-            ).execute()
-        except Exception as e:
-            logger.error(f"Error updating calendar attendees: {e}")
-            sentry_sdk.capture_exception(e)
-            return {"error": "attendee_update_failed"}
-
-    return {
-        "created": False,
-        "added": len(to_add),
-        "removed": len(to_remove),
-        "unchanged": len(unchanged),
-    }
-
-
 async def sync_group_calendar(group_id: int) -> dict:
     """
     Sync calendar events for all future meetings of a group.
 
-    Calls sync_meeting_calendar for each future meeting.
+    Handles both creation and updates in one unified function:
+    1. Fetches all future meetings from DB
+    2. Batch CREATES events for meetings without calendar IDs
+    3. Batch GETS existing events to check attendees
+    4. Batch PATCHES events with attendee changes
 
-    Returns dict with aggregate counts.
+    Returns dict with counts.
     """
-    from .database import get_connection
-    from .tables import meetings
+    from .database import get_connection, get_transaction
+    from .tables import meetings, groups
+    from .calendar.client import (
+        batch_create_events,
+        batch_get_events,
+        batch_patch_events,
+    )
     from datetime import datetime, timezone
-    from sqlalchemy import select
+    from sqlalchemy import select, update
 
     async with get_connection() as conn:
         now = datetime.now(timezone.utc)
+
+        # Get all future meetings with group info
         meetings_result = await conn.execute(
-            select(meetings.c.meeting_id)
+            select(
+                meetings.c.meeting_id,
+                meetings.c.google_calendar_event_id,
+                meetings.c.scheduled_at,
+                groups.c.group_name,
+            )
+            .join(groups, meetings.c.group_id == groups.c.group_id)
             .where(meetings.c.group_id == group_id)
             .where(meetings.c.scheduled_at > now)
         )
-        meeting_ids = [row["meeting_id"] for row in meetings_result.mappings()]
+        meeting_rows = list(meetings_result.mappings())
 
-    if not meeting_ids:
-        return {"meetings": 0, "error": "no_future_meetings"}
+        if not meeting_rows:
+            return {
+                "meetings": 0,
+                "created": 0,
+                "patched": 0,
+                "unchanged": 0,
+                "failed": 0,
+            }
 
-    total = {
-        "meetings": len(meeting_ids),
-        "created": 0,
-        "added": 0,
-        "removed": 0,
-        "failed": 0,
+        # Get expected attendees
+        expected_emails = await _get_group_member_emails(conn, group_id)
+
+    # Split meetings by whether they have calendar events
+    meetings_to_create = [m for m in meeting_rows if not m["google_calendar_event_id"]]
+    meetings_with_events = [m for m in meeting_rows if m["google_calendar_event_id"]]
+
+    created = 0
+    patched = 0
+    failed = 0
+
+    # --- BATCH CREATE for meetings without calendar events ---
+    if meetings_to_create:
+        create_data = [
+            {
+                "meeting_id": m["meeting_id"],
+                "title": f"{m['group_name']} - Meeting",
+                "description": "Study group meeting",
+                "start": m["scheduled_at"],
+                "duration_minutes": 60,
+                "attendees": list(expected_emails),
+            }
+            for m in meetings_to_create
+        ]
+
+        create_results = batch_create_events(create_data)
+        if create_results:
+            # Save new event IDs to database
+            async with get_transaction() as conn:
+                for meeting_id, result in create_results.items():
+                    if result["success"]:
+                        await conn.execute(
+                            update(meetings)
+                            .where(meetings.c.meeting_id == meeting_id)
+                            .values(google_calendar_event_id=result["event_id"])
+                        )
+                        created += 1
+                    else:
+                        failed += 1
+                        logger.error(
+                            f"Failed to create event for meeting {meeting_id}: {result['error']}"
+                        )
+
+    # --- BATCH GET + PATCH for existing events ---
+    if meetings_with_events:
+        event_ids = [m["google_calendar_event_id"] for m in meetings_with_events]
+
+        # Batch fetch current attendees
+        events = batch_get_events(event_ids)
+        if events is None:
+            return {
+                "meetings": len(meeting_rows),
+                "created": created,
+                "patched": 0,
+                "unchanged": 0,
+                "failed": failed,
+                "error": "calendar_unavailable",
+            }
+
+        # Calculate which events need updates
+        updates_to_make = []
+        for event_id in event_ids:
+            if event_id not in events:
+                failed += 1
+                continue
+
+            event = events[event_id]
+            current_emails = {
+                a.get("email", "").lower()
+                for a in event.get("attendees", [])
+                if a.get("email")
+            }
+
+            to_add = expected_emails - current_emails
+            to_remove = current_emails - expected_emails
+
+            if to_add or to_remove:
+                new_attendees = [
+                    {"email": email} for email in (current_emails | to_add) - to_remove
+                ]
+                updates_to_make.append(
+                    {
+                        "event_id": event_id,
+                        "body": {"attendees": new_attendees},
+                        "send_updates": "all" if to_add else "none",
+                    }
+                )
+
+        # Batch patch
+        if updates_to_make:
+            patch_results = batch_patch_events(updates_to_make)
+            if patch_results:
+                for event_id, result in patch_results.items():
+                    if result["success"]:
+                        patched += 1
+                    else:
+                        failed += 1
+
+    unchanged = len(meeting_rows) - created - patched - failed
+
+    return {
+        "meetings": len(meeting_rows),
+        "created": created,
+        "patched": patched,
+        "unchanged": unchanged,
+        "failed": failed,
     }
 
-    for meeting_id in meeting_ids:
-        result = await sync_meeting_calendar(meeting_id)
-        if "error" in result:
-            total["failed"] += 1
-        else:
-            if result.get("created"):
-                total["created"] += 1
-            total["added"] += result.get("added", 0)
-            total["removed"] += result.get("removed", 0)
 
-    return total
+async def _get_group_member_emails(conn, group_id: int) -> set[str]:
+    """Get email addresses of all active group members, normalized to lowercase."""
+    from .tables import groups_users, users
+    from .enums import GroupUserStatus
+    from sqlalchemy import select
+
+    result = await conn.execute(
+        select(users.c.email)
+        .join(groups_users, users.c.user_id == groups_users.c.user_id)
+        .where(groups_users.c.group_id == group_id)
+        .where(groups_users.c.status == GroupUserStatus.active)
+        .where(users.c.email.isnot(None))
+    )
+    return {row["email"].lower() for row in result.mappings()}
 
 
 async def sync_group_reminders(group_id: int) -> dict:

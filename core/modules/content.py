@@ -616,12 +616,14 @@ def bundle_article_section(section) -> dict:
     for seg in section.segments:
         if isinstance(seg, ArticleExcerptSegment):
             start, end = find_excerpt_bounds(full_content, seg.from_text, seg.to_text)
-            excerpt_data.append({
-                "segment": seg,
-                "start": start,
-                "end": end,
-                "content": full_content[start:end].strip(),
-            })
+            excerpt_data.append(
+                {
+                    "segment": seg,
+                    "start": start,
+                    "end": end,
+                    "content": full_content[start:end].strip(),
+                }
+            )
 
     # 3. Sort by position (defensive - should already be in order)
     excerpt_data.sort(key=lambda x: x["start"])
@@ -645,21 +647,25 @@ def bundle_article_section(section) -> dict:
     for seg in section.segments:
         if isinstance(seg, ArticleExcerptSegment):
             ep = excerpt_map[id(seg)]
-            bundled_segments.append({
-                "type": "article-excerpt",
-                "content": ep["content"],
-                "collapsed_before": ep["collapsed_before"],
-                "collapsed_after": ep["collapsed_after"],
-            })
+            bundled_segments.append(
+                {
+                    "type": "article-excerpt",
+                    "content": ep["content"],
+                    "collapsed_before": ep["collapsed_before"],
+                    "collapsed_after": ep["collapsed_after"],
+                }
+            )
         elif isinstance(seg, TextSegment):
             bundled_segments.append({"type": "text", "content": seg.content})
         elif isinstance(seg, ChatSegment):
-            bundled_segments.append({
-                "type": "chat",
-                "instructions": seg.instructions,
-                "showUserPreviousContent": seg.show_user_previous_content,
-                "showTutorPreviousContent": seg.show_tutor_previous_content,
-            })
+            bundled_segments.append(
+                {
+                    "type": "chat",
+                    "instructions": seg.instructions,
+                    "showUserPreviousContent": seg.show_user_previous_content,
+                    "showTutorPreviousContent": seg.show_tutor_previous_content,
+                }
+            )
 
     return {
         "type": "article",

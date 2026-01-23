@@ -38,6 +38,13 @@ export function UserMenu() {
           >
             Edit Availability
           </a>
+          <a
+            href="/group"
+            className="text-sm text-gray-700 hover:text-gray-900"
+            onClick={close}
+          >
+            My Group
+          </a>
           <button
             onClick={() => {
               logout();

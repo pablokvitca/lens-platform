@@ -242,9 +242,10 @@ async def join_group(
     This is THE single function for joining groups. ALL lifecycle operations
     happen here:
     1. Database: Update groups_users
-    2. Discord: Grant/revoke channel permissions (TODO: implement in lifecycle module)
-    3. Calendar: Send/cancel meeting invites (TODO: implement in lifecycle module)
-    4. Reminders: Add/remove user from meeting reminder jobs (TODO: implement in lifecycle module)
+    2. Discord: Grant/revoke channel permissions via sync_group_discord_permissions
+    3. Calendar: Send/cancel meeting invites via sync_group_calendar
+    4. Reminders: Add/remove user from meeting reminder jobs via sync_group_reminders
+    5. RSVPs: Create/remove RSVP records via sync_group_rsvps
 
     Args:
         conn: Database connection (should be in a transaction)
@@ -353,14 +354,72 @@ async def join_group(
     # === JOIN NEW GROUP ===
     await add_user_to_group(conn, group_id, user_id, role)
 
-    # TODO: Lifecycle operations (Discord, Calendar, Reminders) will be added
-    # when the lifecycle module is implemented
+    # NOTE: Lifecycle sync is NOT called here. The caller (API route) must:
+    # 1. Commit the transaction first
+    # 2. THEN call sync_after_group_change() with the result
+    # This ensures sync functions can see the committed changes.
 
     return {
         "success": True,
         "group_id": group_id,
         "previous_group_id": previous_group_id,
     }
+
+
+async def sync_after_group_change(
+    group_id: int,
+    previous_group_id: int | None = None,
+) -> None:
+    """
+    Sync external systems after a group membership change.
+
+    MUST be called AFTER the database transaction is committed,
+    otherwise the sync functions won't see the changes.
+
+    This is a fire-and-forget operation - errors are logged but don't
+    block the user's action.
+    """
+    import logging
+    import sentry_sdk
+
+    logger = logging.getLogger(__name__)
+
+    from .lifecycle import (
+        sync_group_calendar,
+        sync_group_discord_permissions,
+        sync_group_reminders,
+        sync_group_rsvps,
+    )
+
+    async def safe_sync(name: str, coro):
+        """Run sync function, logging errors without raising."""
+        try:
+            await coro
+        except Exception as e:
+            logger.error(f"Error in {name}: {e}")
+            sentry_sdk.capture_exception(e)
+
+    # Sync old group (if switching) - will revoke permissions, remove from calendar, etc.
+    if previous_group_id:
+        await safe_sync(
+            "sync_group_discord_permissions (old)",
+            sync_group_discord_permissions(previous_group_id),
+        )
+        await safe_sync(
+            "sync_group_calendar (old)", sync_group_calendar(previous_group_id)
+        )
+        await safe_sync(
+            "sync_group_reminders (old)", sync_group_reminders(previous_group_id)
+        )
+        await safe_sync("sync_group_rsvps (old)", sync_group_rsvps(previous_group_id))
+
+    # Sync new group - will grant permissions, add to calendar, etc.
+    await safe_sync(
+        "sync_group_discord_permissions", sync_group_discord_permissions(group_id)
+    )
+    await safe_sync("sync_group_calendar", sync_group_calendar(group_id))
+    await safe_sync("sync_group_reminders", sync_group_reminders(group_id))
+    await safe_sync("sync_group_rsvps", sync_group_rsvps(group_id))
 
 
 async def get_user_group_info(

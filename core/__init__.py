@@ -107,6 +107,7 @@ from .group_joining import (
     get_user_current_group,
     join_group,
     get_user_group_info,
+    sync_after_group_change,
 )
 
 # Lifecycle operations (sync functions for group membership changes)
@@ -115,7 +116,6 @@ from .lifecycle import (
     sync_group_calendar,
     sync_group_reminders,
     sync_group_rsvps,
-    sync_meeting_calendar,
 )
 from .notifications.scheduler import sync_meeting_reminders
 
@@ -204,11 +204,11 @@ __all__ = [
     "get_user_current_group",
     "join_group",
     "get_user_group_info",
+    "sync_after_group_change",
     # Lifecycle operations (sync functions)
     "sync_group_discord_permissions",
     "sync_group_calendar",
     "sync_group_reminders",
     "sync_group_rsvps",
-    "sync_meeting_calendar",
     "sync_meeting_reminders",
 ]

@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from core import get_joinable_groups, join_group
+from core import get_joinable_groups, join_group, sync_after_group_change
 from core.database import get_connection, get_transaction
 from core.queries.users import get_user_by_discord_id
 from web_api.auth import get_current_user
@@ -77,5 +77,13 @@ async def join_group_endpoint(
             result = await join_group(conn, db_user["user_id"], request.group_id)
         except ValueError as e:
             raise HTTPException(400, str(e))
+
+    # Transaction committed - now sync external systems
+    # This runs AFTER commit so sync functions can see the changes
+    if result.get("success"):
+        await sync_after_group_change(
+            group_id=result["group_id"],
+            previous_group_id=result.get("previous_group_id"),
+        )
 
     return {"status": "joined", **result}

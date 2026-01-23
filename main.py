@@ -204,10 +204,14 @@ async def lifespan(app: FastAPI):
 
     # Set bot reference for notifications once bot is ready
     async def on_bot_ready():
-        await asyncio.sleep(2)  # Wait for bot to be ready
-        if bot.is_ready():
-            set_notification_bot(bot)
-            print("Notification system connected to Discord bot")
+        # Poll until bot is ready (up to 30 seconds)
+        for _ in range(30):
+            if bot.is_ready():
+                set_notification_bot(bot)
+                print("Notification system connected to Discord bot")
+                return
+            await asyncio.sleep(1)
+        print("Warning: Discord bot did not become ready within 30 seconds")
 
     asyncio.create_task(on_bot_ready())
 

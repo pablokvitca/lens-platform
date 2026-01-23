@@ -155,47 +155,12 @@ class TestSyncGroupDiscordPermissions:
         assert result == {"error": "channel_not_found"}
 
 
-class TestSyncMeetingCalendar:
-    """Test calendar sync logic."""
-
-    @pytest.mark.asyncio
-    async def test_returns_error_when_calendar_unavailable(self):
-        """Should return error if calendar service is not configured."""
-        from core.lifecycle import sync_meeting_calendar
-
-        with patch("core.calendar.client.get_calendar_service", return_value=None):
-            result = await sync_meeting_calendar(meeting_id=1)
-
-        assert result == {"error": "calendar_unavailable"}
-
-    @pytest.mark.asyncio
-    async def test_returns_error_when_meeting_not_found(self):
-        """Should return error if meeting doesn't exist."""
-        from core.lifecycle import sync_meeting_calendar
-
-        mock_conn = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.mappings.return_value.first.return_value = None
-        mock_conn.execute = AsyncMock(return_value=mock_result)
-
-        mock_service = MagicMock()
-
-        with patch(
-            "core.calendar.client.get_calendar_service", return_value=mock_service
-        ):
-            with patch("core.database.get_connection") as mock_get_conn:
-                mock_get_conn.return_value.__aenter__.return_value = mock_conn
-                result = await sync_meeting_calendar(meeting_id=999)
-
-        assert result == {"error": "meeting_not_found"}
-
-
 class TestSyncGroupCalendar:
     """Test group calendar sync wrapper."""
 
     @pytest.mark.asyncio
-    async def test_returns_no_meetings_error_when_no_future_meetings(self):
-        """Should return error when group has no future meetings."""
+    async def test_returns_zero_counts_when_no_future_meetings(self):
+        """Should return zero counts when group has no future meetings."""
         from core.lifecycle import sync_group_calendar
 
         mock_conn = AsyncMock()
@@ -207,35 +172,13 @@ class TestSyncGroupCalendar:
             mock_get_conn.return_value.__aenter__.return_value = mock_conn
             result = await sync_group_calendar(group_id=1)
 
-        assert result == {"meetings": 0, "error": "no_future_meetings"}
-
-    @pytest.mark.asyncio
-    async def test_calls_sync_meeting_calendar_for_each_meeting(self):
-        """Should call sync_meeting_calendar for each future meeting."""
-        from core.lifecycle import sync_group_calendar
-
-        mock_conn = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.mappings.return_value = [
-            {"meeting_id": 1},
-            {"meeting_id": 2},
-        ]
-        mock_conn.execute = AsyncMock(return_value=mock_result)
-
-        with patch("core.database.get_connection") as mock_get_conn:
-            mock_get_conn.return_value.__aenter__.return_value = mock_conn
-            with patch("core.lifecycle.sync_meeting_calendar") as mock_sync:
-                mock_sync.return_value = {
-                    "created": False,
-                    "added": 1,
-                    "removed": 0,
-                    "unchanged": 2,
-                }
-                result = await sync_group_calendar(group_id=1)
-
-        assert mock_sync.call_count == 2
-        assert result["meetings"] == 2
-        assert result["added"] == 2
+        assert result == {
+            "meetings": 0,
+            "created": 0,
+            "patched": 0,
+            "unchanged": 0,
+            "failed": 0,
+        }
 
 
 class TestSyncGroupReminders:
