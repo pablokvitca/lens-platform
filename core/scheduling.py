@@ -5,7 +5,6 @@ Main entry point: schedule_cohort() - loads users from DB, runs scheduling, pers
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
 
 from sqlalchemy import select, update
 
@@ -13,7 +12,7 @@ import cohort_scheduler
 
 from .availability import availability_json_to_intervals, check_dst_warnings
 from .database import get_transaction
-from .enums import UngroupableReason as DBUngroupableReason
+from .enums import UngroupableReason
 from .queries.cohorts import get_cohort_by_id
 from .queries.groups import create_group, add_user_to_group
 from .tables import signups, users, facilitators, groups, groups_users
@@ -34,22 +33,6 @@ class Person:
     timezone: str = "UTC"
 
 
-class UngroupableReason(str, Enum):
-    """Reasons why a user couldn't be grouped."""
-
-    NO_AVAILABILITY = "no_availability"  # User has no availability slots
-    NO_OVERLAP_WITH_OTHERS = (
-        "no_overlap_with_others"  # Availability doesn't overlap with enough other users
-    )
-    NO_FACILITATOR_OVERLAP = (
-        "no_facilitator_overlap"  # No facilitator available for user's time slots
-    )
-    FACILITATOR_CAPACITY = (
-        "facilitator_capacity"  # Facilitators at max groups, but user has overlap
-    )
-    INSUFFICIENT_GROUP_SIZE = (
-        "insufficient_group_size"  # Could form group but not enough people
-    )
 
 
 @dataclass
@@ -159,7 +142,7 @@ def analyze_ungroupable_users(
                     user_id=user_id_map.get(person.id, 0),
                     discord_id=person.id,
                     name=person.name,
-                    reason=UngroupableReason.NO_AVAILABILITY,
+                    reason=UngroupableReason.no_availability,
                     details={"total_slots": 0},
                 )
             )
@@ -190,7 +173,7 @@ def analyze_ungroupable_users(
                         user_id=user_id_map.get(person.id, 0),
                         discord_id=person.id,
                         name=person.name,
-                        reason=UngroupableReason.NO_FACILITATOR_OVERLAP,
+                        reason=UngroupableReason.no_facilitator_overlap,
                         details={
                             "user_slots": len(all_intervals),
                             "facilitator_count": len(facilitators),
@@ -208,7 +191,7 @@ def analyze_ungroupable_users(
                         user_id=user_id_map.get(person.id, 0),
                         discord_id=person.id,
                         name=person.name,
-                        reason=UngroupableReason.FACILITATOR_CAPACITY,
+                        reason=UngroupableReason.facilitator_capacity,
                         details={
                             "facilitators_with_overlap": len(facilitators_with_overlap),
                             "all_at_capacity": True,
@@ -233,7 +216,7 @@ def analyze_ungroupable_users(
                     user_id=user_id_map.get(person.id, 0),
                     discord_id=person.id,
                     name=person.name,
-                    reason=UngroupableReason.INSUFFICIENT_GROUP_SIZE,
+                    reason=UngroupableReason.insufficient_group_size,
                     details={
                         "overlapping_users": overlapping_unassigned + 1,
                         "min_required": min_people,
@@ -249,7 +232,7 @@ def analyze_ungroupable_users(
                 user_id=user_id_map.get(person.id, 0),
                 discord_id=person.id,
                 name=person.name,
-                reason=UngroupableReason.NO_OVERLAP_WITH_OTHERS,
+                reason=UngroupableReason.no_overlap_with_others,
                 details={
                     "overlapping_unassigned": overlapping_unassigned,
                     "note": "Complex scheduling constraint - user has availability but couldn't be optimally placed",
@@ -495,8 +478,8 @@ async def schedule_cohort(
 
             for user_id in ungroupable_user_ids:
                 reason = reason_by_user_id.get(user_id)
-                # Map internal enum value to DB enum
-                db_reason = DBUngroupableReason(reason.value) if reason else None
+                # reason is already the correct UngroupableReason enum
+                db_reason = reason
                 await conn.execute(
                     update(signups)
                     .where(signups.c.cohort_id == cohort_id)
@@ -510,7 +493,7 @@ async def schedule_cohort(
                 update(signups)
                 .where(signups.c.cohort_id == cohort_id)
                 .where(signups.c.user_id.in_(ungroupable_user_ids))
-                .values(ungroupable_reason=DBUngroupableReason.no_overlap_with_others)
+                .values(ungroupable_reason=UngroupableReason.no_overlap_with_others)
             )
 
         return CohortSchedulingResult(

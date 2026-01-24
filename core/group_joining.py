@@ -198,10 +198,7 @@ async def get_joinable_groups(
 
         # Add badge (backend decides)
         member_count = group["member_count"]
-        if MIN_BADGE_SIZE <= member_count <= MAX_BADGE_SIZE:
-            group["badge"] = "best_size"
-        else:
-            group["badge"] = None
+        group["badge"] = assign_group_badge(member_count)
 
         # Add is_current flag
         group["is_current"] = group["group_id"] == user_current_group_id
