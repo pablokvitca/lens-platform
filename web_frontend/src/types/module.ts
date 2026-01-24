@@ -18,6 +18,8 @@ export type TextSegment = {
 export type ArticleExcerptSegment = {
   type: "article-excerpt";
   content: string; // Pre-extracted content from API
+  collapsed_before: string | null; // Omitted content before this excerpt
+  collapsed_after: string | null; // Omitted content after this excerpt (last excerpt only)
 };
 
 export type VideoExcerptSegment = {
@@ -30,8 +32,8 @@ export type VideoExcerptSegment = {
 export type ChatSegment = {
   type: "chat";
   instructions: string;
-  showUserPreviousContent: boolean;
-  showTutorPreviousContent: boolean;
+  hidePreviousContentFromUser: boolean;
+  hidePreviousContentFromTutor: boolean;
 };
 
 export type ModuleSegment =
@@ -63,6 +65,7 @@ export type ArticleSection = {
   type: "article";
   meta: ArticleMeta;
   segments: ModuleSegment[];
+  optional?: boolean;
 };
 
 export type VideoSection = {
@@ -70,14 +73,15 @@ export type VideoSection = {
   videoId: string;
   meta: VideoMeta;
   segments: ModuleSegment[];
+  optional?: boolean;
 };
 
 export type ChatSection = {
   type: "chat";
   meta: { title: string };
   instructions: string;
-  showUserPreviousContent: boolean;
-  showTutorPreviousContent: boolean;
+  hidePreviousContentFromUser: boolean;
+  hidePreviousContentFromTutor: boolean;
 };
 
 export type ModuleSection =
@@ -112,6 +116,8 @@ export type ArticleData = {
   author: string | null;
   sourceUrl: string | null;
   isExcerpt?: boolean;
+  collapsed_before?: string | null; // Omitted content before this excerpt
+  collapsed_after?: string | null; // Omitted content after this excerpt
 };
 
 // Stage types for progress bar (discriminated union matching section types)
@@ -136,8 +142,8 @@ export type VideoStage = {
 export type ChatStage = {
   type: "chat";
   instructions: string;
-  showUserPreviousContent: boolean;
-  showTutorPreviousContent: boolean;
+  hidePreviousContentFromUser: boolean;
+  hidePreviousContentFromTutor: boolean;
   title?: string;
   optional?: boolean;
 };

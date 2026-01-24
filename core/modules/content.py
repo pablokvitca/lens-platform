@@ -253,6 +253,58 @@ def _count_case_insensitive(content: str, anchor: str) -> int:
     return content.lower().count(anchor.lower())
 
 
+def find_excerpt_bounds(
+    content: str,
+    from_text: str | None,
+    to_text: str | None,
+) -> tuple[int, int]:
+    """
+    Find the start and end positions of an excerpt in the content.
+
+    Matching is case-insensitive. Anchors must be unique within the content
+    (case-insensitively) to avoid ambiguity.
+
+    Args:
+        content: Full article content
+        from_text: Starting anchor phrase (inclusive), or None for start
+        to_text: Ending anchor phrase (inclusive), or None for end
+
+    Returns:
+        (start_idx, end_idx) positions in content
+
+    Raises:
+        AnchorNotFoundError: If anchor text not found
+        AnchorNotUniqueError: If anchor appears multiple times
+    """
+    start_idx = 0
+    end_idx = len(content)
+
+    if from_text:
+        count = _count_case_insensitive(content, from_text)
+        if count == 0:
+            raise AnchorNotFoundError(f"'from' anchor not found: {from_text[:50]}...")
+        if count > 1:
+            raise AnchorNotUniqueError(
+                f"'from' anchor appears {count} times (case-insensitive): {from_text[:50]}..."
+            )
+        start_idx = _find_case_insensitive(content, from_text)
+
+    if to_text:
+        count = _count_case_insensitive(content, to_text)
+        if count == 0:
+            raise AnchorNotFoundError(f"'to' anchor not found: {to_text[:50]}...")
+        if count > 1:
+            raise AnchorNotUniqueError(
+                f"'to' anchor appears {count} times (case-insensitive): {to_text[:50]}..."
+            )
+        # Search from start_idx to find the ending anchor
+        idx = _find_case_insensitive(content, to_text, start_idx)
+        if idx != -1:
+            end_idx = idx + len(to_text)
+
+    return start_idx, end_idx
+
+
 def extract_article_section(
     content: str,
     from_text: str | None,
@@ -536,6 +588,97 @@ def get_stage_duration(stage) -> str:
     return duration
 
 
+def bundle_article_section(section) -> dict:
+    """
+    Bundle an article section with collapsed content for excerpts.
+
+    Processes all article-excerpt segments together to compute collapsed
+    content (omitted sections) that can be shown in collapsed UI elements.
+
+    Args:
+        section: ArticleSection with source and segments
+
+    Returns:
+        Dict with type, meta, segments (with collapsed_before/collapsed_after), optional
+    """
+    from .markdown_parser import (
+        ArticleExcerptSegment,
+        TextSegment,
+        ChatSegment,
+    )
+
+    # 1. Load full article once
+    full_result = load_article_with_metadata(section.source)
+    full_content = full_result.content
+
+    # 2. Find positions for all article-excerpt segments
+    excerpt_data = []
+    for seg in section.segments:
+        if isinstance(seg, ArticleExcerptSegment):
+            start, end = find_excerpt_bounds(full_content, seg.from_text, seg.to_text)
+            excerpt_data.append(
+                {
+                    "segment": seg,
+                    "start": start,
+                    "end": end,
+                    "content": full_content[start:end].strip(),
+                }
+            )
+
+    # 3. Sort by position (defensive - should already be in order)
+    excerpt_data.sort(key=lambda x: x["start"])
+
+    # 4. Compute collapsed content
+    for i, ep in enumerate(excerpt_data):
+        prev_end = 0 if i == 0 else excerpt_data[i - 1]["end"]
+        collapsed = full_content[prev_end : ep["start"]].strip()
+        ep["collapsed_before"] = collapsed if collapsed else None
+
+        if i == len(excerpt_data) - 1:
+            trailing = full_content[ep["end"] :].strip()
+            ep["collapsed_after"] = trailing if trailing else None
+        else:
+            ep["collapsed_after"] = None
+
+    # 5. Build bundled segments (preserving original order with non-excerpt segments)
+    excerpt_map = {id(ep["segment"]): ep for ep in excerpt_data}
+    bundled_segments = []
+
+    for seg in section.segments:
+        if isinstance(seg, ArticleExcerptSegment):
+            ep = excerpt_map[id(seg)]
+            bundled_segments.append(
+                {
+                    "type": "article-excerpt",
+                    "content": ep["content"],
+                    "collapsed_before": ep["collapsed_before"],
+                    "collapsed_after": ep["collapsed_after"],
+                }
+            )
+        elif isinstance(seg, TextSegment):
+            bundled_segments.append({"type": "text", "content": seg.content})
+        elif isinstance(seg, ChatSegment):
+            bundled_segments.append(
+                {
+                    "type": "chat",
+                    "instructions": seg.instructions,
+                    "showUserPreviousContent": not seg.hide_previous_content_from_user,
+                    "showTutorPreviousContent": not seg.hide_previous_content_from_tutor,
+                }
+            )
+
+    return {
+        "type": "article",
+        "meta": {
+            "title": section.title or full_result.metadata.title,
+            "author": full_result.metadata.author,
+            "sourceUrl": full_result.metadata.source_url,
+        },
+        "segments": bundled_segments,
+        "optional": section.optional,
+    }
+
+
 def bundle_narrative_module(module) -> dict:
     """
     Bundle a narrative module with all content extracted.
@@ -642,8 +785,8 @@ def bundle_narrative_module(module) -> dict:
             return {
                 "type": "chat",
                 "instructions": segment.instructions,
-                "showUserPreviousContent": segment.show_user_previous_content,
-                "showTutorPreviousContent": segment.show_tutor_previous_content,
+                "hidePreviousContentFromUser": segment.hide_previous_content_from_user,
+                "hidePreviousContentFromTutor": segment.hide_previous_content_from_tutor,
             }
 
         return {}
@@ -651,22 +794,15 @@ def bundle_narrative_module(module) -> dict:
     def bundle_section(section) -> dict:
         """Bundle a single section with metadata and content."""
         if isinstance(section, TextSection):
-            return {"type": "text", "content": section.content}
+            return {
+                "type": "text",
+                "meta": {"title": section.title or None},
+                "content": section.content,
+            }
 
         elif isinstance(section, ArticleSection):
-            # Load article metadata
-            try:
-                result = load_article_with_metadata(section.source)
-                meta = {
-                    "title": result.metadata.title,
-                    "author": result.metadata.author,
-                    "sourceUrl": result.metadata.source_url,
-                }
-            except FileNotFoundError:
-                meta = {"title": None, "author": None, "sourceUrl": None}
-
-            segments = [bundle_segment(s, section) for s in section.segments]
-            return {"type": "article", "meta": meta, "segments": segments}
+            # Use bundle_article_section for collapsed content support
+            return bundle_article_section(section)
 
         elif isinstance(section, VideoSection):
             # Load video metadata
@@ -674,12 +810,12 @@ def bundle_narrative_module(module) -> dict:
                 result = load_video_transcript_with_metadata(section.source)
                 video_id = result.metadata.video_id
                 meta = {
-                    "title": result.metadata.title,
+                    "title": section.title or result.metadata.title,
                     "channel": result.metadata.channel,
                 }
             except FileNotFoundError:
                 video_id = None
-                meta = {"title": None, "channel": None}
+                meta = {"title": section.title or None, "channel": None}
 
             segments = [bundle_segment(s, section) for s in section.segments]
             return {
@@ -687,15 +823,16 @@ def bundle_narrative_module(module) -> dict:
                 "videoId": video_id,
                 "meta": meta,
                 "segments": segments,
+                "optional": section.optional,
             }
 
         elif isinstance(section, ChatSection):
             return {
                 "type": "chat",
-                "meta": {"title": "Discussion"},
+                "meta": {"title": section.title or "Discussion"},
                 "instructions": section.instructions,
-                "showUserPreviousContent": section.show_user_previous_content,
-                "showTutorPreviousContent": section.show_tutor_previous_content,
+                "hidePreviousContentFromUser": section.hide_previous_content_from_user,
+                "hidePreviousContentFromTutor": section.hide_previous_content_from_tutor,
             }
 
         return {}

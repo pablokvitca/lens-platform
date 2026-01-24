@@ -105,6 +105,7 @@ from web_api.routes.cohorts import router as cohorts_router
 from web_api.routes.courses import router as courses_router
 from web_api.routes.facilitator import router as facilitator_router
 from web_api.routes.content import router as content_router
+from web_api.routes.groups import router as groups_router
 
 # Track bot task for cleanup
 _bot_task: asyncio.Task | None = None
@@ -203,10 +204,14 @@ async def lifespan(app: FastAPI):
 
     # Set bot reference for notifications once bot is ready
     async def on_bot_ready():
-        await asyncio.sleep(2)  # Wait for bot to be ready
-        if bot.is_ready():
-            set_notification_bot(bot)
-            print("Notification system connected to Discord bot")
+        # Poll until bot is ready (up to 30 seconds)
+        for _ in range(30):
+            if bot.is_ready():
+                set_notification_bot(bot)
+                print("Notification system connected to Discord bot")
+                return
+            await asyncio.sleep(1)
+        print("Warning: Discord bot did not become ready within 30 seconds")
 
     asyncio.create_task(on_bot_ready())
 
@@ -250,6 +255,7 @@ app.include_router(cohorts_router)
 app.include_router(courses_router)
 app.include_router(facilitator_router)
 app.include_router(content_router)
+app.include_router(groups_router)
 
 
 # New paths for static files

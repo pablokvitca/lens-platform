@@ -24,6 +24,7 @@ from .scheduler import (
 from .actions import (
     notify_welcome,
     notify_group_assigned,
+    notify_member_joined,
     schedule_meeting_reminders,
     cancel_meeting_reminders,
     reschedule_meeting_reminders,
@@ -39,6 +40,7 @@ __all__ = [
     # High-level actions
     "notify_welcome",
     "notify_group_assigned",
+    "notify_member_joined",
     "schedule_meeting_reminders",
     "cancel_meeting_reminders",
     "reschedule_meeting_reminders",

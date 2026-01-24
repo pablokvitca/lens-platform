@@ -7,6 +7,7 @@ They handle building context and scheduling reminders.
 
 from datetime import datetime, timedelta
 
+from core.enums import NotificationReferenceType
 from core.notifications.dispatcher import send_notification
 from core.notifications.scheduler import schedule_reminder, cancel_reminders
 from core.notifications.urls import (
@@ -43,6 +44,8 @@ async def notify_group_assigned(
     meeting_time_utc: str,
     member_names: list[str],
     discord_channel_id: str,
+    reference_type: NotificationReferenceType | None = None,
+    reference_id: int | None = None,
 ) -> dict:
     """
     Send notification when user is assigned to a group.
@@ -55,6 +58,8 @@ async def notify_group_assigned(
         meeting_time_utc: Human-readable meeting time (e.g., "Wednesday 15:00 UTC")
         member_names: List of group member names
         discord_channel_id: Discord channel ID for the group
+        reference_type: Type of entity this notification references (for deduplication)
+        reference_id: ID of the referenced entity (for deduplication)
     """
     return await send_notification(
         user_id=user_id,
@@ -67,7 +72,72 @@ async def notify_group_assigned(
                 channel_id=discord_channel_id
             ),
         },
+        reference_type=reference_type,
+        reference_id=reference_id,
     )
+
+
+async def notify_member_joined(
+    user_id: int,
+    group_name: str,
+    meeting_time_utc: str,
+    member_names: list[str],
+    discord_channel_id: str,
+    discord_user_id: str,
+) -> dict:
+    """
+    Send notification when a user directly joins a group.
+
+    Unlike notify_group_assigned (used during realization), this is for
+    users who join an existing group via the web UI. It sends:
+    - Email to the joining user
+    - Discord message to the group channel (welcoming the new member)
+
+    Args:
+        user_id: Database user ID of the joining user
+        group_name: Name of the group they joined
+        meeting_time_utc: Human-readable meeting time
+        member_names: List of all group member names (including new member)
+        discord_channel_id: Discord channel ID for the group
+        discord_user_id: Discord user ID for mention in channel message
+    """
+    return await send_notification(
+        user_id=user_id,
+        message_type="member_joined",
+        context={
+            "group_name": group_name,
+            "meeting_time": meeting_time_utc,
+            "member_names": ", ".join(member_names),
+            "discord_channel_url": build_discord_channel_url(
+                channel_id=discord_channel_id
+            ),
+            "member_mention": f"<@{discord_user_id}>",
+        },
+        channel_id=discord_channel_id,  # dispatcher expects channel_id
+    )
+
+
+async def notify_member_left(
+    discord_channel_id: str,
+    discord_user_id: str,
+) -> dict:
+    """
+    Send notification to a group channel when a member leaves.
+
+    Only sends a Discord channel message (no email to the leaving user).
+
+    Args:
+        discord_channel_id: Discord channel ID for the group they left
+        discord_user_id: Discord user ID for mention in channel message
+    """
+    from core.notifications.channels.discord import send_discord_channel_message
+    from core.notifications.templates import get_message
+
+    context = {"member_mention": f"<@{discord_user_id}>"}
+    message = get_message("member_left", "discord_channel", context)
+
+    result = await send_discord_channel_message(discord_channel_id, message)
+    return {"discord_channel": result}
 
 
 def schedule_meeting_reminders(
@@ -89,6 +159,10 @@ def schedule_meeting_reminders(
     """
     context = {
         "group_name": group_name,
+        # ISO timestamp for per-user timezone formatting
+        "meeting_time_utc": meeting_time.isoformat(),
+        "meeting_date_utc": meeting_time.isoformat(),
+        # UTC fallback for channel messages (no user context)
         "meeting_time": meeting_time.strftime("%A at %H:%M UTC"),
         "meeting_date": meeting_time.strftime("%A, %B %d"),
         "module_url": module_url or build_module_url("next"),

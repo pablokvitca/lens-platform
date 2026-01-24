@@ -5,11 +5,15 @@ Jobs are persisted to PostgreSQL so they survive restarts.
 """
 
 import fnmatch
+import logging
 import os
-from datetime import datetime
+import random
+from datetime import datetime, timedelta
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+logger = logging.getLogger(__name__)
 
 
 _scheduler: AsyncIOScheduler | None = None
@@ -205,6 +209,59 @@ async def _execute_reminder(
         )
 
 
+async def sync_meeting_reminders(meeting_id: int) -> None:
+    """
+    Sync reminder job's user_ids with current group membership from DB.
+
+    This is idempotent and self-healing - reads the source of truth (database)
+    and updates the APScheduler jobs to match.
+
+    Called when users join or leave a group.
+    """
+    if not _scheduler:
+        return
+
+    from core.database import get_connection
+    from core.tables import meetings, groups_users
+    from core.enums import GroupUserStatus
+    from sqlalchemy import select
+
+    # Get current active members for this meeting's group
+    async with get_connection() as conn:
+        # First get the group_id for this meeting
+        meeting_result = await conn.execute(
+            select(meetings.c.group_id).where(meetings.c.meeting_id == meeting_id)
+        )
+        meeting_row = meeting_result.mappings().first()
+        if not meeting_row:
+            return
+
+        group_id = meeting_row["group_id"]
+
+        # Get all active members of the group
+        members_result = await conn.execute(
+            select(groups_users.c.user_id)
+            .where(groups_users.c.group_id == group_id)
+            .where(groups_users.c.status == GroupUserStatus.active)
+        )
+        user_ids = [row["user_id"] for row in members_result.mappings()]
+
+    # Update all reminder jobs for this meeting
+    job_suffixes = ["reminder_24h", "reminder_1h", "module_nudge_3d", "module_nudge_1d"]
+
+    for suffix in job_suffixes:
+        job_id = f"meeting_{meeting_id}_{suffix}"
+        job = _scheduler.get_job(job_id)
+        if job:
+            if user_ids:
+                # Update with current members
+                new_kwargs = {**job.kwargs, "user_ids": user_ids}
+                _scheduler.modify_job(job_id, kwargs=new_kwargs)
+            else:
+                # No users left, remove the job
+                job.remove()
+
+
 async def _check_condition(condition: dict, user_ids: list[int]) -> bool:
     """
     Check if a reminder condition is met.
@@ -229,3 +286,115 @@ async def _check_condition(condition: dict, user_ids: list[int]) -> bool:
         return True
 
     return True
+
+
+def get_retry_delay(attempt: int, include_jitter: bool = True) -> float:
+    """
+    Calculate retry delay using exponential backoff with cap.
+
+    Args:
+        attempt: Zero-based attempt number (0 = first retry)
+        include_jitter: Add random jitter to prevent thundering herd
+
+    Returns:
+        Delay in seconds (1, 2, 4, 8, 16, 32, 60, 60, 60...)
+    """
+    base_delay = min(2**attempt, 60)  # Cap at 60 seconds
+    if include_jitter:
+        jitter = random.uniform(0, 1)
+        return base_delay + jitter
+    return float(base_delay)
+
+
+def schedule_sync_retry(
+    sync_type: str,
+    group_id: int,
+    attempt: int,
+    previous_group_id: int | None = None,
+) -> None:
+    """
+    Schedule a retry for a failed sync operation.
+
+    Args:
+        sync_type: One of "discord", "calendar", "reminders", "rsvps"
+        group_id: Group to sync
+        attempt: Current attempt number (for backoff calculation)
+        previous_group_id: For group switches, the old group
+    """
+    if not _scheduler:
+        logger.warning(f"Scheduler not available, cannot retry {sync_type} sync")
+        return
+
+    delay = get_retry_delay(attempt)
+    run_at = datetime.now() + timedelta(seconds=delay)
+
+    job_id = f"sync_retry_{sync_type}_{group_id}"
+
+    _scheduler.add_job(
+        _execute_sync_retry,
+        trigger="date",
+        run_date=run_at,
+        id=job_id,
+        replace_existing=True,  # Don't stack retries
+        kwargs={
+            "sync_type": sync_type,
+            "group_id": group_id,
+            "attempt": attempt + 1,
+            "previous_group_id": previous_group_id,
+        },
+    )
+    logger.info(
+        f"Scheduled {sync_type} sync retry for group {group_id} in {delay:.1f}s (attempt {attempt + 1})"
+    )
+
+
+async def _execute_sync_retry(
+    sync_type: str,
+    group_id: int,
+    attempt: int,
+    previous_group_id: int | None = None,
+) -> None:
+    """
+    Execute a sync retry. Called by APScheduler.
+
+    If sync fails again, schedules another retry.
+    """
+    import sentry_sdk
+    from core.sync import (
+        sync_group_calendar,
+        sync_group_discord_permissions,
+        sync_group_reminders,
+        sync_group_rsvps,
+    )
+
+    sync_functions = {
+        "discord": sync_group_discord_permissions,
+        "calendar": sync_group_calendar,
+        "reminders": sync_group_reminders,
+        "rsvps": sync_group_rsvps,
+    }
+
+    sync_fn = sync_functions.get(sync_type)
+    if not sync_fn:
+        logger.error(f"Unknown sync type: {sync_type}")
+        return
+
+    try:
+        result = await sync_fn(group_id)
+
+        # Check if sync had failures that need retry
+        # Note: discord/calendar return {"failed": N}, reminders/rsvps only fail via exception
+        if result.get("failed", 0) > 0 or result.get("error"):
+            logger.warning(
+                f"Sync {sync_type} for group {group_id} had failures, scheduling retry (attempt {attempt})"
+            )
+            schedule_sync_retry(sync_type, group_id, attempt, previous_group_id)
+        else:
+            logger.info(
+                f"Sync {sync_type} for group {group_id} succeeded on attempt {attempt}"
+            )
+
+    except Exception as e:
+        logger.error(f"Sync {sync_type} for group {group_id} failed: {e}")
+        sentry_sdk.capture_exception(e)
+        schedule_sync_retry(sync_type, group_id, attempt, previous_group_id)

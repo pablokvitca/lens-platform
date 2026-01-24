@@ -89,6 +89,7 @@ from .config import (
 from .notifications import (
     notify_welcome,
     notify_group_assigned,
+    notify_member_joined,
     schedule_meeting_reminders,
     cancel_meeting_reminders,
 )
@@ -100,6 +101,25 @@ from .meetings import (
     schedule_reminders_for_group,
     reschedule_meeting,
 )
+
+# Group joining
+from .group_joining import (
+    get_joinable_groups,
+    get_user_current_group,
+    join_group,
+    get_user_group_info,
+)
+
+# Sync operations (sync functions for group membership changes)
+from .sync import (
+    sync_group,
+    sync_group_discord_permissions,
+    sync_group_calendar,
+    sync_group_reminders,
+    sync_group_rsvps,
+    sync_after_group_change,
+)
+from .notifications.scheduler import sync_meeting_reminders
 
 __all__ = [
     # Database (SQLAlchemy)
@@ -174,6 +194,7 @@ __all__ = [
     # Notifications
     "notify_welcome",
     "notify_group_assigned",
+    "notify_member_joined",
     "schedule_meeting_reminders",
     "cancel_meeting_reminders",
     # Meetings
@@ -181,4 +202,17 @@ __all__ = [
     "send_calendar_invites_for_group",
     "schedule_reminders_for_group",
     "reschedule_meeting",
+    # Group joining
+    "get_joinable_groups",
+    "get_user_current_group",
+    "join_group",
+    "get_user_group_info",
+    # Sync operations
+    "sync_group",
+    "sync_group_discord_permissions",
+    "sync_group_calendar",
+    "sync_group_reminders",
+    "sync_group_rsvps",
+    "sync_after_group_change",
+    "sync_meeting_reminders",
 ]
