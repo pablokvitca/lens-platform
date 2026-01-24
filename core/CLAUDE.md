@@ -27,6 +27,8 @@ Platform-agnostic business logic layer. **No Discord or FastAPI imports allowed*
 | `stampy.py` | Stampy chatbot functionality |
 | `google_docs.py` | Google Docs fetching/parsing |
 | `data.py` | JSON persistence (legacy) |
+| `sync.py` | Sync external systems (Discord, Calendar, Reminders) with group membership |
+| `group_joining.py` | Direct group joining logic, joinable groups queries |
 
 ### Subdirectories
 

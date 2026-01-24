@@ -1,11 +1,21 @@
 """
-Lifecycle operations for group membership changes.
+Sync operations for group membership.
 
-Handles Discord permissions, calendar invites, and meeting reminders
-when users join or leave groups.
+Provides functions to sync external systems (Discord, Google Calendar,
+APScheduler reminders, RSVPs) with the current group membership state.
 
-Error handling: Best-effort with Sentry reporting. Failures don't block
-the database update. Use sync commands to recover from failures.
+All sync functions are diff-based and idempotent - they compare desired
+state with actual state and only make changes for differences.
+
+Main entry points:
+- sync_group(group_id) - Sync all systems for a single group
+- sync_after_group_change(group_id, previous_group_id) - Sync after membership change
+
+Individual sync functions:
+- sync_group_discord_permissions(group_id) - Discord channel access
+- sync_group_calendar(group_id) - Google Calendar event attendees
+- sync_group_reminders(group_id) - APScheduler reminder jobs
+- sync_group_rsvps(group_id) - RSVP records from calendar
 """
 
 import logging
