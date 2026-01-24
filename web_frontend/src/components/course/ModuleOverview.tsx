@@ -56,9 +56,10 @@ export default function ModuleOverview({
           {/* Blue line: up to highest completed, or to viewing if adjacent to completed */}
           {(() => {
             const viewingIsAdjacent = completedStages.has(viewingIndex - 1);
-            const blueEndIndex = viewingIsAdjacent && viewingIndex > highestCompleted
-              ? viewingIndex
-              : highestCompleted;
+            const blueEndIndex =
+              viewingIsAdjacent && viewingIndex > highestCompleted
+                ? viewingIndex
+                : highestCompleted;
 
             if (blueEndIndex < 0) return null;
 
@@ -72,17 +73,19 @@ export default function ModuleOverview({
             );
           })()}
           {/* Dark gray line from blue end to viewing (if viewing is beyond and not adjacent) */}
-          {viewingIndex > highestCompleted && !completedStages.has(viewingIndex - 1) && (
-            <div
-              className="absolute left-[1.125rem] w-0.5 -translate-x-1/2 bg-gray-400 transition-all duration-300"
-              style={{
-                top: highestCompleted >= 0
-                  ? `calc(${((highestCompleted + 0.5) / stages.length) * 100}%)`
-                  : '1.25rem',
-                height: `calc(${((viewingIndex - Math.max(highestCompleted, -0.5)) / stages.length) * 100}%)`,
-              }}
-            />
-          )}
+          {viewingIndex > highestCompleted &&
+            !completedStages.has(viewingIndex - 1) && (
+              <div
+                className="absolute left-[1.125rem] w-0.5 -translate-x-1/2 bg-gray-400 transition-all duration-300"
+                style={{
+                  top:
+                    highestCompleted >= 0
+                      ? `calc(${((highestCompleted + 0.5) / stages.length) * 100}%)`
+                      : "1.25rem",
+                  height: `calc(${((viewingIndex - Math.max(highestCompleted, -0.5)) / stages.length) * 100}%)`,
+                }}
+              />
+            )}
 
           {/* Stages */}
           <div className="space-y-2">
@@ -93,7 +96,7 @@ export default function ModuleOverview({
 
               const fillClasses = getCircleFillClasses(
                 { isCompleted, isViewing, isOptional: stage.optional },
-                { includeHover: false }
+                { includeHover: false },
               );
               const ringClasses = getRingClasses(isViewing, isCompleted);
 

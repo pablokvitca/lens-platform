@@ -189,16 +189,29 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
     if (!module) return [];
     return module.sections.map((section, index): Stage => {
       const stageType = section.type === "text" ? "article" : section.type;
-      const isOptional =
-        "optional" in section && section.optional === true;
+      const isOptional = "optional" in section && section.optional === true;
       const title =
         section.type === "text"
           ? `Section ${index + 1}`
           : section.meta?.title || `${section.type || "Section"} ${index + 1}`;
       if (stageType === "article") {
-        return { type: "article", source: "", from: null, to: null, optional: isOptional, title };
+        return {
+          type: "article",
+          source: "",
+          from: null,
+          to: null,
+          optional: isOptional,
+          title,
+        };
       } else if (stageType === "video" && section.type === "video") {
-        return { type: "video", videoId: section.videoId, from: 0, to: null, optional: isOptional, title };
+        return {
+          type: "video",
+          videoId: section.videoId,
+          from: 0,
+          to: null,
+          optional: isOptional,
+          title,
+        };
       } else {
         return {
           type: "chat",
@@ -778,7 +791,10 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
             >
               {section.type === "text" ? (
                 <>
-                  <SectionDivider type="article" title={`Section ${sectionIndex + 1}`} />
+                  <SectionDivider
+                    type="article"
+                    title={`Section ${sectionIndex + 1}`}
+                  />
                   <AuthoredText content={section.content} />
                 </>
               ) : section.type === "chat" ? (
@@ -797,7 +813,11 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                 </>
               ) : section.type === "article" ? (
                 <>
-                  <SectionDivider type="article" optional={section.optional} title={section.meta?.title} />
+                  <SectionDivider
+                    type="article"
+                    optional={section.optional}
+                    title={section.meta?.title}
+                  />
                   <ArticleSectionWrapper>
                     {(() => {
                       // Split segments into pre-excerpt, excerpt, post-excerpt groups
@@ -867,7 +887,11 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                 </>
               ) : (
                 <>
-                  <SectionDivider type={section.type} optional={section.optional} title={section.meta?.title} />
+                  <SectionDivider
+                    type={section.type}
+                    optional={section.optional}
+                    title={section.meta?.title}
+                  />
                   {section.segments?.map((segment, segmentIndex) =>
                     renderSegment(segment, section, sectionIndex, segmentIndex),
                   )}

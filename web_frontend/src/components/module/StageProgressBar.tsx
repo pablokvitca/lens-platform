@@ -112,7 +112,8 @@ export default function StageProgressBar({
   // - Light gray beyond
   const getBarColor = (index: number) => {
     if (index <= highestCompleted) return "bg-blue-400";
-    if (index === viewingIndex && completedStages.has(index - 1)) return "bg-blue-400";
+    if (index === viewingIndex && completedStages.has(index - 1))
+      return "bg-blue-400";
     if (index <= viewingIndex) return "bg-gray-400";
     return "bg-gray-200";
   };
@@ -161,7 +162,7 @@ export default function StageProgressBar({
 
           const fillClasses = getCircleFillClasses(
             { isCompleted, isViewing, isOptional },
-            { includeHover: true }
+            { includeHover: true },
           );
           const ringClasses = getRingClasses(isViewing, isCompleted);
 
@@ -176,7 +177,12 @@ export default function StageProgressBar({
 
               {/* Dot */}
               <Tooltip
-                content={getTooltipContent(stage, index, isCompleted, isViewing)}
+                content={getTooltipContent(
+                  stage,
+                  index,
+                  isCompleted,
+                  isViewing,
+                )}
                 placement="bottom"
               >
                 <button

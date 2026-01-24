@@ -33,8 +33,6 @@ class Person:
     timezone: str = "UTC"
 
 
-
-
 @dataclass
 class UngroupableDetail:
     """Details about why a user couldn't be grouped."""
@@ -409,7 +407,9 @@ async def schedule_cohort(
             min_people=min_people,
             max_people=max_people,
             num_iterations=num_iterations,
-            facilitator_ids=certified_facilitator_ids if certified_facilitator_ids else None,
+            facilitator_ids=certified_facilitator_ids
+            if certified_facilitator_ids
+            else None,
             facilitator_max_cohorts=facilitator_max_groups
             if facilitator_max_groups
             else None,

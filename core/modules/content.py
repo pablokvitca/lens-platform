@@ -662,8 +662,8 @@ def bundle_article_section(section) -> dict:
                 {
                     "type": "chat",
                     "instructions": seg.instructions,
-                    "showUserPreviousContent": seg.show_user_previous_content,
-                    "showTutorPreviousContent": seg.show_tutor_previous_content,
+                    "showUserPreviousContent": not seg.hide_previous_content_from_user,
+                    "showTutorPreviousContent": not seg.hide_previous_content_from_tutor,
                 }
             )
 

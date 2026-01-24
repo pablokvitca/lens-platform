@@ -31,7 +31,11 @@ function Icon({ type }: { type: "video" | "article" }) {
   );
 }
 
-export default function SectionDivider({ type, optional, title }: SectionDividerProps) {
+export default function SectionDivider({
+  type,
+  optional,
+  title,
+}: SectionDividerProps) {
   // Chat stages use the article icon
   const iconType = type === "chat" ? "article" : type;
 

@@ -39,8 +39,12 @@ class ChatStage:
 
     type: Literal["chat"]
     instructions: str  # Instructions for the AI tutor
-    hide_previous_content_from_user: bool = False  # Hide previous article/video from user in UI
-    hide_previous_content_from_tutor: bool = False  # Exclude previous content from tutor's context
+    hide_previous_content_from_user: bool = (
+        False  # Hide previous article/video from user in UI
+    )
+    hide_previous_content_from_tutor: bool = (
+        False  # Exclude previous content from tutor's context
+    )
 
 
 Stage = ArticleStage | VideoStage | ChatStage

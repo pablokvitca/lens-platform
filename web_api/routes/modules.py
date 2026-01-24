@@ -357,7 +357,9 @@ async def get_session_state(
             previous_stage = module.stages[stage_idx - 1]
             prev_result = get_stage_content(previous_stage)
             previous_article = bundle_article(prev_result)
-            hide_previous_content_from_user = current_stage.hide_previous_content_from_user
+            hide_previous_content_from_user = (
+                current_stage.hide_previous_content_from_user
+            )
 
     return {
         "session_id": session["session_id"],

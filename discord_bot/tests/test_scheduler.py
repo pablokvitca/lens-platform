@@ -951,7 +951,7 @@ class TestAnalyzeUngroupableUsers:
         )
 
         assert len(details) == 1
-        assert details[0].reason == UngroupableReason.NO_AVAILABILITY
+        assert details[0].reason == UngroupableReason.no_availability
 
     def test_no_facilitator_overlap_reason(self):
         """Users whose availability doesn't overlap with facilitators."""
@@ -975,7 +975,7 @@ class TestAnalyzeUngroupableUsers:
         )
 
         assert len(details) == 1
-        assert details[0].reason == UngroupableReason.NO_FACILITATOR_OVERLAP
+        assert details[0].reason == UngroupableReason.no_facilitator_overlap
 
     def test_facilitator_capacity_reason(self):
         """Users who overlap with facilitators but all are at capacity."""
@@ -999,7 +999,7 @@ class TestAnalyzeUngroupableUsers:
         )
 
         assert len(details) == 1
-        assert details[0].reason == UngroupableReason.FACILITATOR_CAPACITY
+        assert details[0].reason == UngroupableReason.facilitator_capacity
 
     def test_insufficient_group_size_reason(self):
         """Users who can't form a group due to not enough overlapping people."""
@@ -1023,7 +1023,7 @@ class TestAnalyzeUngroupableUsers:
 
         assert len(details) == 2
         for detail in details:
-            assert detail.reason == UngroupableReason.INSUFFICIENT_GROUP_SIZE
+            assert detail.reason == UngroupableReason.insufficient_group_size
             assert detail.details["overlapping_users"] == 2
             assert detail.details["min_required"] == 4
 
@@ -1053,8 +1053,8 @@ class TestAnalyzeUngroupableUsers:
 
         assert len(details) == 2
         reasons = {d.discord_id: d.reason for d in details}
-        assert reasons["s1"] == UngroupableReason.NO_AVAILABILITY
-        assert reasons["s2"] == UngroupableReason.NO_FACILITATOR_OVERLAP
+        assert reasons["s1"] == UngroupableReason.no_availability
+        assert reasons["s2"] == UngroupableReason.no_facilitator_overlap
 
 
 class TestFindCohortTimeOptionsExtended:

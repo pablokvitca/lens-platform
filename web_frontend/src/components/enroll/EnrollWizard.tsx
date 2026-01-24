@@ -26,7 +26,7 @@ export default function EnrollWizard() {
     email: "",
     discordConnected: false,
     discordUsername: undefined,
-    termsAccepted: false,
+    termsAccepted: true, // Now handled by TosConsentModal
     availability: { ...EMPTY_AVAILABILITY },
     timezone: getBrowserTimezone(),
     selectedCohortId: null,
@@ -44,21 +44,32 @@ export default function EnrollWizard() {
   const [availableCohorts, setAvailableCohorts] = useState<Cohort[]>([]);
   const [isFacilitator, setIsFacilitator] = useState(false);
 
-  // Determine if selected cohort has groups (for direct group join flow)
-  const selectedCohortHasGroups = useMemo(() => {
-    if (!formData.selectedCohortId) return false;
-    const cohort = availableCohorts.find(
-      (c) => c.cohort_id === formData.selectedCohortId
+  // Get the selected cohort
+  const selectedCohort = useMemo(() => {
+    if (!formData.selectedCohortId) return null;
+    return (
+      availableCohorts.find((c) => c.cohort_id === formData.selectedCohortId) ??
+      null
     );
-    return cohort?.has_groups ?? false;
   }, [formData.selectedCohortId, availableCohorts]);
+
+  // Determine if selected cohort has groups (for direct group join flow)
+  const selectedCohortHasGroups = selectedCohort?.has_groups ?? false;
+
+  // Calculate cohort end date from start date + duration
+  const selectedCohortEndDate = useMemo(() => {
+    if (!selectedCohort) return undefined;
+    const startDate = new Date(selectedCohort.cohort_start_date);
+    startDate.setDate(startDate.getDate() + selectedCohort.duration_days);
+    return startDate.toISOString().split("T")[0];
+  }, [selectedCohort]);
 
   // Track enrollment started on mount
   useEffect(() => {
     trackEnrollmentStarted();
   }, []);
 
-  // Sync auth state with form data
+  // Sync auth state with form data and auto-advance when authenticated
   useEffect(() => {
     if (isAuthenticated && discordUsername) {
       setFormData((prev) => {
@@ -87,11 +98,16 @@ export default function EnrollWizard() {
         };
       });
 
+      // Auto-advance to step 2 when already authenticated
+      if (currentStep === 1) {
+        setCurrentStep(2);
+      }
+
       // Fetch cohorts and facilitator status
       fetchCohortData();
       fetchFacilitatorStatus();
     }
-  }, [isAuthenticated, discordUsername, user]);
+  }, [isAuthenticated, discordUsername, user, currentStep]);
 
   const fetchCohortData = async () => {
     try {
@@ -180,7 +196,9 @@ export default function EnrollWizard() {
     } catch (error) {
       console.error("Failed to submit:", error);
       alert(
-        error instanceof Error ? error.message : "Failed to save. Please try again."
+        error instanceof Error
+          ? error.message
+          : "Failed to save. Please try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -203,25 +221,9 @@ export default function EnrollWizard() {
     <div>
       {currentStep === 1 && (
         <PersonalInfoStep
-          displayName={formData.displayName}
-          email={formData.email}
           discordConnected={formData.discordConnected}
           discordUsername={formData.discordUsername}
-          termsAccepted={formData.termsAccepted}
-          onDisplayNameChange={(value) =>
-            setFormData((prev) => ({ ...prev, displayName: value }))
-          }
-          onEmailChange={(value) =>
-            setFormData((prev) => ({ ...prev, email: value }))
-          }
-          onTermsAcceptedChange={(value) =>
-            setFormData((prev) => ({ ...prev, termsAccepted: value }))
-          }
           onDiscordConnect={handleDiscordConnect}
-          onNext={() => {
-            trackEnrollmentStepCompleted("personal_info");
-            setCurrentStep(2);
-          }}
         />
       )}
 
@@ -251,7 +253,6 @@ export default function EnrollWizard() {
             trackEnrollmentStepCompleted("cohort_role");
             setCurrentStep(3);
           }}
-          onBack={() => setCurrentStep(1)}
         />
       )}
 
@@ -279,6 +280,9 @@ export default function EnrollWizard() {
               setForceAvailabilityMode(true);
               setCurrentStep(2);
             }}
+            cohortStartDate={selectedCohort?.cohort_start_date}
+            cohortEndDate={selectedCohortEndDate}
+            cohortName={selectedCohort?.cohort_name}
           />
         ) : (
           <AvailabilityStep
@@ -294,7 +298,7 @@ export default function EnrollWizard() {
             onSubmit={handleSubmit}
             cohort={
               availableCohorts.find(
-                (c) => c.cohort_id === formData.selectedCohortId
+                (c) => c.cohort_id === formData.selectedCohortId,
               ) ?? null
             }
           />

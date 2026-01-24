@@ -25,7 +25,7 @@ type CircleState = {
  */
 export function getCircleFillClasses(
   state: CircleState,
-  options: { includeHover?: boolean } = {}
+  options: { includeHover?: boolean } = {},
 ): string {
   const { isCompleted, isViewing, isOptional } = state;
   const { includeHover = false } = options;
@@ -62,7 +62,10 @@ export function getCircleFillClasses(
  * Get Tailwind classes for stage circle ring (selection indicator).
  * Ring color matches fill: blue for completed, gray for not completed.
  */
-export function getRingClasses(isViewing: boolean, isCompleted: boolean): string {
+export function getRingClasses(
+  isViewing: boolean,
+  isCompleted: boolean,
+): string {
   if (!isViewing) return "";
   return isCompleted
     ? "ring-2 ring-offset-2 ring-blue-500"

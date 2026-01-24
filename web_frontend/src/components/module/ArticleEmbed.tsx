@@ -27,7 +27,14 @@ export default function ArticleEmbed({
 }: ArticleEmbedProps) {
   // Support both isFirstExcerpt and deprecated showHeader prop
   const isFirst = isFirstExcerpt ?? showHeader ?? true;
-  const { content, title, author, sourceUrl, collapsed_before, collapsed_after } = article;
+  const {
+    content,
+    title,
+    author,
+    sourceUrl,
+    collapsed_before,
+    collapsed_after,
+  } = article;
   const sectionContext = useArticleSectionContext();
 
   // Get heading ID - uses shared counter from context if available,
@@ -108,7 +115,13 @@ export default function ArticleEmbed({
         {children}
       </blockquote>
     ),
-    code: ({ children, className }: { children?: React.ReactNode; className?: string }) => {
+    code: ({
+      children,
+      className,
+    }: {
+      children?: React.ReactNode;
+      className?: string;
+    }) => {
       const isInline = !className;
       if (isInline) {
         return (
@@ -159,7 +172,13 @@ export default function ArticleEmbed({
   };
 
   // Collapsed section component with animation
-  const CollapsedSection = ({ content, position: _position }: { content: string; position: "before" | "after" }) => {
+  const CollapsedSection = ({
+    content,
+    position: _position,
+  }: {
+    content: string;
+    position: "before" | "after";
+  }) => {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
@@ -185,7 +204,11 @@ export default function ArticleEmbed({
             </svg>
             <span>[...]</span>
           </button>
-          {isOpen && <span className="text-sm text-gray-400 ml-1">This part of the article was omitted for brevity</span>}
+          {isOpen && (
+            <span className="text-sm text-gray-400 ml-1">
+              This part of the article was omitted for brevity
+            </span>
+          )}
         </div>
         <div
           className={`grid transition-[grid-template-rows] duration-300 ease-out ${
@@ -202,7 +225,9 @@ export default function ArticleEmbed({
                 {content}
               </ReactMarkdown>
             </article>
-            <div className="text-sm text-gray-400 mt-2 pl-5">— End of omitted text —</div>
+            <div className="text-sm text-gray-400 mt-2 pl-5">
+              — End of omitted text —
+            </div>
           </div>
         </div>
       </div>
@@ -280,7 +305,9 @@ export default function ArticleEmbed({
           )}
 
           {/* Collapsed content before this excerpt (after header) */}
-          {collapsed_before && <CollapsedSection content={collapsed_before} position="before" />}
+          {collapsed_before && (
+            <CollapsedSection content={collapsed_before} position="before" />
+          )}
 
           <article className="prose prose-gray max-w-content mx-auto overflow-x-hidden">
             <ReactMarkdown
@@ -293,7 +320,9 @@ export default function ArticleEmbed({
           </article>
 
           {/* Collapsed content after this excerpt */}
-          {collapsed_after && <CollapsedSection content={collapsed_after} position="after" />}
+          {collapsed_after && (
+            <CollapsedSection content={collapsed_after} position="after" />
+          )}
         </div>
       </div>
     </div>
