@@ -89,6 +89,7 @@ from .config import (
 from .notifications import (
     notify_welcome,
     notify_group_assigned,
+    notify_member_joined,
     schedule_meeting_reminders,
     cancel_meeting_reminders,
 )
@@ -193,6 +194,7 @@ __all__ = [
     # Notifications
     "notify_welcome",
     "notify_group_assigned",
+    "notify_member_joined",
     "schedule_meeting_reminders",
     "cancel_meeting_reminders",
     # Meetings
