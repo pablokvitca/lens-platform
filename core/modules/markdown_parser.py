@@ -8,6 +8,7 @@ Format specification: docs/plans/2026-01-18-lesson-markdown-format-design.md
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from uuid import UUID as PyUUID
 
 
 # -----------------------------------------------------------------------------
@@ -106,6 +107,7 @@ class ParsedModule:
     slug: str
     title: str
     sections: list[Section]
+    content_id: PyUUID | None = None  # UUID from frontmatter, if present
 
 
 @dataclass
@@ -424,6 +426,14 @@ def parse_module(text: str) -> ParsedModule:
     slug = metadata.get("slug", "")
     title = metadata.get("title", "")
 
+    # Extract content_id if present
+    content_id = None
+    if "id" in metadata:
+        try:
+            content_id = PyUUID(metadata["id"])
+        except ValueError:
+            pass  # Invalid UUID format, leave as None
+
     section_data = _split_into_sections(content)
     sections = [
         _parse_section(stype, stitle, scontent)
@@ -434,6 +444,7 @@ def parse_module(text: str) -> ParsedModule:
         slug=slug,
         title=title,
         sections=sections,
+        content_id=content_id,
     )
 
 
