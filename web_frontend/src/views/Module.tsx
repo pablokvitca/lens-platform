@@ -28,7 +28,6 @@ import type { ModuleCompletionResult } from "@/api/modules";
 import { useAnonymousSession } from "@/hooks/useAnonymousSession";
 import { useAuth } from "@/hooks/useAuth";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
-import { useVideoActivityTracker } from "@/hooks/useVideoActivityTracker";
 import AuthoredText from "@/components/module/AuthoredText";
 import ArticleEmbed from "@/components/module/ArticleEmbed";
 import VideoEmbed from "@/components/module/VideoEmbed";
