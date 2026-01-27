@@ -2,8 +2,10 @@
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     Date,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -11,8 +13,9 @@ from sqlalchemy import (
     Table,
     Text,
     func,
+    text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 
 from sqlalchemy import Enum as SQLEnum
 
@@ -384,4 +387,80 @@ content_events = Table(
     Index("idx_content_events_session_id", "session_id"),
     Index("idx_content_events_module_slug", "module_slug"),
     Index("idx_content_events_timestamp", "timestamp"),
+)
+
+
+# =====================================================
+# 13. USER_CONTENT_PROGRESS
+# =====================================================
+# Progress tracking - new UUID-based system
+user_content_progress = Table(
+    "user_content_progress",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("session_token", UUID(as_uuid=True), nullable=True),
+    Column(
+        "user_id",
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=True,
+    ),
+    Column("content_id", UUID(as_uuid=True), nullable=False),
+    Column("content_type", Text, nullable=False),
+    Column("content_title", Text, nullable=False),
+    Column("started_at", DateTime(timezone=True), server_default=func.now()),
+    Column("time_to_complete_s", Integer, server_default="0"),
+    Column("total_time_spent_s", Integer, server_default="0"),
+    Column("completed_at", DateTime(timezone=True), nullable=True),
+    Index(
+        "idx_user_content_progress_user",
+        "user_id",
+        "content_id",
+        unique=True,
+        postgresql_where=text("user_id IS NOT NULL"),
+    ),
+    Index(
+        "idx_user_content_progress_anon",
+        "session_token",
+        "content_id",
+        unique=True,
+        postgresql_where=text("session_token IS NOT NULL"),
+    ),
+    Index(
+        "idx_user_content_progress_token",
+        "session_token",
+        postgresql_where=text("session_token IS NOT NULL"),
+    ),
+    CheckConstraint(
+        "content_type IN ('module', 'lo', 'lens', 'test')", name="valid_content_type"
+    ),
+)
+
+
+# =====================================================
+# 14. CHAT_SESSIONS
+# =====================================================
+chat_sessions = Table(
+    "chat_sessions",
+    metadata,
+    Column("session_id", Integer, primary_key=True, autoincrement=True),
+    Column("session_token", UUID(as_uuid=True), nullable=True),
+    Column(
+        "user_id",
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=True,
+    ),
+    Column("content_id", UUID(as_uuid=True), nullable=True),
+    Column("content_type", Text, nullable=True),
+    Column("messages", JSONB, server_default="[]"),
+    Column("started_at", DateTime(timezone=True), server_default=func.now()),
+    Column("last_active_at", DateTime(timezone=True), server_default=func.now()),
+    Column("archived_at", DateTime(timezone=True), nullable=True),
+    Index("idx_chat_sessions_user_content", "user_id", "content_id", "archived_at"),
+    Index("idx_chat_sessions_token", "session_token"),
+    CheckConstraint(
+        "content_type IS NULL OR content_type IN ('module', 'lo', 'lens', 'test')",
+        name="valid_chat_content_type",
+    ),
 )
