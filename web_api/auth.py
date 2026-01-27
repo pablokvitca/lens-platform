@@ -136,3 +136,39 @@ async def get_optional_user(request: Request) -> dict | None:
         return None
 
     return verify_jwt(token)
+
+
+async def require_admin(request: Request) -> dict:
+    """
+    FastAPI dependency requiring admin privileges.
+
+    Returns the database user dict (with user_id) if admin.
+
+    Raises:
+        HTTPException: 401 if not authenticated, 403 if not admin
+    """
+    from core.database import get_connection
+    from core.queries.users import get_user_by_discord_id
+    from core.queries.facilitator import is_admin
+
+    # First check authentication
+    token = request.cookies.get("session")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    payload = verify_jwt(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    discord_id = payload["sub"]
+
+    # Check admin status
+    async with get_connection() as conn:
+        db_user = await get_user_by_discord_id(conn, discord_id)
+        if not db_user:
+            raise HTTPException(status_code=403, detail="User not found")
+
+        if not await is_admin(conn, db_user["user_id"]):
+            raise HTTPException(status_code=403, detail="Admin access required")
+
+    return db_user

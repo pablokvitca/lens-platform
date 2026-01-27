@@ -7,7 +7,7 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from ..enums import GroupUserStatus
-from ..tables import facilitators, groups_users, signups, users
+from ..tables import cohorts, facilitators, groups, groups_users, signups, users
 
 
 async def get_user_by_discord_id(
@@ -279,6 +279,42 @@ async def toggle_facilitator(
         return True
 
 
+async def search_users(
+    conn: AsyncConnection,
+    query: str,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """
+    Search users by nickname or discord_username.
+
+    Args:
+        conn: Database connection
+        query: Search string (case-insensitive substring match)
+        limit: Maximum results to return
+
+    Returns:
+        List of user dicts with user_id, discord_id, nickname, discord_username
+    """
+    search_pattern = f"%{query}%"
+
+    result = await conn.execute(
+        select(
+            users.c.user_id,
+            users.c.discord_id,
+            users.c.nickname,
+            users.c.discord_username,
+        )
+        .where(
+            (users.c.nickname.ilike(search_pattern))
+            | (users.c.discord_username.ilike(search_pattern))
+        )
+        .order_by(users.c.nickname, users.c.discord_username)
+        .limit(limit)
+    )
+
+    return [dict(row) for row in result.mappings()]
+
+
 async def get_user_enrollment_status(
     conn: AsyncConnection,
     user_id: int,
@@ -314,3 +350,41 @@ async def get_user_enrollment_status(
         "is_in_signups_table": is_in_signups_table,
         "is_in_active_group": is_in_active_group,
     }
+
+
+async def get_user_admin_details(
+    conn: AsyncConnection,
+    user_id: int,
+) -> dict[str, Any] | None:
+    """
+    Get user details for admin panel, including current group membership.
+
+    Returns:
+        Dict with user info plus group_id, group_name, cohort_id, cohort_name, group_status
+        or None if user not found
+    """
+    result = await conn.execute(
+        select(
+            users.c.user_id,
+            users.c.discord_id,
+            users.c.nickname,
+            users.c.discord_username,
+            users.c.email,
+            groups.c.group_id,
+            groups.c.group_name,
+            groups.c.status.label("group_status"),
+            cohorts.c.cohort_id,
+            cohorts.c.cohort_name,
+        )
+        .outerjoin(
+            groups_users,
+            (users.c.user_id == groups_users.c.user_id)
+            & (groups_users.c.status == GroupUserStatus.active),
+        )
+        .outerjoin(groups, groups_users.c.group_id == groups.c.group_id)
+        .outerjoin(cohorts, groups.c.cohort_id == cohorts.c.cohort_id)
+        .where(users.c.user_id == user_id)
+    )
+
+    row = result.mappings().first()
+    return dict(row) if row else None

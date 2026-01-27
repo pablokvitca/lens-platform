@@ -2,9 +2,10 @@
 
 from typing import Any
 
-from sqlalchemy import insert, select
+from sqlalchemy import func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from ..enums import GroupUserStatus
 from ..modules.course_loader import load_course
 from ..tables import cohorts, groups, groups_users, users
 
@@ -56,6 +57,29 @@ async def add_user_to_group(
     )
     row = result.mappings().first()
     return dict(row)
+
+
+async def remove_user_from_group(
+    conn: AsyncConnection,
+    group_id: int,
+    user_id: int,
+) -> bool:
+    """
+    Remove a user from a group by setting status to 'removed'.
+
+    Returns True if user was removed, False if not found.
+    """
+    from ..enums import GroupUserStatus
+
+    result = await conn.execute(
+        update(groups_users)
+        .where(groups_users.c.group_id == group_id)
+        .where(groups_users.c.user_id == user_id)
+        .where(groups_users.c.status == GroupUserStatus.active)
+        .values(status="removed")
+        .returning(groups_users.c.group_user_id)
+    )
+    return result.first() is not None
 
 
 async def get_cohort_groups_for_realization(
@@ -211,6 +235,29 @@ async def get_realized_groups_for_discord_user(
     return [dict(row) for row in result.mappings()]
 
 
+async def get_cohort_group_ids(conn: AsyncConnection, cohort_id: int) -> list[int]:
+    """Get all group IDs for a cohort."""
+    result = await conn.execute(
+        select(groups.c.group_id)
+        .where(groups.c.cohort_id == cohort_id)
+        .order_by(groups.c.group_id)
+    )
+    return [row.group_id for row in result]
+
+
+async def get_cohort_preview_group_ids(
+    conn: AsyncConnection, cohort_id: int
+) -> list[int]:
+    """Get group IDs for groups in 'preview' status in a cohort."""
+    result = await conn.execute(
+        select(groups.c.group_id)
+        .where(groups.c.cohort_id == cohort_id)
+        .where(groups.c.status == "preview")
+        .order_by(groups.c.group_id)
+    )
+    return [row.group_id for row in result]
+
+
 async def get_group_welcome_data(
     conn: AsyncConnection,
     group_id: int,
@@ -283,3 +330,39 @@ async def get_group_welcome_data(
         "number_of_group_meetings": row["number_of_group_meetings"],
         "members": members,
     }
+
+
+async def get_cohort_groups_summary(
+    conn: AsyncConnection,
+    cohort_id: int,
+) -> list[dict[str, Any]]:
+    """
+    Get groups in a cohort with member counts for admin panel.
+
+    Returns list of dicts with group_id, group_name, status, member_count, meeting_time.
+    """
+    # Subquery for member counts
+    member_counts = (
+        select(
+            groups_users.c.group_id,
+            func.count(groups_users.c.user_id).label("member_count"),
+        )
+        .where(groups_users.c.status == GroupUserStatus.active)
+        .group_by(groups_users.c.group_id)
+        .subquery()
+    )
+
+    result = await conn.execute(
+        select(
+            groups.c.group_id,
+            groups.c.group_name,
+            groups.c.status,
+            groups.c.recurring_meeting_time_utc.label("meeting_time"),
+            func.coalesce(member_counts.c.member_count, 0).label("member_count"),
+        )
+        .outerjoin(member_counts, groups.c.group_id == member_counts.c.group_id)
+        .where(groups.c.cohort_id == cohort_id)
+        .order_by(groups.c.group_name)
+    )
+
+    return [dict(row) for row in result.mappings()]
