@@ -2,13 +2,14 @@
 
 Endpoints:
 - POST /api/progress/complete - Mark content as complete
-- POST /api/progress/time - Update time spent (heartbeat)
+- POST /api/progress/time - Update time spent (heartbeat or beacon)
 - POST /api/progress/claim - Claim anonymous records for authenticated user
 """
 
+import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
 from pydantic import BaseModel
 
 from core import get_or_create_user
@@ -58,11 +59,13 @@ class ClaimResponse(BaseModel):
 async def get_user_or_token(
     request: Request,
     x_session_token: str | None = Header(None),
+    session_token: str | None = Query(None),  # For sendBeacon (query param)
 ) -> tuple[int | None, UUID | None]:
-    """Get user_id from auth or session_token from header.
+    """Get user_id from auth or session_token from header/query.
 
     For authenticated users, looks up the user record by discord_id to get user_id.
-    For anonymous users, uses the X-Session-Token header.
+    For anonymous users, uses X-Session-Token header or session_token query param.
+    Query param is used by sendBeacon which can't set custom headers.
 
     Returns:
         Tuple of (user_id, session_token) - one will be set, the other None.
@@ -77,9 +80,11 @@ async def get_user_or_token(
         user = await get_or_create_user(discord_id)
         return user["user_id"], None
 
-    if x_session_token:
+    # Check header first, then query param (for sendBeacon)
+    token_str = x_session_token or session_token
+    if token_str:
         try:
-            return None, UUID(x_session_token)
+            return None, UUID(token_str)
         except ValueError:
             raise HTTPException(400, "Invalid session token format")
 
@@ -166,26 +171,43 @@ async def complete_content(
 
 
 @router.post("/time", status_code=204)
-async def update_time(
-    body: TimeUpdateRequest,
+async def update_time_endpoint(
+    request: Request,
+    body: TimeUpdateRequest | None = None,
     auth: tuple = Depends(get_user_or_token),
 ):
-    """Update time spent on content (periodic heartbeat).
+    """Update time spent on content (periodic heartbeat or beacon).
 
     Called periodically while user is viewing content to track engagement time.
+    Also handles sendBeacon on page unload which sends raw JSON without Content-Type.
 
     Args:
+        request: Raw request for handling sendBeacon
         body: Request with content_id and time_delta_s (seconds to add)
+             May be None for sendBeacon requests
     """
     user_id, session_token = auth
+
+    # Handle sendBeacon (raw JSON body without Content-Type header)
+    if body is None:
+        try:
+            raw = await request.body()
+            data = json.loads(raw)
+            content_id = UUID(data["content_id"])
+            time_delta_s = data["time_delta_s"]
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            raise HTTPException(400, f"Invalid request body: {e}")
+    else:
+        content_id = body.content_id
+        time_delta_s = body.time_delta_s
 
     async with get_connection() as conn:
         await update_time_spent(
             conn,
             user_id=user_id,
             session_token=session_token,
-            content_id=body.content_id,
-            time_delta_s=body.time_delta_s,
+            content_id=content_id,
+            time_delta_s=time_delta_s,
         )
 
 
