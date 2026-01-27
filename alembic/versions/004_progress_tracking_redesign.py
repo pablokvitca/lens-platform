@@ -26,18 +26,32 @@ def upgrade() -> None:
         "user_content_progress",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("session_token", UUID(as_uuid=True), nullable=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.user_id", ondelete="CASCADE"), nullable=True),
+        sa.Column(
+            "user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.user_id", ondelete="CASCADE"),
+            nullable=True,
+        ),
         sa.Column("content_id", UUID(as_uuid=True), nullable=False),
         sa.Column("content_type", sa.Text(), nullable=False),
         sa.Column("content_title", sa.Text(), nullable=False),
-        sa.Column("started_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("time_to_complete_s", sa.Integer(), server_default="0", nullable=False),
-        sa.Column("total_time_spent_s", sa.Integer(), server_default="0", nullable=False),
+        sa.Column(
+            "started_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.Column(
+            "time_to_complete_s", sa.Integer(), server_default="0", nullable=False
+        ),
+        sa.Column(
+            "total_time_spent_s", sa.Integer(), server_default="0", nullable=False
+        ),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.CheckConstraint(
             "content_type IN ('module', 'lo', 'lens', 'test')",
-            name="valid_content_type"
+            name="valid_content_type",
         ),
     )
 
@@ -72,17 +86,32 @@ def upgrade() -> None:
         "chat_sessions",
         sa.Column("session_id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("session_token", UUID(as_uuid=True), nullable=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.user_id", ondelete="CASCADE"), nullable=True),
+        sa.Column(
+            "user_id",
+            sa.Integer(),
+            sa.ForeignKey("users.user_id", ondelete="CASCADE"),
+            nullable=True,
+        ),
         sa.Column("content_id", UUID(as_uuid=True), nullable=True),
         sa.Column("content_type", sa.Text(), nullable=True),
         sa.Column("messages", JSONB(), server_default="[]", nullable=False),
-        sa.Column("started_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("last_active_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "started_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.Column(
+            "last_active_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.Column("archived_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("session_id"),
         sa.CheckConstraint(
             "content_type IS NULL OR content_type IN ('module', 'lo', 'lens', 'test')",
-            name="valid_chat_content_type"
+            name="valid_chat_content_type",
         ),
     )
 

@@ -51,7 +51,9 @@ from:: 0:00
 """
     module = parse_module(markdown)
     assert len(module.sections) == 1
-    assert module.sections[0].content_id == uuid.UUID("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+    assert module.sections[0].content_id == uuid.UUID(
+        "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+    )
 
 
 def test_parse_section_without_uuid():
