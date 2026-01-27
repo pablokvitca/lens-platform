@@ -1,0 +1,190 @@
+"""Progress tracking API routes.
+
+Endpoints:
+- POST /api/progress/complete - Mark content as complete
+- POST /api/progress/time - Update time spent (heartbeat)
+- POST /api/progress/claim - Claim anonymous records for authenticated user
+"""
+
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from pydantic import BaseModel
+
+from core import get_or_create_user
+from core.database import get_connection
+from core.modules.progress import (
+    mark_content_complete,
+    update_time_spent,
+    claim_progress_records,
+)
+from core.modules.chat_sessions import claim_chat_sessions
+from web_api.auth import get_optional_user
+
+router = APIRouter(prefix="/api/progress", tags=["progress"])
+
+
+class MarkCompleteRequest(BaseModel):
+    content_id: UUID
+    content_type: str  # 'module', 'lo', 'lens', 'test'
+    content_title: str
+    time_spent_s: int = 0
+
+
+class MarkCompleteResponse(BaseModel):
+    completed_at: str | None
+    module_status: str | None = None
+    module_progress: dict | None = None
+
+
+class TimeUpdateRequest(BaseModel):
+    content_id: UUID
+    time_delta_s: int
+
+
+class ClaimRequest(BaseModel):
+    session_token: UUID
+
+
+class ClaimResponse(BaseModel):
+    progress_records_claimed: int
+    chat_sessions_claimed: int
+
+
+async def get_user_or_token(
+    request: Request,
+    x_session_token: str | None = Header(None),
+) -> tuple[int | None, UUID | None]:
+    """Get user_id from auth or session_token from header.
+
+    For authenticated users, looks up the user record by discord_id to get user_id.
+    For anonymous users, uses the X-Session-Token header.
+
+    Returns:
+        Tuple of (user_id, session_token) - one will be set, the other None.
+
+    Raises:
+        HTTPException: 401 if neither authenticated nor session token provided.
+    """
+    user_jwt = await get_optional_user(request)
+    if user_jwt:
+        # Authenticated user - look up user_id from discord_id
+        discord_id = user_jwt["sub"]
+        user = await get_or_create_user(discord_id)
+        return user["user_id"], None
+
+    if x_session_token:
+        try:
+            return None, UUID(x_session_token)
+        except ValueError:
+            raise HTTPException(400, "Invalid session token format")
+
+    raise HTTPException(401, "Authentication required")
+
+
+@router.post("/complete", response_model=MarkCompleteResponse)
+async def complete_content(
+    body: MarkCompleteRequest,
+    auth: tuple = Depends(get_user_or_token),
+):
+    """Mark content as complete.
+
+    Accepts either authenticated user (via session cookie) or anonymous user
+    (via X-Session-Token header).
+
+    Args:
+        body: Request with content_id, content_type, content_title, time_spent_s
+
+    Returns:
+        MarkCompleteResponse with completed_at timestamp
+    """
+    user_id, session_token = auth
+
+    if body.content_type not in ("module", "lo", "lens", "test"):
+        raise HTTPException(400, "Invalid content_type")
+
+    async with get_connection() as conn:
+        progress = await mark_content_complete(
+            conn,
+            user_id=user_id,
+            session_token=session_token,
+            content_id=body.content_id,
+            content_type=body.content_type,
+            content_title=body.content_title,
+            time_spent_s=body.time_spent_s,
+        )
+
+    return MarkCompleteResponse(
+        completed_at=(
+            progress["completed_at"].isoformat()
+            if progress.get("completed_at")
+            else None
+        ),
+    )
+
+
+@router.post("/time", status_code=204)
+async def update_time(
+    body: TimeUpdateRequest,
+    auth: tuple = Depends(get_user_or_token),
+):
+    """Update time spent on content (periodic heartbeat).
+
+    Called periodically while user is viewing content to track engagement time.
+
+    Args:
+        body: Request with content_id and time_delta_s (seconds to add)
+    """
+    user_id, session_token = auth
+
+    async with get_connection() as conn:
+        await update_time_spent(
+            conn,
+            user_id=user_id,
+            session_token=session_token,
+            content_id=body.content_id,
+            time_delta_s=body.time_delta_s,
+        )
+
+
+@router.post("/claim", response_model=ClaimResponse)
+async def claim_records(
+    body: ClaimRequest,
+    request: Request,
+):
+    """Claim all anonymous records for authenticated user.
+
+    Called after login to associate any progress/chat records created
+    anonymously with the now-authenticated user.
+
+    Args:
+        body: Request with session_token (the anonymous token to claim from)
+
+    Returns:
+        ClaimResponse with counts of records claimed
+    """
+    user_jwt = await get_optional_user(request)
+    if not user_jwt:
+        raise HTTPException(401, "Must be authenticated to claim records")
+
+    # Get user_id from discord_id
+    discord_id = user_jwt["sub"]
+    user = await get_or_create_user(discord_id)
+    user_id = user["user_id"]
+
+    async with get_connection() as conn:
+        progress_count = await claim_progress_records(
+            conn,
+            session_token=body.session_token,
+            user_id=user_id,
+        )
+        chat_count = await claim_chat_sessions(
+            conn,
+            session_token=body.session_token,
+            user_id=user_id,
+        )
+
+    return ClaimResponse(
+        progress_records_claimed=progress_count,
+        chat_sessions_claimed=chat_count,
+    )
