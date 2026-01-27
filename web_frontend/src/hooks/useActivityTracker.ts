@@ -8,11 +8,6 @@ interface ActivityTrackerOptions {
   contentId?: string;
   isAuthenticated?: boolean;
 
-  // Legacy options (during migration)
-  sessionId?: number;
-  stageIndex?: number;
-  stageType?: "article" | "video" | "chat";
-
   inactivityTimeout?: number; // ms, default 180000 (3 min)
   heartbeatInterval?: number; // ms, default 60000 (60 sec)
   enabled?: boolean;
@@ -21,9 +16,6 @@ interface ActivityTrackerOptions {
 export function useActivityTracker({
   contentId,
   isAuthenticated = false,
-  sessionId,
-  stageIndex,
-  stageType,
   inactivityTimeout = 180_000,
   heartbeatInterval = 60_000, // Changed from 30s to 60s
   enabled = true,
@@ -32,32 +24,10 @@ export function useActivityTracker({
   // Initialize to null, set on first activity to avoid impure Date.now() during render
   const lastActivityRef = useRef<number | null>(null);
   const heartbeatIntervalRef = useRef<number | null>(null);
-  const scrollDepthRef = useRef(0);
-  // Track accumulated time for new API
+  // Track accumulated time for progress API
   const lastHeartbeatTimeRef = useRef<number | null>(null);
 
-  // Legacy heartbeat (for old session-based API)
-  const sendLegacyHeartbeat = useCallback(async () => {
-    if (!enabled || !sessionId) return;
-
-    try {
-      await fetch(`${API_URL}/api/module-sessions/${sessionId}/heartbeat`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          stage_index: stageIndex,
-          stage_type: stageType,
-          scroll_depth: stageType === "article" ? scrollDepthRef.current : null,
-        }),
-      });
-    } catch (error) {
-      // Fire-and-forget, ignore errors
-      console.debug("Heartbeat failed:", error);
-    }
-  }, [sessionId, stageIndex, stageType, enabled]);
-
-  // New heartbeat (for UUID-based progress API)
+  // Heartbeat for UUID-based progress API
   const sendProgressHeartbeat = useCallback(async () => {
     if (!enabled || !contentId) return;
 
@@ -79,24 +49,10 @@ export function useActivityTracker({
     }
   }, [contentId, isAuthenticated, enabled]);
 
-  // Combined heartbeat that calls appropriate API
   const sendHeartbeat = useCallback(async () => {
-    if (!enabled) return;
-
-    // New API takes priority if contentId is provided
-    if (contentId) {
-      await sendProgressHeartbeat();
-    } else if (sessionId) {
-      // Fall back to legacy API
-      await sendLegacyHeartbeat();
-    }
-  }, [
-    enabled,
-    contentId,
-    sessionId,
-    sendProgressHeartbeat,
-    sendLegacyHeartbeat,
-  ]);
+    if (!enabled || !contentId) return;
+    await sendProgressHeartbeat();
+  }, [enabled, contentId, sendProgressHeartbeat]);
 
   const handleActivity = useCallback(() => {
     lastActivityRef.current = Date.now();
@@ -115,17 +71,7 @@ export function useActivityTracker({
 
   const handleScroll = useCallback(() => {
     handleActivity();
-
-    // Track scroll depth for articles
-    if (stageType === "article") {
-      const scrollTop = window.scrollY;
-      const docHeight =
-        document.documentElement.scrollHeight - window.innerHeight;
-      if (docHeight > 0) {
-        scrollDepthRef.current = Math.min(1, scrollTop / docHeight);
-      }
-    }
-  }, [handleActivity, stageType]);
+  }, [handleActivity]);
 
   useEffect(() => {
     if (!enabled) return;
