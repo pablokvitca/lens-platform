@@ -317,6 +317,8 @@ export default function CourseOverview({
               viewingIndex={viewingIndex}
               onStageClick={handleStageClick}
               onStartModule={handleStartModule}
+              completedLenses={selectedModule.completedLenses}
+              totalLenses={selectedModule.totalLenses}
             />
           ) : (
             <div className="text-slate-500">
