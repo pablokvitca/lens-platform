@@ -12,7 +12,6 @@ from .groups import (
     create_group,
     add_user_to_group,
     get_cohort_groups_for_realization,
-    save_discord_channel_ids,
     get_group_welcome_data,
 )
 from .facilitator import (
@@ -54,7 +53,6 @@ __all__ = [
     "create_group",
     "add_user_to_group",
     "get_cohort_groups_for_realization",
-    "save_discord_channel_ids",
     "get_group_welcome_data",
     # Facilitator
     "is_admin",

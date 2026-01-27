@@ -588,6 +588,7 @@ async def _get_notification_context(
     from .database import get_connection
     from .queries.groups import get_group_welcome_data
     from .tables import groups, users, groups_users
+    from .enums import GroupUserStatus
     from sqlalchemy import select
 
     async with get_connection() as conn:
@@ -608,7 +609,7 @@ async def _get_notification_context(
             )
             .join(groups_users, users.c.user_id == groups_users.c.user_id)
             .where(groups_users.c.group_id == group_id)
-            .where(groups_users.c.status == "active")
+            .where(groups_users.c.status == GroupUserStatus.active)
         )
         result = await conn.execute(member_query)
         member_rows = list(result.mappings())
@@ -647,8 +648,8 @@ async def _get_notification_context(
 
 async def _send_sync_notifications(
     group_id: int,
-    granted_user_ids: list[int],
-    revoked_user_ids: list[int],
+    granted_discord_ids: list[int],
+    revoked_discord_ids: list[int],
     is_initial_realization: bool,
     notification_context: dict,
 ) -> dict:
@@ -657,8 +658,8 @@ async def _send_sync_notifications(
 
     Args:
         group_id: The group being synced
-        granted_user_ids: Discord user IDs (from Discord API) who were granted access
-        revoked_user_ids: Discord user IDs who were revoked access
+        granted_discord_ids: Discord user IDs (from Discord API) who were granted access
+        revoked_discord_ids: Discord user IDs who were revoked access (unused, for future)
         is_initial_realization: True if this is the group's first realization
         notification_context: Dict with group_name, meeting_time_utc, discord_channel_id, members
     """
@@ -685,7 +686,7 @@ async def _send_sync_notifications(
         if m.get("discord_id")
     }
 
-    for discord_id in granted_user_ids:
+    for discord_id in granted_discord_ids:
         member_info = members_by_discord_id.get(discord_id, {})
         user_id = member_info.get("user_id")
 
@@ -865,8 +866,8 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
     unchanged = expected_discord_ids & current_discord_ids
 
     granted, revoked, failed = 0, 0, 0
-    granted_user_ids = []
-    revoked_user_ids = []
+    granted_discord_ids = []
+    revoked_discord_ids = []
     guild = text_channel.guild
 
     # Grant access to new members (both text and voice)
@@ -894,7 +895,7 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
                     reason="Group sync",
                 )
             granted += 1
-            granted_user_ids.append(int(discord_id))
+            granted_discord_ids.append(int(discord_id))
         except Exception as e:
             logger.error(f"Error granting access to {discord_id}: {e}")
             sentry_sdk.capture_exception(e)
@@ -915,7 +916,7 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
                     member, overwrite=None, reason="Group sync"
                 )
             revoked += 1
-            revoked_user_ids.append(int(discord_id))
+            revoked_discord_ids.append(int(discord_id))
         except Exception as e:
             logger.error(f"Error revoking access from {discord_id}: {e}")
             sentry_sdk.capture_exception(e)
@@ -926,8 +927,8 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
         "revoked": revoked,
         "unchanged": len(unchanged),
         "failed": failed,
-        "granted_user_ids": granted_user_ids,
-        "revoked_user_ids": revoked_user_ids,
+        "granted_discord_ids": granted_discord_ids,
+        "revoked_discord_ids": revoked_discord_ids,
     }
 
 
@@ -1342,9 +1343,9 @@ async def sync_group(group_id: int, allow_create: bool = False) -> dict[str, Any
 
     # Send notifications
     discord_result = results.get("discord", {})
-    granted_user_ids = discord_result.get("granted_user_ids", [])
+    granted_discord_ids = discord_result.get("granted_discord_ids", [])
 
-    if granted_user_ids:
+    if granted_discord_ids:
         # Get channel ID from infrastructure result or group data
         text_channel_id = results["infrastructure"].get("text_channel", {}).get("id")
         if not text_channel_id:
@@ -1362,8 +1363,8 @@ async def sync_group(group_id: int, allow_create: bool = False) -> dict[str, Any
 
         results["notifications"] = await _send_sync_notifications(
             group_id=group_id,
-            granted_user_ids=granted_user_ids,
-            revoked_user_ids=discord_result.get("revoked_user_ids", []),
+            granted_discord_ids=granted_discord_ids,
+            revoked_discord_ids=discord_result.get("revoked_discord_ids", []),
             is_initial_realization=transitioned_to_active,
             notification_context=notification_context,
         )

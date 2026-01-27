@@ -93,7 +93,7 @@ class TestSyncGroupDiscordPermissions:
     """Test Discord permissions sync logic."""
 
     @pytest.mark.asyncio
-    async def test_returns_granted_and_revoked_user_ids(self):
+    async def test_returns_granted_and_revoked_discord_ids(self):
         """Should return lists of user IDs that were granted/revoked access."""
         from core.sync import sync_group_discord_permissions
         import discord
@@ -161,10 +161,10 @@ class TestSyncGroupDiscordPermissions:
                     result = await sync_group_discord_permissions(group_id=1)
 
         # Verify user ID lists are returned
-        assert "granted_user_ids" in result
-        assert "revoked_user_ids" in result
-        assert set(result["granted_user_ids"]) == {111, 222}
-        # 333 was in revoke set but member not found, so not in revoked_user_ids
+        assert "granted_discord_ids" in result
+        assert "revoked_discord_ids" in result
+        assert set(result["granted_discord_ids"]) == {111, 222}
+        # 333 was in revoke set but member not found, so not in revoked_discord_ids
         assert result["granted"] == 2
 
     @pytest.mark.asyncio
@@ -684,8 +684,8 @@ class TestSyncGroupAllowCreate:
                 "revoked": 0,
                 "unchanged": 1,
                 "failed": 0,
-                "granted_user_ids": [],
-                "revoked_user_ids": [],
+                "granted_discord_ids": [],
+                "revoked_discord_ids": [],
             }
             mock_calendar.return_value = {
                 "meetings": 0,
@@ -781,8 +781,8 @@ class TestSyncGroupAllowCreate:
                 "revoked": 0,
                 "unchanged": 0,
                 "failed": 0,
-                "granted_user_ids": [1, 2, 3],
-                "revoked_user_ids": [],
+                "granted_discord_ids": [1, 2, 3],
+                "revoked_discord_ids": [],
             }
             mock_calendar.return_value = {
                 "meetings": 8,
@@ -1357,8 +1357,8 @@ class TestSyncGroupStatusTransition:
                 "revoked": 0,
                 "unchanged": 0,
                 "failed": 0,
-                "granted_user_ids": [1, 2],
-                "revoked_user_ids": [],
+                "granted_discord_ids": [1, 2],
+                "revoked_discord_ids": [],
             }
             mock_calendar.return_value = {
                 "meetings": 8,
@@ -1432,8 +1432,8 @@ class TestSyncGroupStatusTransition:
                 "revoked": 0,
                 "unchanged": 0,
                 "failed": 0,
-                "granted_user_ids": [3],
-                "revoked_user_ids": [],
+                "granted_discord_ids": [3],
+                "revoked_discord_ids": [],
             }
             mock_calendar.return_value = {
                 "meetings": 8,
@@ -1657,11 +1657,11 @@ class TestSendSyncNotifications:
             mock_was_sent.return_value = False  # Not yet notified
             mock_notify_assigned.return_value = {"email": True, "discord": True}
 
-            # granted_user_ids are Discord user IDs (111, 222)
+            # granted_discord_ids are Discord user IDs (111, 222)
             result = await _send_sync_notifications(
                 group_id=1,
-                granted_user_ids=[111, 222],  # Discord IDs that match members
-                revoked_user_ids=[],
+                granted_discord_ids=[111, 222],  # Discord IDs that match members
+                revoked_discord_ids=[],
                 is_initial_realization=True,
                 notification_context=notification_context,
             )
@@ -1704,11 +1704,11 @@ class TestSendSyncNotifications:
             mock_notify_joined.return_value = {"email": True, "discord": True}
             mock_channel_msg.return_value = True
 
-            # granted_user_ids are Discord user IDs (333 matches member discord_id)
+            # granted_discord_ids are Discord user IDs (333 matches member discord_id)
             result = await _send_sync_notifications(
                 group_id=1,
-                granted_user_ids=[333],  # Discord ID that matches the member
-                revoked_user_ids=[],
+                granted_discord_ids=[333],  # Discord ID that matches the member
+                revoked_discord_ids=[],
                 is_initial_realization=False,  # Late join
                 notification_context=notification_context,
             )
@@ -1747,11 +1747,11 @@ class TestSendSyncNotifications:
         ):
             mock_was_sent.return_value = True  # Already notified
 
-            # granted_user_ids are Discord user IDs (111 matches member discord_id)
+            # granted_discord_ids are Discord user IDs (111 matches member discord_id)
             result = await _send_sync_notifications(
                 group_id=1,
-                granted_user_ids=[111],  # Discord ID that matches the member
-                revoked_user_ids=[],
+                granted_discord_ids=[111],  # Discord ID that matches the member
+                revoked_discord_ids=[],
                 is_initial_realization=True,
                 notification_context=notification_context,
             )

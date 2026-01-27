@@ -155,6 +155,10 @@ class GroupsCog(commands.Cog):
 
         If the user is in any realized groups (groups with Discord channels),
         automatically grant them access to those channels.
+
+        Note: This duplicates permission-granting logic from sync_group_discord_permissions().
+        This is intentional - sync_group() only runs on membership changes, but users may
+        join Discord AFTER their group was realized. This handler catches that case.
         """
         # Check if this user has any realized groups
         async with get_connection() as conn:
