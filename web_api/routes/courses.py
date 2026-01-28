@@ -39,11 +39,12 @@ def get_module_status_from_lenses(
         Tuple of (status, completed_count, total_count)
         status is one of: "not_started", "in_progress", "completed"
     """
-    # Collect required lens IDs (non-optional sections with content_id)
+    # Collect required lens IDs (non-optional sections with contentId)
+    # Sections are dicts with camelCase keys
     required_lens_ids = [
-        section.content_id
+        UUID(section["contentId"])
         for section in parsed_module.sections
-        if section.content_id and not getattr(section, "optional", False)
+        if section.get("contentId") and not section.get("optional", False)
     ]
 
     if not required_lens_ids:
@@ -138,10 +139,11 @@ async def get_course_progress(
                 parsed = load_narrative_module(module_slug)
                 parsed_modules[module_slug] = parsed
 
-                # Collect lens UUIDs from sections
+                # Collect lens UUIDs from sections (sections are dicts)
                 for section in parsed.sections:
-                    if section.content_id:
-                        all_lens_ids.append(section.content_id)
+                    content_id_str = section.get("contentId")
+                    if content_id_str:
+                        all_lens_ids.append(UUID(content_id_str))
             except ModuleNotFoundError:
                 continue
 
@@ -191,29 +193,34 @@ async def get_course_progress(
             )
 
             # Build sections info (named "stages" for API compatibility)
+            # Sections are dicts with camelCase keys
             stages = []
             for section in parsed.sections:
-                # Get section title from the flattened section
-                # All flattened sections have a title attribute
-                title = section.title or section.type.replace("-", " ").title()
+                # Get section title from meta or title key
+                section_type = section.get("type", "unknown")
+                title = (
+                    section.get("meta", {}).get("title")
+                    or section.get("title")
+                    or section_type.replace("-", " ").title()
+                )
 
                 # Check if this specific lens is completed
+                content_id_str = section.get("contentId")
+                content_id = UUID(content_id_str) if content_id_str else None
                 lens_completed = (
-                    section.content_id in progress_map
-                    and progress_map[section.content_id].get("completed_at")
-                    if section.content_id
+                    content_id in progress_map
+                    and progress_map[content_id].get("completed_at")
+                    if content_id
                     else False
                 )
 
                 stages.append(
                     {
-                        "type": section.type,
+                        "type": section_type,
                         "title": title,
                         "duration": None,  # Duration calculation not available for new format
-                        "optional": getattr(section, "optional", False),
-                        "contentId": str(section.content_id)
-                        if section.content_id
-                        else None,
+                        "optional": section.get("optional", False),
+                        "contentId": content_id_str,
                         "completed": lens_completed,
                     }
                 )

@@ -17,12 +17,7 @@ from core.modules.markdown_parser import (
     ChatSegment,
 )
 from core.modules.flattened_types import FlattenedModule
-from core.modules.content import (
-    bundle_article_section,
-    bundle_video_section,
-    ArticleContent,
-    VideoTranscriptContent,
-)
+from core.modules.content import bundle_article_section, bundle_video_section
 from core.modules.path_resolver import resolve_wiki_link
 
 
@@ -37,16 +32,6 @@ class ContentLookup(ABC):
     @abstractmethod
     def get_lens(self, key: str) -> ParsedLens:
         """Get a parsed lens by filename stem."""
-        pass
-
-    @abstractmethod
-    def get_article_for_bundling(self, source: str) -> "ArticleContent":
-        """Get article content for bundling (content + metadata)."""
-        pass
-
-    @abstractmethod
-    def get_video_for_bundling(self, source: str) -> "VideoTranscriptContent":
-        """Get video transcript content for bundling (transcript + metadata)."""
         pass
 
 
@@ -76,18 +61,16 @@ def _flatten_lens(
     lo_id = str(learning_outcome_id) if learning_outcome_id else None
 
     if isinstance(section, LensVideoSection):
-        # Get video content from lookup and pass to bundling
-        video_content = lookup.get_video_for_bundling(section.source)
-        bundled = bundle_video_section(section, video_content=video_content)
+        # Bundle video section (uses get_cache() internally)
+        bundled = bundle_video_section(section)
         bundled["contentId"] = content_id
         bundled["learningOutcomeId"] = lo_id
         bundled["optional"] = optional
         return [bundled]
 
     elif isinstance(section, LensArticleSection):
-        # Get article content from lookup and pass to bundling
-        article_content = lookup.get_article_for_bundling(section.source)
-        bundled = bundle_article_section(section, article_content=article_content)
+        # Bundle article section (uses get_cache() internally)
+        bundled = bundle_article_section(section)
         bundled["contentId"] = content_id
         bundled["learningOutcomeId"] = lo_id
         bundled["optional"] = optional

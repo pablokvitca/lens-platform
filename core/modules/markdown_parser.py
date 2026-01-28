@@ -719,9 +719,9 @@ def parse_course(text: str) -> ParsedCourse:
 
     progression = []
 
-    # Pattern for # Lesson: [[path]] or # Meeting: number
-    # Note: The markdown format still uses "# Lesson:" for backward compatibility
-    module_pattern = r"^# Lesson:\s*(.+)$"
+    # Pattern for # Module: [[path]] or # Lesson: [[path]] or # Meeting: number
+    # Supports both "# Module:" (current) and "# Lesson:" (legacy)
+    module_pattern = r"^# (?:Module|Lesson):\s*(.+)$"
     meeting_pattern = r"^# Meeting:\s*(\d+)$"
 
     lines = content.split("\n")

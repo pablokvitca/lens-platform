@@ -1,18 +1,13 @@
 """Fetch educational content from GitHub repository."""
 
-from __future__ import annotations
-
 import base64
 import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import httpx
-
-if TYPE_CHECKING:
-    from core.modules.content import ArticleContent, VideoTranscriptContent
 
 from core.modules.markdown_parser import (
     parse_module,
@@ -342,56 +337,6 @@ class CacheContentLookup(ContentLookup):
                 return content
         raise KeyError(f"Article not found: {key}")
 
-    def get_article_for_bundling(self, source: str) -> "ArticleContent":
-        """Get article content for bundling (content + metadata).
-
-        Args:
-            source: Source path like "../articles/Some Article" or just "Some Article"
-        """
-        from core.modules.content import (
-            ArticleContent,
-            parse_frontmatter,
-        )
-
-        # Extract key from source path
-        key = extract_filename_stem(source)
-
-        for path, raw_content in self._articles.items():
-            stem = extract_filename_stem(path)
-            if stem == key or key in path:
-                metadata, content = parse_frontmatter(raw_content)
-                return ArticleContent(
-                    content=content,
-                    metadata=metadata,
-                    is_excerpt=False,
-                )
-        raise KeyError(f"Article not found: {source}")
-
-    def get_video_for_bundling(self, source: str) -> "VideoTranscriptContent":
-        """Get video transcript content for bundling (transcript + metadata).
-
-        Args:
-            source: Source path like "../video_transcripts/Some Video" or just "Some Video"
-        """
-        from core.modules.content import (
-            VideoTranscriptContent,
-            parse_video_frontmatter,
-        )
-
-        # Extract key from source path
-        key = extract_filename_stem(source)
-
-        for path, raw_content in self._video_transcripts.items():
-            stem = extract_filename_stem(path)
-            if stem == key or key in path:
-                metadata, transcript = parse_video_frontmatter(raw_content)
-                return VideoTranscriptContent(
-                    transcript=transcript,
-                    metadata=metadata,
-                    is_excerpt=False,
-                )
-        raise KeyError(f"Video transcript not found: {source}")
-
 
 async def fetch_all_content() -> ContentCache:
     """Fetch all educational content from GitHub.
@@ -486,25 +431,11 @@ async def fetch_all_content() -> ContentCache:
             articles=articles,
         )
 
-        # Flatten all modules
-        flattened_modules: dict[str, FlattenedModule] = {}
-        for slug, module in raw_modules.items():
-            try:
-                flattened = flatten_module(module, lookup)
-                flattened_modules[slug] = flattened
-            except Exception as e:
-                logger.warning(f"Failed to flatten module {slug}: {e}")
-                # Create a minimal flattened module with just the title
-                flattened_modules[slug] = FlattenedModule(
-                    slug=module.slug,
-                    title=module.title,
-                    content_id=module.content_id,
-                    sections=[],
-                )
-
-        return ContentCache(
+        # Set cache BEFORE flattening so bundling functions can access content
+        # (bundling functions call get_cache() to load articles/transcripts)
+        cache = ContentCache(
             courses=courses,
-            flattened_modules=flattened_modules,
+            flattened_modules={},  # Will populate below
             parsed_learning_outcomes=parsed_learning_outcomes,
             parsed_lenses=parsed_lenses,
             articles=articles,
@@ -512,6 +443,24 @@ async def fetch_all_content() -> ContentCache:
             last_refreshed=datetime.now(),
             last_commit_sha=commit_sha,
         )
+        set_cache(cache)
+
+        # Flatten all modules (now bundling functions can use get_cache())
+        for slug, module in raw_modules.items():
+            try:
+                flattened = flatten_module(module, lookup)
+                cache.flattened_modules[slug] = flattened
+            except Exception as e:
+                logger.warning(f"Failed to flatten module {slug}: {e}")
+                # Create a minimal flattened module with just the title
+                cache.flattened_modules[slug] = FlattenedModule(
+                    slug=module.slug,
+                    title=module.title,
+                    content_id=module.content_id,
+                    sections=[],
+                )
+
+        return cache
 
 
 async def _fetch_file_with_client(

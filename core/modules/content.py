@@ -577,10 +577,7 @@ def get_stage_duration(stage) -> str:
     return duration
 
 
-def bundle_article_section(
-    section,
-    article_content: ArticleContent | None = None,
-) -> dict:
+def bundle_article_section(section) -> dict:
     """
     Bundle an article section with collapsed content for excerpts.
 
@@ -589,8 +586,6 @@ def bundle_article_section(
 
     Args:
         section: ArticleSection with source and segments
-        article_content: Pre-loaded article content (for cache construction).
-                        If None, loads from global cache (for request-time).
 
     Returns:
         Dict with type, meta, segments (with collapsed_before/collapsed_after), optional
@@ -604,11 +599,8 @@ def bundle_article_section(
         LensChatSegment,
     )
 
-    # 1. Load full article once (use provided content or load from cache)
-    if article_content is not None:
-        full_result = article_content
-    else:
-        full_result = load_article_with_metadata(section.source)
+    # 1. Load full article once
+    full_result = load_article_with_metadata(section.source)
     full_content = full_result.content
 
     # 2. Find positions for all article-excerpt segments (handle both regular and Lens types)
@@ -679,17 +671,12 @@ def bundle_article_section(
     }
 
 
-def bundle_video_section(
-    section,
-    video_content: VideoTranscriptContent | None = None,
-) -> dict:
+def bundle_video_section(section) -> dict:
     """
     Bundle a video section with transcript excerpts.
 
     Args:
         section: VideoSection or LensVideoSection with source and segments
-        video_content: Pre-loaded video transcript content (for cache construction).
-                      If None, loads from global cache (for request-time).
 
     Returns:
         Dict with type, videoId, meta, segments, optional
@@ -722,24 +709,17 @@ def bundle_video_section(
         except ValueError:
             return 0
 
-    # Load video metadata (use provided content or load from cache)
-    if video_content is not None:
-        video_id = video_content.metadata.video_id
+    # Load video metadata
+    try:
+        result = load_video_transcript_with_metadata(section.source)
+        video_id = result.metadata.video_id
         meta = {
-            "title": section.title or video_content.metadata.title,
-            "channel": video_content.metadata.channel,
+            "title": section.title or result.metadata.title,
+            "channel": result.metadata.channel,
         }
-    else:
-        try:
-            result = load_video_transcript_with_metadata(section.source)
-            video_id = result.metadata.video_id
-            meta = {
-                "title": section.title or result.metadata.title,
-                "channel": result.metadata.channel,
-            }
-        except FileNotFoundError:
-            video_id = None
-            meta = {"title": section.title or None, "channel": None}
+    except FileNotFoundError:
+        video_id = None
+        meta = {"title": section.title or None, "channel": None}
 
     # Bundle segments (handle both regular and Lens segment types)
     bundled_segments = []
