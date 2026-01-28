@@ -88,11 +88,39 @@ export type ChatSection = {
   contentId?: string | null;
 };
 
+// v2 section types
+export type PageSection = {
+  type: "page";
+  meta: { title: string | null };
+  segments: ModuleSegment[];
+  contentId?: string | null;
+};
+
+export type LensReference = {
+  source: string;
+  optional: boolean;
+};
+
+export type LearningOutcomeSection = {
+  type: "learning-outcome";
+  source: string;
+  optional: boolean;
+  // TODO: Add resolved lenses when backend resolution is implemented
+};
+
+export type UncategorizedSection = {
+  type: "uncategorized";
+  lenses: LensReference[];
+};
+
 export type ModuleSection =
   | TextSection
   | ArticleSection
   | VideoSection
-  | ChatSection;
+  | ChatSection
+  | PageSection
+  | LearningOutcomeSection
+  | UncategorizedSection;
 
 // Full module definition
 export type Module = {
