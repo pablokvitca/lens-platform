@@ -1,10 +1,12 @@
 # core/modules/tests/test_flattener.py
 """Tests for module flattening logic."""
 
+from datetime import datetime
 from uuid import UUID
 
 import pytest
 
+from core.content.cache import ContentCache, set_cache, clear_cache
 from core.modules.flattener import flatten_module, ContentLookup
 from core.modules.markdown_parser import (
     ParsedModule,
@@ -27,13 +29,9 @@ class MockContentLookup(ContentLookup):
         self,
         learning_outcomes: dict[str, ParsedLearningOutcome] | None = None,
         lenses: dict[str, ParsedLens] | None = None,
-        video_transcripts: dict[str, dict] | None = None,
-        articles: dict[str, dict] | None = None,
     ):
         self._learning_outcomes = learning_outcomes or {}
         self._lenses = lenses or {}
-        self._video_transcripts = video_transcripts or {}
-        self._articles = articles or {}
 
     def get_learning_outcome(self, key: str) -> ParsedLearningOutcome:
         if key not in self._learning_outcomes:
@@ -45,15 +43,43 @@ class MockContentLookup(ContentLookup):
             raise KeyError(f"Lens not found: {key}")
         return self._lenses[key]
 
-    def get_video_metadata(self, key: str) -> dict:
-        if key not in self._video_transcripts:
-            raise KeyError(f"Video transcript not found: {key}")
-        return self._video_transcripts[key]
 
-    def get_article_metadata(self, key: str) -> dict:
-        if key not in self._articles:
-            raise KeyError(f"Article not found: {key}")
-        return self._articles[key]
+@pytest.fixture(autouse=True)
+def setup_cache():
+    """Set up a minimal cache for bundling functions."""
+    cache = ContentCache(
+        courses={},
+        flattened_modules={},
+        parsed_learning_outcomes={},
+        parsed_lenses={},
+        articles={
+            "articles/background.md": """---
+title: Background
+author: Jane
+sourceUrl: https://example.com
+---
+
+# Background
+
+Some background content here.
+"""
+        },
+        video_transcripts={
+            "video_transcripts/kurzgesagt.md": """---
+url: https://www.youtube.com/watch?v=abc123
+channel: Kurzgesagt
+title: AI Safety Intro
+---
+
+00:00 - 01:00
+This is the transcript.
+"""
+        },
+        last_refreshed=datetime.now(),
+    )
+    set_cache(cache)
+    yield
+    clear_cache()
 
 
 def test_flatten_module_with_page_section():
@@ -76,8 +102,8 @@ def test_flatten_module_with_page_section():
 
     assert result.slug == "intro"
     assert len(result.sections) == 1
-    assert result.sections[0].type == "page"
-    assert result.sections[0].title == "Welcome"
+    assert result.sections[0]["type"] == "page"
+    assert result.sections[0]["title"] == "Welcome"
 
 
 def test_flatten_module_expands_learning_outcome():
@@ -112,19 +138,16 @@ def test_flatten_module_expands_learning_outcome():
     lookup = MockContentLookup(
         learning_outcomes={"AI Risks": lo},
         lenses={"Video Lens": lens},
-        video_transcripts={
-            "kurzgesagt": {"video_id": "abc123", "channel": "Kurzgesagt"}
-        },
     )
 
     result = flatten_module(module, lookup)
 
     assert len(result.sections) == 1
-    assert result.sections[0].type == "lens-video"
-    assert result.sections[0].learning_outcome_id == UUID(
-        "00000000-0000-0000-0000-000000000010"
+    assert result.sections[0]["type"] == "video"
+    assert result.sections[0]["learningOutcomeId"] == str(
+        UUID("00000000-0000-0000-0000-000000000010")
     )
-    assert result.sections[0].video_id == "abc123"
+    assert result.sections[0]["videoId"] == "abc123"
 
 
 def test_flatten_module_expands_uncategorized():
@@ -153,21 +176,14 @@ def test_flatten_module_expands_uncategorized():
 
     lookup = MockContentLookup(
         lenses={"Background": lens},
-        articles={
-            "background": {
-                "title": "Background",
-                "author": "Jane",
-                "source_url": "https://example.com",
-            }
-        },
     )
 
     result = flatten_module(module, lookup)
 
     assert len(result.sections) == 1
-    assert result.sections[0].type == "lens-article"
-    assert result.sections[0].learning_outcome_id is None  # Uncategorized
-    assert result.sections[0].optional is True
+    assert result.sections[0]["type"] == "article"
+    assert result.sections[0]["learningOutcomeId"] is None  # Uncategorized
+    assert result.sections[0]["optional"] is True
 
 
 def test_flatten_module_fails_on_missing_reference():

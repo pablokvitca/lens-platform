@@ -15,12 +15,7 @@ from uuid import UUID
 from fastapi.testclient import TestClient
 
 from core.content.cache import ContentCache, set_cache, clear_cache
-from core.modules.flattened_types import (
-    FlattenedModule,
-    FlatPageSection,
-    FlatLensVideoSection,
-    FlatLensArticleSection,
-)
+from core.modules.flattened_types import FlattenedModule
 
 
 # --- Helper Functions ---
@@ -48,31 +43,33 @@ def mock_flattened_cache_for_progress():
                 title="Introduction",
                 content_id=UUID("00000000-0000-0000-0000-000000000001"),
                 sections=[
-                    FlatPageSection(
-                        content_id=UUID("00000000-0000-0000-0000-000000000002"),
-                        title="Welcome",
-                        segments=[],
-                    ),
-                    FlatLensVideoSection(
-                        content_id=UUID("00000000-0000-0000-0000-000000000003"),
-                        learning_outcome_id=UUID(
-                            "00000000-0000-0000-0000-000000000010"
-                        ),
-                        title="AI Safety Intro",
-                        video_id="abc123",
-                        channel="Kurzgesagt",
-                        segments=[],
-                        optional=False,
-                    ),
-                    FlatLensArticleSection(
-                        content_id=UUID("00000000-0000-0000-0000-000000000004"),
-                        learning_outcome_id=None,
-                        title="Background Reading",
-                        author="Jane Doe",
-                        source_url="https://example.com",
-                        segments=[],
-                        optional=True,
-                    ),
+                    {
+                        "type": "page",
+                        "contentId": "00000000-0000-0000-0000-000000000002",
+                        "title": "Welcome",
+                        "segments": [],
+                    },
+                    {
+                        "type": "video",
+                        "contentId": "00000000-0000-0000-0000-000000000003",
+                        "learningOutcomeId": "00000000-0000-0000-0000-000000000010",
+                        "videoId": "abc123",
+                        "meta": {"title": "AI Safety Intro", "channel": "Kurzgesagt"},
+                        "segments": [],
+                        "optional": False,
+                    },
+                    {
+                        "type": "article",
+                        "contentId": "00000000-0000-0000-0000-000000000004",
+                        "learningOutcomeId": None,
+                        "meta": {
+                            "title": "Background Reading",
+                            "author": "Jane Doe",
+                            "sourceUrl": "https://example.com",
+                        },
+                        "segments": [],
+                        "optional": True,
+                    },
                 ],
             ),
         },

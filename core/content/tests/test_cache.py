@@ -11,7 +11,7 @@ from core.content.cache import (
     clear_cache,
     CacheNotInitializedError,
 )
-from core.modules.flattened_types import FlattenedModule, FlatPageSection
+from core.modules.flattened_types import FlattenedModule
 
 
 class TestContentCache:
@@ -66,11 +66,12 @@ class TestContentCache:
             title="Test Module",
             content_id=UUID("00000000-0000-0000-0000-000000000001"),
             sections=[
-                FlatPageSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000002"),
-                    title="Welcome",
-                    segments=[{"type": "text", "content": "Hello"}],
-                )
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000002",
+                    "title": "Welcome",
+                    "segments": [{"type": "text", "content": "Hello"}],
+                }
             ],
         )
 

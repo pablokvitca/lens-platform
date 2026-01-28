@@ -59,8 +59,9 @@ def test_extract_section_no_anchors():
 
 def test_bundle_narrative_module_includes_optional_field():
     """Should include optional field when bundling article and video sections."""
-    from unittest.mock import patch
+    from datetime import datetime
 
+    from core.content.cache import ContentCache, set_cache, clear_cache
     from core.modules.content import bundle_narrative_module
     from core.modules.markdown_parser import (
         ArticleSection,
@@ -69,46 +70,58 @@ def test_bundle_narrative_module_includes_optional_field():
         ParsedModule,
     )
 
-    class MockMetadata:
-        title = "Mock Title"
-        author = "Mock Author"
-        source_url = "https://example.com"
-        channel = "Mock Channel"
-        video_id = "abc123"
+    # Set up cache with test content
+    cache = ContentCache(
+        courses={},
+        flattened_modules={},
+        parsed_learning_outcomes={},
+        parsed_lenses={},
+        articles={
+            "articles/test-article.md": """---
+title: Mock Title
+author: Mock Author
+source_url: https://example.com
+---
 
-    class MockResult:
-        metadata = MockMetadata()
-        content = "Mock content"
+Mock content"""
+        },
+        video_transcripts={
+            "video_transcripts/test-video.md": """---
+url: https://www.youtube.com/watch?v=abc123
+channel: Mock Channel
+title: Mock Title
+---
 
-    # Create a module with optional and non-optional sections
-    module = ParsedModule(
-        slug="test-module",
-        title="Test Module",
-        sections=[
-            ArticleSection(
-                source="test-article.md",
-                segments=[TextSegment(content="Test content")],
-                optional=True,
-            ),
-            VideoSection(
-                source="test-video.md",
-                segments=[TextSegment(content="Test content")],
-                optional=False,
-            ),
-        ],
+00:00 - 01:00
+Mock transcript content"""
+        },
+        last_refreshed=datetime.now(),
     )
+    set_cache(cache)
 
-    with (
-        patch(
-            "core.modules.content.load_article_with_metadata", return_value=MockResult()
-        ),
-        patch(
-            "core.modules.content.load_video_transcript_with_metadata",
-            return_value=MockResult(),
-        ),
-    ):
+    try:
+        # Create a module with optional and non-optional sections
+        module = ParsedModule(
+            slug="test-module",
+            title="Test Module",
+            sections=[
+                ArticleSection(
+                    source="[[../articles/test-article]]",
+                    segments=[TextSegment(content="Test content")],
+                    optional=True,
+                ),
+                VideoSection(
+                    source="[[../video_transcripts/test-video]]",
+                    segments=[TextSegment(content="Test content")],
+                    optional=False,
+                ),
+            ],
+        )
+
         result = bundle_narrative_module(module)
 
-    # Verify optional field is present and correct
-    assert result["sections"][0]["optional"] is True
-    assert result["sections"][1]["optional"] is False
+        # Verify optional field is present and correct
+        assert result["sections"][0]["optional"] is True
+        assert result["sections"][1]["optional"] is False
+    finally:
+        clear_cache()

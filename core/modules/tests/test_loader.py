@@ -15,10 +15,7 @@ from core.modules.loader import (
     ModuleNotFoundError,
     get_available_modules,
 )
-from core.modules.flattened_types import (
-    FlattenedModule,
-    FlatPageSection,
-)
+from core.modules.flattened_types import FlattenedModule
 
 
 class TestLoadNarrativeModuleFromCache:
@@ -26,22 +23,23 @@ class TestLoadNarrativeModuleFromCache:
 
     def setup_method(self):
         """Set up test cache."""
-        # Create a minimal flattened module
+        # Create a minimal flattened module (sections are dicts)
         test_module = FlattenedModule(
             slug="test-module",
             title="Test Module",
             content_id=UUID("00000000-0000-0000-0000-000000000001"),
             sections=[
-                FlatPageSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000002"),
-                    title="Test Page",
-                    segments=[
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000002",
+                    "title": "Test Page",
+                    "segments": [
                         {
                             "type": "chat",
                             "instructions": "Test instructions",
                         }
                     ],
-                )
+                }
             ],
         )
 
@@ -76,7 +74,7 @@ class TestLoadNarrativeModuleFromCache:
         assert module.slug == "test-module"
         assert module.title == "Test Module"
         assert len(module.sections) == 1
-        assert module.sections[0].type == "page"
+        assert module.sections[0]["type"] == "page"
 
     def test_load_module_not_found(self):
         """Should raise error for missing module."""

@@ -60,7 +60,7 @@ async def get_or_create_progress(
 
     result = await conn.execute(stmt)
     row = result.fetchone()
-    await conn.commit()
+    # No explicit commit - let the caller's transaction context handle it
     return dict(row._mapping)
 
 
@@ -104,7 +104,7 @@ async def mark_content_complete(
         .returning(user_content_progress)
     )
     row = result.fetchone()
-    await conn.commit()
+    # No explicit commit - let the caller's transaction context handle it
     return dict(row._mapping)
 
 
@@ -148,7 +148,7 @@ async def update_time_spent(
             ),
         )
     )
-    await conn.commit()
+    # No explicit commit - let the caller's transaction context handle it
 
 
 async def get_module_progress(
@@ -192,12 +192,28 @@ async def claim_progress_records(
 ) -> int:
     """Claim all anonymous progress records for a user.
 
+    Skips records where the user already has progress for that content_id
+    to avoid unique constraint violations.
+
     Returns count of records claimed.
     """
+    # Subquery to find content_ids where the user already has progress
+    existing_content_ids = (
+        select(user_content_progress.c.content_id)
+        .where(user_content_progress.c.user_id == user_id)
+        .scalar_subquery()
+    )
+
+    # Only claim anonymous records for content the user doesn't already have
     result = await conn.execute(
         update(user_content_progress)
-        .where(user_content_progress.c.anonymous_token == anonymous_token)
+        .where(
+            and_(
+                user_content_progress.c.anonymous_token == anonymous_token,
+                ~user_content_progress.c.content_id.in_(existing_content_ids),
+            )
+        )
         .values(user_id=user_id, anonymous_token=None)
     )
-    await conn.commit()
+    # No explicit commit - let the caller's transaction context handle it
     return result.rowcount

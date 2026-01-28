@@ -25,10 +25,7 @@ from core.modules.markdown_parser import (
     ModuleRef,
     MeetingMarker,
 )
-from core.modules.flattened_types import (
-    FlattenedModule,
-    FlatPageSection,
-)
+from core.modules.flattened_types import FlattenedModule
 
 
 @pytest.fixture
@@ -41,13 +38,14 @@ def test_cache():
             title="Module A",
             content_id=UUID("00000000-0000-0000-0000-000000000001"),
             sections=[
-                FlatPageSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000011"),
-                    title="Module A Page",
-                    segments=[
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000011",
+                    "title": "Module A Page",
+                    "segments": [
                         {"type": "chat", "instructions": "Module A instructions"}
                     ],
-                ),
+                },
             ],
         ),
         "module-b": FlattenedModule(
@@ -55,13 +53,14 @@ def test_cache():
             title="Module B",
             content_id=UUID("00000000-0000-0000-0000-000000000002"),
             sections=[
-                FlatPageSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000021"),
-                    title="Module B Page",
-                    segments=[
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000021",
+                    "title": "Module B Page",
+                    "segments": [
                         {"type": "chat", "instructions": "Module B instructions"}
                     ],
-                ),
+                },
             ],
         ),
         "module-c": FlattenedModule(
@@ -69,13 +68,14 @@ def test_cache():
             title="Module C",
             content_id=UUID("00000000-0000-0000-0000-000000000003"),
             sections=[
-                FlatPageSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000031"),
-                    title="Module C Page",
-                    segments=[
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000031",
+                    "title": "Module C Page",
+                    "segments": [
                         {"type": "chat", "instructions": "Module C instructions"}
                     ],
-                ),
+                },
             ],
         ),
         "module-d": FlattenedModule(
@@ -83,13 +83,14 @@ def test_cache():
             title="Module D",
             content_id=UUID("00000000-0000-0000-0000-000000000004"),
             sections=[
-                FlatPageSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000041"),
-                    title="Module D Page",
-                    segments=[
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000041",
+                    "title": "Module D Page",
+                    "segments": [
                         {"type": "chat", "instructions": "Module D instructions"}
                     ],
-                ),
+                },
             ],
         ),
     }

@@ -304,7 +304,7 @@ class TestAdminMemberAdd:
         data = response.json()
         assert data["status"] == "added"
         mock_assign.assert_called_once_with(
-            mock_conn, user_id=2, to_group_id=5, from_group_user_id=None
+            mock_conn, user_id=2, to_group_id=5, from_group_id=None
         )
         mock_sync.assert_called_once()
 
@@ -353,7 +353,7 @@ class TestAdminMemberAdd:
         data = response.json()
         assert data["status"] == "moved"
         mock_assign.assert_called_once_with(
-            mock_conn, user_id=2, to_group_id=5, from_group_user_id=50
+            mock_conn, user_id=2, to_group_id=5, from_group_id=3
         )
         # Sync should be called once with both group IDs
         mock_sync.assert_called_once_with(

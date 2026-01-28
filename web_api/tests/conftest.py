@@ -15,12 +15,7 @@ from core.modules.markdown_parser import (
     ModuleRef,
     MeetingMarker,
 )
-from core.modules.flattened_types import (
-    FlattenedModule,
-    FlatPageSection,
-    FlatLensVideoSection,
-    FlatLensArticleSection,
-)
+from core.modules.flattened_types import FlattenedModule
 
 
 @pytest.fixture(autouse=True)
@@ -31,32 +26,33 @@ def api_test_cache():
     It provides a realistic course structure with multiple modules,
     meetings, and both required and optional modules.
     """
-    # Create test modules using flattened types
+    # Create test modules using flattened types (sections are dicts)
     flattened_modules = {
         "introduction": FlattenedModule(
             slug="introduction",
             title="Introduction to AI Safety",
             content_id=UUID("00000000-0000-0000-0000-000000000101"),
             sections=[
-                FlatLensVideoSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000102"),
-                    learning_outcome_id=UUID("00000000-0000-0000-0000-000000000150"),
-                    title="Intro Video",
-                    video_id="intro123",
-                    channel="AI Safety Channel",
-                    segments=[],
-                    optional=False,
-                ),
-                FlatPageSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000103"),
-                    title="Discussion",
-                    segments=[
+                {
+                    "type": "video",
+                    "contentId": "00000000-0000-0000-0000-000000000102",
+                    "learningOutcomeId": "00000000-0000-0000-0000-000000000150",
+                    "videoId": "intro123",
+                    "meta": {"title": "Intro Video", "channel": "AI Safety Channel"},
+                    "segments": [],
+                    "optional": False,
+                },
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000103",
+                    "title": "Discussion",
+                    "segments": [
                         {
                             "type": "chat",
                             "instructions": "Discuss what you learned from the introduction video.",
                         }
                     ],
-                ),
+                },
             ],
         ),
         "core-concepts": FlattenedModule(
@@ -64,25 +60,29 @@ def api_test_cache():
             title="Core Concepts in AI Alignment",
             content_id=UUID("00000000-0000-0000-0000-000000000201"),
             sections=[
-                FlatLensArticleSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000202"),
-                    learning_outcome_id=UUID("00000000-0000-0000-0000-000000000250"),
-                    title="Core Concepts Article",
-                    author="AI Safety Researcher",
-                    source_url="https://example.com/core-concepts",
-                    segments=[],
-                    optional=False,
-                ),
-                FlatPageSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000203"),
-                    title="Discussion",
-                    segments=[
+                {
+                    "type": "article",
+                    "contentId": "00000000-0000-0000-0000-000000000202",
+                    "learningOutcomeId": "00000000-0000-0000-0000-000000000250",
+                    "meta": {
+                        "title": "Core Concepts Article",
+                        "author": "AI Safety Researcher",
+                        "sourceUrl": "https://example.com/core-concepts",
+                    },
+                    "segments": [],
+                    "optional": False,
+                },
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000203",
+                    "title": "Discussion",
+                    "segments": [
                         {
                             "type": "chat",
                             "instructions": "Explain the core concepts in your own words.",
                         }
                     ],
-                ),
+                },
             ],
         ),
         "advanced-topics": FlattenedModule(
@@ -90,16 +90,17 @@ def api_test_cache():
             title="Advanced Topics",
             content_id=UUID("00000000-0000-0000-0000-000000000301"),
             sections=[
-                FlatPageSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000302"),
-                    title="Deep Dive",
-                    segments=[
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000302",
+                    "title": "Deep Dive",
+                    "segments": [
                         {
                             "type": "chat",
                             "instructions": "Deep dive into advanced alignment topics.",
                         }
                     ],
-                ),
+                },
             ],
         ),
         "supplementary-reading": FlattenedModule(
@@ -107,15 +108,18 @@ def api_test_cache():
             title="Supplementary Reading",
             content_id=UUID("00000000-0000-0000-0000-000000000401"),
             sections=[
-                FlatLensArticleSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000402"),
-                    learning_outcome_id=None,  # Uncategorized
-                    title="Supplementary Article",
-                    author="Guest Author",
-                    source_url="https://example.com/supplementary",
-                    segments=[],
-                    optional=True,
-                ),
+                {
+                    "type": "article",
+                    "contentId": "00000000-0000-0000-0000-000000000402",
+                    "learningOutcomeId": None,  # Uncategorized
+                    "meta": {
+                        "title": "Supplementary Article",
+                        "author": "Guest Author",
+                        "sourceUrl": "https://example.com/supplementary",
+                    },
+                    "segments": [],
+                    "optional": True,
+                },
             ],
         ),
         "final-discussion": FlattenedModule(
@@ -123,16 +127,17 @@ def api_test_cache():
             title="Final Discussion",
             content_id=UUID("00000000-0000-0000-0000-000000000501"),
             sections=[
-                FlatPageSection(
-                    content_id=UUID("00000000-0000-0000-0000-000000000502"),
-                    title="Synthesis",
-                    segments=[
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000502",
+                    "title": "Synthesis",
+                    "segments": [
                         {
                             "type": "chat",
                             "instructions": "Synthesize everything you've learned.",
                         }
                     ],
-                ),
+                },
             ],
         ),
     }

@@ -598,9 +598,15 @@ def bundle_article_section(section) -> dict:
         LensTextSegment,
         LensChatSegment,
     )
+    from .path_resolver import resolve_wiki_link
+
+    # Resolve wiki-link to get cache key (e.g., "[[../articles/foo]]" -> "foo")
+    _, article_key = resolve_wiki_link(section.source)
+    # Reconstruct path for load function
+    article_path = f"articles/{article_key}"
 
     # 1. Load full article once
-    full_result = load_article_with_metadata(section.source)
+    full_result = load_article_with_metadata(article_path)
     full_content = full_result.content
 
     # 2. Find positions for all article-excerpt segments (handle both regular and Lens types)
@@ -689,6 +695,7 @@ def bundle_video_section(section) -> dict:
         LensChatSegment,
         LensVideoExcerptSegment,
     )
+    from .path_resolver import resolve_wiki_link
     from core.transcripts import get_text_at_time
 
     def _parse_time_to_seconds(time_str: str) -> int:
@@ -709,9 +716,14 @@ def bundle_video_section(section) -> dict:
         except ValueError:
             return 0
 
+    # Resolve wiki-link to get cache key (e.g., "[[../video_transcripts/foo]]" -> "foo")
+    _, video_key = resolve_wiki_link(section.source)
+    # Reconstruct path for load function
+    video_path = f"video_transcripts/{video_key}"
+
     # Load video metadata
     try:
-        result = load_video_transcript_with_metadata(section.source)
+        result = load_video_transcript_with_metadata(video_path)
         video_id = result.metadata.video_id
         meta = {
             "title": section.title or result.metadata.title,

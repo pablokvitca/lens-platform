@@ -5,7 +5,7 @@ from datetime import datetime
 from uuid import UUID
 
 from core.content.cache import ContentCache
-from core.modules.flattened_types import FlattenedModule, FlatPageSection
+from core.modules.flattened_types import FlattenedModule
 
 
 def test_cache_stores_flattened_modules():
@@ -18,11 +18,12 @@ def test_cache_stores_flattened_modules():
                 title="Introduction",
                 content_id=UUID("00000000-0000-0000-0000-000000000001"),
                 sections=[
-                    FlatPageSection(
-                        content_id=UUID("00000000-0000-0000-0000-000000000002"),
-                        title="Welcome",
-                        segments=[],
-                    ),
+                    {
+                        "type": "page",
+                        "contentId": "00000000-0000-0000-0000-000000000002",
+                        "title": "Welcome",
+                        "segments": [],
+                    },
                 ],
             ),
         },
@@ -34,4 +35,4 @@ def test_cache_stores_flattened_modules():
     )
 
     assert "intro" in cache.flattened_modules
-    assert cache.flattened_modules["intro"].sections[0].type == "page"
+    assert cache.flattened_modules["intro"].sections[0]["type"] == "page"

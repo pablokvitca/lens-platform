@@ -8,12 +8,7 @@ from uuid import UUID
 from fastapi.testclient import TestClient
 
 from core.content.cache import ContentCache, set_cache, clear_cache
-from core.modules.flattened_types import (
-    FlattenedModule,
-    FlatPageSection,
-    FlatLensVideoSection,
-    FlatLensArticleSection,
-)
+from core.modules.flattened_types import FlattenedModule
 
 
 @pytest.fixture
@@ -27,31 +22,33 @@ def mock_flattened_cache():
                 title="Introduction",
                 content_id=UUID("00000000-0000-0000-0000-000000000001"),
                 sections=[
-                    FlatPageSection(
-                        content_id=UUID("00000000-0000-0000-0000-000000000002"),
-                        title="Welcome",
-                        segments=[{"type": "text", "content": "Hello"}],
-                    ),
-                    FlatLensVideoSection(
-                        content_id=UUID("00000000-0000-0000-0000-000000000003"),
-                        learning_outcome_id=UUID(
-                            "00000000-0000-0000-0000-000000000010"
-                        ),
-                        title="AI Safety Intro",
-                        video_id="abc123",
-                        channel="Kurzgesagt",
-                        segments=[],
-                        optional=False,
-                    ),
-                    FlatLensArticleSection(
-                        content_id=UUID("00000000-0000-0000-0000-000000000004"),
-                        learning_outcome_id=None,  # Uncategorized
-                        title="Background Reading",
-                        author="Jane Doe",
-                        source_url="https://example.com/article",
-                        segments=[{"type": "text", "content": "Read this."}],
-                        optional=True,
-                    ),
+                    {
+                        "type": "page",
+                        "contentId": "00000000-0000-0000-0000-000000000002",
+                        "title": "Welcome",
+                        "segments": [{"type": "text", "content": "Hello"}],
+                    },
+                    {
+                        "type": "video",
+                        "contentId": "00000000-0000-0000-0000-000000000003",
+                        "learningOutcomeId": "00000000-0000-0000-0000-000000000010",
+                        "videoId": "abc123",
+                        "meta": {"title": "AI Safety Intro", "channel": "Kurzgesagt"},
+                        "segments": [],
+                        "optional": False,
+                    },
+                    {
+                        "type": "article",
+                        "contentId": "00000000-0000-0000-0000-000000000004",
+                        "learningOutcomeId": None,  # Uncategorized
+                        "meta": {
+                            "title": "Background Reading",
+                            "author": "Jane Doe",
+                            "sourceUrl": "https://example.com/article",
+                        },
+                        "segments": [{"type": "text", "content": "Read this."}],
+                        "optional": True,
+                    },
                 ],
             ),
         },
@@ -84,12 +81,12 @@ def test_get_module_returns_flattened_sections(mock_flattened_cache):
     page_section = data["sections"][0]
     assert page_section["type"] == "page"
     assert page_section["contentId"] == "00000000-0000-0000-0000-000000000002"
-    assert page_section["meta"]["title"] == "Welcome"
+    assert page_section["title"] == "Welcome"
     assert page_section["segments"] == [{"type": "text", "content": "Hello"}]
 
-    # Second section is a lens-video with learningOutcomeId
+    # Second section is a video with learningOutcomeId
     video_section = data["sections"][1]
-    assert video_section["type"] == "lens-video"
+    assert video_section["type"] == "video"
     assert video_section["contentId"] == "00000000-0000-0000-0000-000000000003"
     assert video_section["learningOutcomeId"] == "00000000-0000-0000-0000-000000000010"
     assert video_section["videoId"] == "abc123"
@@ -97,9 +94,9 @@ def test_get_module_returns_flattened_sections(mock_flattened_cache):
     assert video_section["meta"]["channel"] == "Kurzgesagt"
     assert video_section["optional"] is False
 
-    # Third section is a lens-article with learningOutcomeId=null (uncategorized)
+    # Third section is an article with learningOutcomeId=null (uncategorized)
     article_section = data["sections"][2]
-    assert article_section["type"] == "lens-article"
+    assert article_section["type"] == "article"
     assert article_section["contentId"] == "00000000-0000-0000-0000-000000000004"
     assert article_section["learningOutcomeId"] is None
     assert article_section["meta"]["title"] == "Background Reading"

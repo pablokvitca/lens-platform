@@ -24,7 +24,7 @@ from core.content.github_fetcher import (
     _get_tracked_directory,
 )
 from core.content.cache import ContentCache, set_cache, clear_cache, get_cache
-from core.modules.flattened_types import FlattenedModule, FlatPageSection
+from core.modules.flattened_types import FlattenedModule
 
 
 class TestConfig:
@@ -697,11 +697,12 @@ class TestIncrementalRefresh:
                     title="Introduction",
                     content_id=UUID("00000000-0000-0000-0000-000000000001"),
                     sections=[
-                        FlatPageSection(
-                            content_id=UUID("00000000-0000-0000-0000-000000000002"),
-                            title="Welcome",
-                            segments=[{"type": "text", "content": "Hello"}],
-                        )
+                        {
+                            "type": "page",
+                            "contentId": "00000000-0000-0000-0000-000000000002",
+                            "title": "Welcome",
+                            "segments": [{"type": "text", "content": "Hello"}],
+                        }
                     ],
                 )
             },
@@ -1049,11 +1050,12 @@ class TestApplyFileChange:
                     title="Introduction",
                     content_id=UUID("00000000-0000-0000-0000-000000000001"),
                     sections=[
-                        FlatPageSection(
-                            content_id=UUID("00000000-0000-0000-0000-000000000002"),
-                            title="Welcome",
-                            segments=[{"type": "text", "content": "Hello"}],
-                        )
+                        {
+                            "type": "page",
+                            "contentId": "00000000-0000-0000-0000-000000000002",
+                            "title": "Welcome",
+                            "segments": [{"type": "text", "content": "Hello"}],
+                        }
                     ],
                 )
             },
