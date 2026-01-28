@@ -10,7 +10,7 @@ from datetime import datetime
 import asyncio
 import io
 
-from core.notifications.channels.discord import get_or_fetch_member
+from core.discord_outbound import get_or_fetch_member
 
 
 class PingCog(commands.Cog):

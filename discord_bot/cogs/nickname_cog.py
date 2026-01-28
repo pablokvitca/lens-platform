@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core import get_user_nickname, update_user_nickname
-from core.notifications.channels.discord import get_or_fetch_member
+from core.discord_outbound import get_or_fetch_member
 
 
 # Module-level reference to bot, set during cog setup

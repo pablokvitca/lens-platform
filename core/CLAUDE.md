@@ -4,42 +4,39 @@ Platform-agnostic business logic layer. **No imports from `discord_bot/` or `web
 
 ## Accessing Discord from Core
 
-Core can use the `discord` library directly, but must access the bot instance through the injection pattern in `core/notifications/channels/discord.py`:
+Core can use the `discord` library directly, but must access the bot instance through `core/discord_outbound/`:
 
 ```python
-# core/notifications/channels/discord.py
-_bot: Client | None = None
-
-def set_bot(bot: Client) -> None:
-    """Called by main.py when bot starts."""
-    global _bot
-    _bot = bot
-
-# Helper functions that use the injected bot
-async def send_discord_dm(discord_id: str, message: str) -> bool: ...
-async def send_discord_channel_message(channel_id: str, message: str) -> bool: ...
-async def get_or_fetch_member(guild: Guild, discord_id: int) -> Member | None: ...
+# core/discord_outbound/ - Discord API operations
+from core.discord_outbound import (
+    set_bot, get_bot, get_or_fetch_member,  # Bot instance management
+    send_dm, send_channel_message,           # Messages
+    create_category, create_text_channel, create_voice_channel,  # Channel creation
+    grant_channel_access, revoke_channel_access, get_members_with_access,  # Permissions
+    create_scheduled_event,                  # Discord events
+)
 ```
 
 **Usage in core modules:**
 ```python
-from .notifications.channels.discord import _bot, get_or_fetch_member
+from .discord_outbound import get_bot, get_or_fetch_member
 
 # Check bot is available before using
-if not _bot:
+bot = get_bot()
+if not bot:
     return {"error": "bot_unavailable"}
 
-channel = _bot.get_channel(int(channel_id))
+channel = bot.get_channel(int(channel_id))
 member = await get_or_fetch_member(guild, discord_id)
 ```
 
 **Initialization (in main.py):**
 ```python
-from core.notifications.channels.discord import set_bot as set_notification_bot
+from core.discord_outbound import set_bot
 
 @bot.event
 async def on_ready():
-    set_notification_bot(bot)
+    set_bot(bot)
 ```
 
 This pattern allows core to use Discord APIs while keeping the bot instance injection centralized.
@@ -95,13 +92,20 @@ This pattern allows core to use Discord APIs while keeping the bot instance inje
 - `markdown_validator.py` - Content validation
 - `sessions.py` - Chat session management
 
+#### `discord_outbound/` - Discord API Operations
+All Discord API calls go through this module. Provides primitives for:
+- `bot.py` - Bot instance management (`set_bot`, `get_bot`, `get_or_fetch_member`)
+- `messages.py` - DMs and channel messages (`send_dm`, `send_channel_message`)
+- `channels.py` - Channel creation (`create_category`, `create_text_channel`, `create_voice_channel`)
+- `permissions.py` - Channel permissions (`grant_channel_access`, `revoke_channel_access`)
+- `events.py` - Discord scheduled events (`create_scheduled_event`)
+
 #### `notifications/` - Multi-Channel Notification System
 - `actions.py` - Notification actions
 - `dispatcher.py` - Notification routing
 - `scheduler.py` - APScheduler integration (background jobs)
 - `templates.py` - Email/Discord templates
 - `urls.py` - Dynamic URL generation
-- `channels/discord.py` - Discord notifications
 - `channels/email.py` - SendGrid email integration
 
 #### Other Directories

@@ -151,11 +151,11 @@ class TestSyncGroupDiscordPermissions:
                 return m
             return None  # User 333 left server
 
-        with patch("core.notifications.channels.discord._bot", mock_bot):
+        with patch("core.discord_outbound.bot._bot", mock_bot):
             with patch("core.database.get_connection") as mock_get_conn:
                 mock_get_conn.return_value.__aenter__.return_value = mock_conn
                 with patch(
-                    "core.notifications.channels.discord.get_or_fetch_member",
+                    "core.discord_outbound.get_or_fetch_member",
                     side_effect=mock_fetch,
                 ):
                     result = await sync_group_discord_permissions(group_id=1)
@@ -172,7 +172,7 @@ class TestSyncGroupDiscordPermissions:
         """Should return error dict if bot is not initialized."""
         from core.sync import sync_group_discord_permissions
 
-        with patch("core.notifications.channels.discord._bot", None):
+        with patch("core.discord_outbound.bot._bot", None):
             result = await sync_group_discord_permissions(group_id=1)
 
         assert result == {"error": "bot_unavailable"}
@@ -192,7 +192,7 @@ class TestSyncGroupDiscordPermissions:
 
         mock_bot = MagicMock()
 
-        with patch("core.notifications.channels.discord._bot", mock_bot):
+        with patch("core.discord_outbound.bot._bot", mock_bot):
             with patch("core.database.get_connection") as mock_get_conn:
                 mock_get_conn.return_value.__aenter__.return_value = mock_conn
                 result = await sync_group_discord_permissions(group_id=1)
@@ -222,7 +222,7 @@ class TestSyncGroupDiscordPermissions:
         mock_bot = MagicMock()
         mock_bot.get_channel.return_value = None  # Channel not found
 
-        with patch("core.notifications.channels.discord._bot", mock_bot):
+        with patch("core.discord_outbound.bot._bot", mock_bot):
             with patch("core.database.get_connection") as mock_get_conn:
                 mock_get_conn.return_value.__aenter__.return_value = mock_conn
                 result = await sync_group_discord_permissions(group_id=1)
@@ -588,7 +588,7 @@ class TestEnsureCohortCategory:
         mock_bot = MagicMock()
         mock_bot.get_channel.return_value = mock_category
 
-        with patch("core.notifications.channels.discord._bot", mock_bot):
+        with patch("core.discord_outbound.bot._bot", mock_bot):
             with patch("core.database.get_connection") as mock_get_conn:
                 mock_get_conn.return_value.__aenter__.return_value = mock_conn
                 result = await _ensure_cohort_category(cohort_id=1)
@@ -614,7 +614,7 @@ class TestEnsureCohortCategory:
         mock_bot = MagicMock()
         mock_bot.get_channel.return_value = None  # Deleted from Discord
 
-        with patch("core.notifications.channels.discord._bot", mock_bot):
+        with patch("core.discord_outbound.bot._bot", mock_bot):
             with patch("core.database.get_connection") as mock_get_conn:
                 mock_get_conn.return_value.__aenter__.return_value = mock_conn
                 result = await _ensure_cohort_category(cohort_id=1)
@@ -743,7 +743,7 @@ class TestSyncGroupAllowCreate:
                 "core.sync._get_notification_context", new_callable=AsyncMock
             ) as mock_context,
             patch("core.sync._send_sync_notifications", new_callable=AsyncMock),
-            patch("core.notifications.channels.discord._bot") as mock_bot,
+            patch("core.discord_outbound.bot._bot") as mock_bot,
         ):
             # First call returns preview with no channels, second call (after infra) returns with channels
             mock_get_group.side_effect = [
@@ -839,7 +839,7 @@ class TestEnsureGroupChannels:
             222: mock_voice,
         }.get(id)
 
-        with patch("core.notifications.channels.discord._bot", mock_bot):
+        with patch("core.discord_outbound.bot._bot", mock_bot):
             with patch("core.database.get_connection") as mock_get_conn:
                 mock_get_conn.return_value.__aenter__.return_value = mock_conn
                 result = await _ensure_group_channels(group_id=1, category=MagicMock())
@@ -879,7 +879,7 @@ class TestEnsureGroupChannels:
             return_value=mock_new_voice
         )
 
-        with patch("core.notifications.channels.discord._bot", mock_bot):
+        with patch("core.discord_outbound.bot._bot", mock_bot):
             with patch("core.database.get_connection") as mock_get_conn:
                 mock_get_conn.return_value.__aenter__.return_value = mock_conn
                 with patch("core.database.get_transaction") as mock_get_tx:
@@ -911,7 +911,7 @@ class TestEnsureGroupChannels:
         mock_bot = MagicMock()
         mock_bot.get_channel.return_value = None  # Both channels deleted from Discord
 
-        with patch("core.notifications.channels.discord._bot", mock_bot):
+        with patch("core.discord_outbound.bot._bot", mock_bot):
             with patch("core.database.get_connection") as mock_get_conn:
                 mock_get_conn.return_value.__aenter__.return_value = mock_conn
                 result = await _ensure_group_channels(group_id=1, category=MagicMock())
@@ -956,7 +956,7 @@ class TestEnsureGroupChannels:
         )
 
         # Mock the welcome message function
-        with patch("core.notifications.channels.discord._bot", mock_bot):
+        with patch("core.discord_outbound.bot._bot", mock_bot):
             with patch("core.database.get_connection") as mock_get_conn:
                 mock_get_conn.return_value.__aenter__.return_value = mock_conn
                 with patch("core.database.get_transaction") as mock_get_tx:
@@ -1319,7 +1319,7 @@ class TestSyncGroupStatusTransition:
             patch(
                 "core.sync._get_notification_context", new_callable=AsyncMock
             ) as mock_context,
-            patch("core.notifications.channels.discord._bot") as mock_bot,
+            patch("core.discord_outbound.bot._bot") as mock_bot,
         ):
             # First call returns preview, second call (after infra) returns with channels
             mock_get_group.side_effect = [
@@ -1696,7 +1696,7 @@ class TestSendSyncNotifications:
                 new_callable=AsyncMock,
             ) as mock_notify_joined,
             patch(
-                "core.notifications.channels.discord.send_discord_channel_message",
+                "core.discord_outbound.send_channel_message",
                 new_callable=AsyncMock,
             ) as mock_channel_msg,
         ):

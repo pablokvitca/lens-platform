@@ -40,11 +40,12 @@ async def _ensure_cohort_category(cohort_id: int) -> dict:
         {"status": "existed"|"created"|"channel_missing"|"failed", "id": str|None, "error"?: str}
     """
     from .database import get_connection, get_transaction
-    from .notifications.channels.discord import _bot
+    from .discord_outbound import get_bot
     from .tables import cohorts
     from .modules.course_loader import load_course
     from sqlalchemy import select, update
 
+    _bot = get_bot()
     if not _bot:
         return {"status": "failed", "error": "bot_unavailable", "id": None}
 
@@ -121,10 +122,11 @@ async def _ensure_group_channels(group_id: int, category) -> dict:
         }
     """
     from .database import get_connection, get_transaction
-    from .notifications.channels.discord import _bot
+    from .discord_outbound import get_bot
     from .tables import groups
     from sqlalchemy import select, update
 
+    _bot = get_bot()
     result = {
         "text_channel": {"status": "skipped", "id": None},
         "voice_channel": {"status": "skipped", "id": None},
@@ -665,7 +667,7 @@ async def _send_sync_notifications(
     """
     from .notifications.dispatcher import was_notification_sent
     from .notifications.actions import notify_group_assigned, notify_member_joined
-    from .notifications.channels.discord import send_discord_channel_message
+    from .discord_outbound import send_channel_message
     from .enums import NotificationReferenceType
 
     result = {"sent": 0, "skipped": 0, "channel_announcements": 0}
@@ -736,7 +738,7 @@ async def _send_sync_notifications(
                 if discord_channel_id and discord_user_id:
                     try:
                         user_name = member_info.get("name", "Someone")
-                        await send_discord_channel_message(
+                        await send_channel_message(
                             channel_id=discord_channel_id,
                             message=f"**Welcome {user_name}!** <@{discord_user_id}> has joined the group.",
                         )
@@ -805,12 +807,12 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
     Returns dict with counts: {"granted": N, "revoked": N, "unchanged": N, "failed": N}
     """
     from .database import get_connection
-    from .notifications.channels.discord import _bot, get_or_fetch_member
+    from .discord_outbound import get_bot, get_or_fetch_member, get_members_with_access, grant_channel_access, revoke_channel_access
     from .tables import groups, groups_users, users
     from .enums import GroupUserStatus
     from sqlalchemy import select
-    import discord
 
+    _bot = get_bot()
     if not _bot:
         logger.warning("Bot not available for Discord sync")
         return {"error": "bot_unavailable"}
@@ -855,10 +857,7 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
     voice_channel = _bot.get_channel(voice_channel_id) if voice_channel_id else None
 
     # Get current permission overwrites from text channel (who CURRENTLY has access)
-    current_discord_ids = set()
-    for target, perms in text_channel.overwrites.items():
-        if isinstance(target, discord.Member) and perms.view_channel:
-            current_discord_ids.add(str(target.id))
+    current_discord_ids = get_members_with_access(text_channel)
 
     # Calculate diff
     to_grant = expected_discord_ids - current_discord_ids
@@ -872,54 +871,28 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
 
     # Grant access to new members (both text and voice)
     for discord_id in to_grant:
-        try:
-            member = await get_or_fetch_member(guild, int(discord_id))
-            if not member:
-                logger.info(f"Member {discord_id} not in guild, skipping grant")
-                continue
-            # Grant text channel permissions
-            await text_channel.set_permissions(
-                member,
-                view_channel=True,
-                send_messages=True,
-                read_message_history=True,
-                reason="Group sync",
-            )
-            # Grant voice channel permissions
-            if voice_channel:
-                await voice_channel.set_permissions(
-                    member,
-                    view_channel=True,
-                    connect=True,
-                    speak=True,
-                    reason="Group sync",
-                )
+        member = await get_or_fetch_member(guild, int(discord_id))
+        if not member:
+            logger.info(f"Member {discord_id} not in guild, skipping grant")
+            continue
+        success = await grant_channel_access(member, text_channel, voice_channel)
+        if success:
             granted += 1
             granted_discord_ids.append(int(discord_id))
-        except Exception as e:
-            logger.error(f"Error granting access to {discord_id}: {e}")
-            sentry_sdk.capture_exception(e)
+        else:
             failed += 1
 
     # Revoke access from removed members (both text and voice)
     for discord_id in to_revoke:
-        try:
-            member = await get_or_fetch_member(guild, int(discord_id))
-            if not member:
-                # Member left the server, no need to revoke
-                continue
-            await text_channel.set_permissions(
-                member, overwrite=None, reason="Group sync"
-            )
-            if voice_channel:
-                await voice_channel.set_permissions(
-                    member, overwrite=None, reason="Group sync"
-                )
+        member = await get_or_fetch_member(guild, int(discord_id))
+        if not member:
+            # Member left the server, no need to revoke
+            continue
+        success = await revoke_channel_access(member, text_channel, voice_channel)
+        if success:
             revoked += 1
             revoked_discord_ids.append(int(discord_id))
-        except Exception as e:
-            logger.error(f"Error revoking access from {discord_id}: {e}")
-            sentry_sdk.capture_exception(e)
+        else:
             failed += 1
 
     return {
@@ -1209,8 +1182,9 @@ async def sync_group(group_id: int, allow_create: bool = False) -> dict[str, Any
         }
     """
     from .notifications.scheduler import schedule_sync_retry
-    from .notifications.channels.discord import _bot
+    from .discord_outbound import get_bot
 
+    _bot = get_bot()
     results: dict[str, Any] = {
         "infrastructure": {
             "category": {"status": "skipped"},

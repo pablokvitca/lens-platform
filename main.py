@@ -87,7 +87,7 @@ from core.config import check_required_env_vars
 from core.content import initialize_cache, ContentBranchNotConfiguredError
 from core.notifications import init_scheduler, shutdown_scheduler
 from core.calendar.rsvp import sync_upcoming_meeting_rsvps
-from core.notifications.channels.discord import set_bot as set_notification_bot
+from core.discord_outbound import set_bot as set_notification_bot
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
