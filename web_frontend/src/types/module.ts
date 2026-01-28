@@ -88,14 +88,47 @@ export type ChatSection = {
   contentId?: string | null;
 };
 
-// v2 section types
+// v2 section types (flattened format - backend resolves all references)
+
+/**
+ * A page section with text/chat segments.
+ * These are standalone sections not associated with a Learning Outcome.
+ */
 export type PageSection = {
   type: "page";
+  contentId?: string | null;
   meta: { title: string | null };
   segments: ModuleSegment[];
-  contentId?: string | null;
 };
 
+/**
+ * A lens section containing video content.
+ * The learningOutcomeId links this to its parent LO (null if uncategorized).
+ */
+export type LensVideoSection = {
+  type: "lens-video";
+  contentId: string;
+  learningOutcomeId: string | null;
+  videoId: string;
+  meta: { title: string; channel: string | null };
+  segments: ModuleSegment[];
+  optional: boolean;
+};
+
+/**
+ * A lens section containing article content.
+ * The learningOutcomeId links this to its parent LO (null if uncategorized).
+ */
+export type LensArticleSection = {
+  type: "lens-article";
+  contentId: string;
+  learningOutcomeId: string | null;
+  meta: { title: string; author: string | null; sourceUrl: string | null };
+  segments: ModuleSegment[];
+  optional: boolean;
+};
+
+// v1 section types (kept for backward compatibility during migration)
 export type LensReference = {
   source: string;
   optional: boolean;
@@ -105,7 +138,6 @@ export type LearningOutcomeSection = {
   type: "learning-outcome";
   source: string;
   optional: boolean;
-  // TODO: Add resolved lenses when backend resolution is implemented
 };
 
 export type UncategorizedSection = {
@@ -113,12 +145,17 @@ export type UncategorizedSection = {
   lenses: LensReference[];
 };
 
+// Union of all section types
+// v2 types: page, lens-video, lens-article (flattened, ready to render)
+// v1 types: text, article, video, chat, learning-outcome, uncategorized (legacy)
 export type ModuleSection =
+  | PageSection
+  | LensVideoSection
+  | LensArticleSection
   | TextSection
   | ArticleSection
   | VideoSection
   | ChatSection
-  | PageSection
   | LearningOutcomeSection
   | UncategorizedSection;
 

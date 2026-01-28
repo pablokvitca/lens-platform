@@ -13,6 +13,11 @@ export type {
   TextSection,
   ArticleSection,
   VideoSection,
+  // v2 section types
+  PageSection,
+  LensVideoSection,
+  LensArticleSection,
+  // Union type
   ModuleSection,
   Module,
   ChatMessage,
