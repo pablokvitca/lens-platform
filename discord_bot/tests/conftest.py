@@ -31,6 +31,8 @@ def init_content_cache():
         modules={},
         articles={},
         video_transcripts={},
+        learning_outcomes={},
+        lenses={},
         last_refreshed=datetime.now(timezone.utc),
         last_commit_sha=None,
     )

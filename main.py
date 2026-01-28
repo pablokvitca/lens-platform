@@ -381,11 +381,11 @@ if __name__ == "__main__":
     import uvicorn
 
     # Extract workspace number from directory name (e.g., "platform-ws2" → 2)
-    # Used to auto-assign ports: ws1 gets 8000/3000, ws2 gets 8001/3001, etc.
+    # Used to auto-assign ports: ws1 gets 8001/3001, ws2 gets 8002/3002, etc.
     workspace_match = re.search(r"-ws(\d+)$", Path.cwd().name)
-    ws_num = int(workspace_match.group(1)) if workspace_match else 1
-    default_api_port = 8000 + (ws_num - 1)
-    default_frontend_port = 3000 + (ws_num - 1)
+    ws_num = int(workspace_match.group(1)) if workspace_match else 0
+    default_api_port = 8000 + ws_num
+    default_frontend_port = 3000 + ws_num
 
     parser = argparse.ArgumentParser(description="AI Safety Course Platform Server")
     parser.add_argument(

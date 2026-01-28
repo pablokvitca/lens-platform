@@ -696,6 +696,9 @@ def bundle_narrative_module(module) -> dict:
         ArticleSection,
         VideoSection,
         ChatSection,
+        PageSection,
+        LearningOutcomeRef,
+        UncategorizedSection,
         TextSegment,
         ArticleExcerptSegment,
         VideoExcerptSegment,
@@ -793,10 +796,40 @@ def bundle_narrative_module(module) -> dict:
 
     def bundle_section(section) -> dict:
         """Bundle a single section with metadata and content."""
-        # Helper to get content_id as string if present
-        content_id = str(section.content_id) if section.content_id else None
+        # Helper to get content_id as string if present (not all section types have it)
+        content_id = None
+        if hasattr(section, "content_id") and section.content_id:
+            content_id = str(section.content_id)
 
-        if isinstance(section, TextSection):
+        if isinstance(section, PageSection):
+            # v2 Page section with Text/Chat segments
+            segments = [bundle_segment(s, section) for s in section.segments]
+            return {
+                "type": "page",
+                "meta": {"title": section.title or None},
+                "segments": segments,
+                "contentId": content_id,
+            }
+
+        elif isinstance(section, LearningOutcomeRef):
+            # v2 Learning Outcome reference - resolve to actual content
+            return {
+                "type": "learning-outcome",
+                "source": section.source,
+                "optional": section.optional,
+            }
+
+        elif isinstance(section, UncategorizedSection):
+            # v2 Uncategorized section with Lens references
+            return {
+                "type": "uncategorized",
+                "lenses": [
+                    {"source": lens.source, "optional": lens.optional}
+                    for lens in section.lenses
+                ],
+            }
+
+        elif isinstance(section, TextSection):
             return {
                 "type": "text",
                 "meta": {"title": section.title or None},

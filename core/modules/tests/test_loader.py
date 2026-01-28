@@ -48,6 +48,8 @@ class TestLoadNarrativeModuleFromCache:
             },
             articles={},
             video_transcripts={},
+            learning_outcomes={},
+            lenses={},
             last_refreshed=datetime.now(),
         )
         set_cache(cache)

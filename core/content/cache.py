@@ -20,6 +20,8 @@ class ContentCache:
     modules: dict[str, ParsedModule]  # slug -> parsed module
     articles: dict[str, str]  # path -> raw markdown
     video_transcripts: dict[str, str]  # path -> raw markdown
+    learning_outcomes: dict[str, str]  # path -> raw markdown
+    lenses: dict[str, str]  # path -> raw markdown
     last_refreshed: datetime
     last_commit_sha: str | None = None  # Git commit SHA of current cache state
 
