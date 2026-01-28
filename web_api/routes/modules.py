@@ -5,6 +5,7 @@ Endpoints:
 - GET /api/modules - List available modules
 - GET /api/modules/{slug} - Get module definition (flattened)
 - GET /api/modules/{slug}/progress - Get module progress
+- POST /api/modules/{slug}/progress - Update lens progress (heartbeat/complete)
 """
 
 import sys
@@ -12,6 +13,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Request
+from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -27,10 +29,37 @@ from core.modules.flattened_types import (
     FlatLensVideoSection,
     FlatLensArticleSection,
 )
-from core.modules.progress import get_module_progress
+from core.modules.progress import (
+    get_module_progress,
+    get_or_create_progress,
+    update_time_spent,
+    mark_content_complete,
+)
 from core.modules.chat_sessions import get_or_create_chat_session
 from core.database import get_connection
 from web_api.auth import get_optional_user
+
+
+# --- Request/Response Models ---
+
+
+class ProgressUpdateRequest(BaseModel):
+    """Request body for updating lens progress."""
+
+    contentId: UUID
+    timeSpentS: int = 0
+    completed: bool = False
+
+
+class ProgressUpdateResponse(BaseModel):
+    """Response for progress update."""
+
+    success: bool
+    contentId: str
+    contentTitle: str
+    completed: bool
+    completedAt: str | None = None
+    timeSpentS: int = 0
 
 
 router = APIRouter(prefix="/api", tags=["modules"])
@@ -215,3 +244,107 @@ async def get_module_progress_endpoint(
             "hasMessages": len(chat_session.get("messages", [])) > 0,
         },
     }
+
+
+@router.post("/modules/{module_slug}/progress", response_model=ProgressUpdateResponse)
+async def update_module_progress(
+    module_slug: str,
+    body: ProgressUpdateRequest,
+    request: Request,
+    x_anonymous_token: str | None = Header(None),
+):
+    """Update progress for a lens within a module.
+
+    Handles both periodic heartbeats (completed=false) and completion events
+    (completed=true). Progress is tracked at the lens level with content_type='lens'.
+
+    Args:
+        module_slug: The module containing the lens
+        body: Request with contentId (lens UUID), timeSpentS, and completed flag
+
+    Returns:
+        ProgressUpdateResponse with success status and current progress state
+    """
+    # Get user or session token
+    user = await get_optional_user(request)
+    user_id = user["user_id"] if user else None
+    anonymous_token = None
+    if not user_id and x_anonymous_token:
+        try:
+            anonymous_token = UUID(x_anonymous_token)
+        except ValueError:
+            raise HTTPException(400, "Invalid anonymous token format")
+
+    if not user_id and not anonymous_token:
+        raise HTTPException(401, "Authentication required")
+
+    # Load module to validate contentId belongs to it
+    try:
+        module = load_flattened_module(module_slug)
+    except ModuleNotFoundError:
+        raise HTTPException(404, "Module not found")
+
+    # Find the section matching contentId
+    matching_section = None
+    for section in module.sections:
+        if section.content_id == body.contentId:
+            matching_section = section
+            break
+
+    if not matching_section:
+        raise HTTPException(
+            400, f"Content ID {body.contentId} not found in module {module_slug}"
+        )
+
+    # Get section title for the progress record
+    content_title = matching_section.title
+
+    async with get_connection() as conn:
+        if body.completed:
+            # Mark the lens as complete
+            progress = await mark_content_complete(
+                conn,
+                user_id=user_id,
+                anonymous_token=anonymous_token,
+                content_id=body.contentId,
+                content_type="lens",
+                content_title=content_title,
+                time_spent_s=body.timeSpentS,
+            )
+        else:
+            # Heartbeat: ensure record exists and update time
+            progress = await get_or_create_progress(
+                conn,
+                user_id=user_id,
+                anonymous_token=anonymous_token,
+                content_id=body.contentId,
+                content_type="lens",
+                content_title=content_title,
+            )
+
+            # Update time spent
+            if body.timeSpentS > 0:
+                await update_time_spent(
+                    conn,
+                    user_id=user_id,
+                    anonymous_token=anonymous_token,
+                    content_id=body.contentId,
+                    time_delta_s=body.timeSpentS,
+                )
+                # Update local progress dict with new time
+                progress["total_time_spent_s"] = (
+                    progress.get("total_time_spent_s", 0) + body.timeSpentS
+                )
+
+    return ProgressUpdateResponse(
+        success=True,
+        contentId=str(body.contentId),
+        contentTitle=content_title,
+        completed=progress.get("completed_at") is not None,
+        completedAt=(
+            progress["completed_at"].isoformat()
+            if progress.get("completed_at")
+            else None
+        ),
+        timeSpentS=progress.get("total_time_spent_s", 0),
+    )
