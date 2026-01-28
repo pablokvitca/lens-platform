@@ -175,12 +175,34 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   const stages: Stage[] = useMemo(() => {
     if (!module) return [];
     return module.sections.map((section, index): Stage => {
-      const stageType = section.type === "text" ? "article" : section.type;
+      // Map section types to stage types
+      // v2 types: page, lens-video, lens-article
+      // v1 types: text, article, video, chat
+      let stageType: "article" | "video" | "chat";
+      if (
+        section.type === "video" ||
+        section.type === "lens-video"
+      ) {
+        stageType = "video";
+      } else if (
+        section.type === "article" ||
+        section.type === "lens-article" ||
+        section.type === "text" ||
+        section.type === "page"
+      ) {
+        stageType = "article";
+      } else {
+        stageType = "chat";
+      }
+
       const isOptional = "optional" in section && section.optional === true;
       const title =
         section.type === "text"
           ? `Section ${index + 1}`
-          : section.meta?.title || `${section.type || "Section"} ${index + 1}`;
+          : section.type === "page"
+            ? section.meta?.title || `Page ${index + 1}`
+            : section.meta?.title || `${section.type || "Section"} ${index + 1}`;
+
       if (stageType === "article") {
         return {
           type: "article",
@@ -190,10 +212,17 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
           optional: isOptional,
           title,
         };
-      } else if (stageType === "video" && section.type === "video") {
+      } else if (stageType === "video") {
+        // Get videoId from video or lens-video sections
+        const videoId =
+          section.type === "video"
+            ? section.videoId
+            : section.type === "lens-video"
+              ? section.videoId
+              : "";
         return {
           type: "video",
-          videoId: section.videoId,
+          videoId,
           from: 0,
           to: null,
           optional: isOptional,
@@ -214,15 +243,35 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   // Convert to StageInfo format for drawer
   const stagesForDrawer: StageInfo[] = useMemo(() => {
     if (!module) return [];
-    return module.sections.map((section, index) => ({
-      type: section.type === "text" ? "article" : section.type,
-      title:
-        section.type === "text"
-          ? `Section ${index + 1}`
-          : section.meta?.title || `${section.type || "Section"} ${index + 1}`,
-      duration: null,
-      optional: "optional" in section && section.optional === true,
-    }));
+    return module.sections.map((section, index) => {
+      // Map section types to drawer display types
+      // v2 types get their own display, v1 types map as before
+      let displayType: StageInfo["type"];
+      if (section.type === "lens-video") {
+        displayType = "lens-video";
+      } else if (section.type === "lens-article") {
+        displayType = "lens-article";
+      } else if (section.type === "page") {
+        displayType = "page";
+      } else if (section.type === "text") {
+        displayType = "article";
+      } else {
+        displayType = section.type;
+      }
+
+      return {
+        type: displayType,
+        title:
+          section.type === "text"
+            ? `Section ${index + 1}`
+            : section.type === "page"
+              ? section.meta?.title || `Page ${index + 1}`
+              : section.meta?.title ||
+                `${section.type || "Section"} ${index + 1}`,
+        duration: null,
+        optional: "optional" in section && section.optional === true,
+      };
+    });
   }, [module]);
 
   // Derived value for module completion
@@ -578,7 +627,11 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
 
       case "article-excerpt": {
         // Content is now bundled directly in the segment
-        const articleMeta = section.type === "article" ? section.meta : null;
+        // Get meta from article or lens-article sections
+        const articleMeta =
+          section.type === "article" || section.type === "lens-article"
+            ? section.meta
+            : null;
         const excerptData: ArticleData = {
           content: segment.content,
           title: articleMeta?.title ?? null,
@@ -591,7 +644,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
 
         // Count how many article-excerpt segments came before this one
         const excerptsBefore =
-          section.type === "article"
+          section.type === "article" || section.type === "lens-article"
             ? section.segments
                 .slice(0, segmentIndex)
                 .filter((s) => s.type === "article-excerpt").length
@@ -608,10 +661,12 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       }
 
       case "video-excerpt": {
-        if (section.type !== "video") return null;
+        // Video excerpts can be in video or lens-video sections
+        if (section.type !== "video" && section.type !== "lens-video")
+          return null;
 
         // Count video excerpts to number them (Part 1, Part 2, etc.)
-        // All video-excerpts in a video section share the same videoId.
+        // All video-excerpts in a video/lens-video section share the same videoId.
         const videoExcerptsBefore = section.segments
           .slice(0, segmentIndex)
           .filter((s) => s.type === "video-excerpt").length;
@@ -731,6 +786,17 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                   />
                   <AuthoredText content={section.content} />
                 </>
+              ) : section.type === "page" ? (
+                // v2 Page section: text/chat segments only, no embedded content
+                <>
+                  <SectionDivider
+                    type="page"
+                    title={section.meta?.title || `Page ${sectionIndex + 1}`}
+                  />
+                  {section.segments?.map((segment, segmentIndex) =>
+                    renderSegment(segment, section, sectionIndex, segmentIndex),
+                  )}
+                </>
               ) : section.type === "chat" ? (
                 <>
                   <SectionDivider type="chat" title={section.meta?.title} />
@@ -745,7 +811,104 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                     onRetryMessage={handleRetryMessage}
                   />
                 </>
+              ) : section.type === "lens-video" ? (
+                // v2 Lens Video section: video content with optional text/chat segments
+                <>
+                  <SectionDivider
+                    type="lens-video"
+                    optional={section.optional}
+                    title={section.meta?.title}
+                  />
+                  {/* Render the main video first (full video, not excerpt) */}
+                  <VideoEmbed
+                    videoId={section.videoId}
+                    start={0}
+                    end={null}
+                    title={section.meta.title}
+                    channel={section.meta.channel}
+                  />
+                  {/* Then render any segments (text, video-excerpt, chat) */}
+                  {section.segments?.map((segment, segmentIndex) =>
+                    renderSegment(segment, section, sectionIndex, segmentIndex),
+                  )}
+                </>
+              ) : section.type === "lens-article" ? (
+                // v2 Lens Article section: article content with optional text/chat segments
+                <>
+                  <SectionDivider
+                    type="lens-article"
+                    optional={section.optional}
+                    title={section.meta?.title}
+                  />
+                  <ArticleSectionWrapper>
+                    {(() => {
+                      // Split segments into pre-excerpt, excerpt, post-excerpt groups
+                      const segments = section.segments ?? [];
+                      const firstExcerptIdx = segments.findIndex(
+                        (s) => s.type === "article-excerpt",
+                      );
+                      const lastExcerptIdx = segments.reduceRight(
+                        (found, s, i) =>
+                          found === -1 && s.type === "article-excerpt"
+                            ? i
+                            : found,
+                        -1,
+                      );
+
+                      // If no excerpts, render all segments normally
+                      if (firstExcerptIdx === -1) {
+                        return segments.map((segment, segmentIndex) =>
+                          renderSegment(
+                            segment,
+                            section,
+                            sectionIndex,
+                            segmentIndex,
+                          ),
+                        );
+                      }
+
+                      const preExcerpt = segments.slice(0, firstExcerptIdx);
+                      const excerpts = segments.slice(
+                        firstExcerptIdx,
+                        lastExcerptIdx + 1,
+                      );
+                      const postExcerpt = segments.slice(lastExcerptIdx + 1);
+
+                      return (
+                        <>
+                          {/* Pre-excerpt content (intro, setup) */}
+                          {preExcerpt.map((segment, i) =>
+                            renderSegment(segment, section, sectionIndex, i),
+                          )}
+
+                          {/* Excerpt group with sticky TOC */}
+                          <ArticleExcerptGroup section={section}>
+                            {excerpts.map((segment, i) =>
+                              renderSegment(
+                                segment,
+                                section,
+                                sectionIndex,
+                                firstExcerptIdx + i,
+                              ),
+                            )}
+                          </ArticleExcerptGroup>
+
+                          {/* Post-excerpt content (reflection, chat) */}
+                          {postExcerpt.map((segment, i) =>
+                            renderSegment(
+                              segment,
+                              section,
+                              sectionIndex,
+                              lastExcerptIdx + 1 + i,
+                            ),
+                          )}
+                        </>
+                      );
+                    })()}
+                  </ArticleSectionWrapper>
+                </>
               ) : section.type === "article" ? (
+                // v1 Article section
                 <>
                   <SectionDivider
                     type="article"
@@ -820,15 +983,22 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                   </ArticleSectionWrapper>
                 </>
               ) : (
+                // v1 Video section and fallback
                 <>
                   <SectionDivider
                     type={section.type}
-                    optional={section.optional}
-                    title={section.meta?.title}
+                    optional={"optional" in section ? section.optional : false}
+                    title={"meta" in section ? section.meta?.title : undefined}
                   />
-                  {section.segments?.map((segment, segmentIndex) =>
-                    renderSegment(segment, section, sectionIndex, segmentIndex),
-                  )}
+                  {"segments" in section &&
+                    section.segments?.map((segment, segmentIndex) =>
+                      renderSegment(
+                        segment,
+                        section,
+                        sectionIndex,
+                        segmentIndex,
+                      ),
+                    )}
                 </>
               )}
               <MarkCompleteButton
@@ -843,8 +1013,12 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                 contentTitle={
                   section.type === "text"
                     ? `Section ${sectionIndex + 1}`
-                    : section.meta?.title ||
-                      `${section.type || "Section"} ${sectionIndex + 1}`
+                    : section.type === "page"
+                      ? section.meta?.title || `Page ${sectionIndex + 1}`
+                      : "meta" in section
+                        ? section.meta?.title ||
+                          `${section.type || "Section"} ${sectionIndex + 1}`
+                        : `${section.type || "Section"} ${sectionIndex + 1}`
                 }
               />
             </div>

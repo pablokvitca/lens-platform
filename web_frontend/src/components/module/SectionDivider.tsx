@@ -1,7 +1,7 @@
 // web_frontend/src/components/module/SectionDivider.tsx
 
 type SectionDividerProps = {
-  type: "video" | "article" | "chat";
+  type: "video" | "article" | "chat" | "lens-video" | "lens-article" | "page";
   optional?: boolean;
   title?: string;
 };
@@ -36,8 +36,11 @@ export default function SectionDivider({
   optional,
   title,
 }: SectionDividerProps) {
-  // Chat stages use the article icon
-  const iconType = type === "chat" ? "article" : type;
+  // Map section types to icon types
+  // lens-video and video use the video icon
+  // lens-article, article, chat, and page use the article icon
+  const iconType =
+    type === "video" || type === "lens-video" ? "video" : "article";
 
   return (
     <div className="flex flex-col items-center gap-2 px-4 sm:px-6 py-6">
