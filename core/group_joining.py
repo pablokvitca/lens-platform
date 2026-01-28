@@ -7,7 +7,7 @@ All logic for direct group joining lives here. API endpoints delegate to this mo
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from .enums import GroupUserStatus
@@ -131,7 +131,7 @@ async def assign_to_group(
     conn: AsyncConnection,
     user_id: int,
     to_group_id: int,
-    from_group_user_id: int | None = None,
+    from_group_id: int | None = None,
     role: str = "participant",
 ) -> dict[str, Any]:
     """
@@ -148,25 +148,17 @@ async def assign_to_group(
         conn: Database connection (should be in a transaction)
         user_id: User to assign
         to_group_id: Target group
-        from_group_user_id: If provided, removes user from this membership first
+        from_group_id: If provided, removes user from this group first
         role: Role in new group ("participant" or "facilitator")
 
     Returns:
         {"group_id": int, "group_user_id": int}
     """
-    from .queries.groups import add_user_to_group
+    from .queries.groups import add_user_to_group, remove_user_from_group
 
     # Remove from old group if specified
-    if from_group_user_id is not None:
-        await conn.execute(
-            update(groups_users)
-            .where(groups_users.c.group_user_id == from_group_user_id)
-            .values(
-                status=GroupUserStatus.removed,
-                left_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
-            )
-        )
+    if from_group_id is not None:
+        await remove_user_from_group(conn, from_group_id, user_id)
 
     # Add to new group
     result = await add_user_to_group(conn, to_group_id, user_id, role)
@@ -411,13 +403,12 @@ async def join_group(
 
     # === SWITCH GROUPS ===
     previous_group_id = current_group["group_id"] if current_group else None
-    from_group_user_id = current_group["group_user_id"] if current_group else None
 
     await assign_to_group(
         conn,
         user_id=user_id,
         to_group_id=group_id,
-        from_group_user_id=from_group_user_id,
+        from_group_id=previous_group_id,
         role=role,
     )
 

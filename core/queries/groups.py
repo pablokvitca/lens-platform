@@ -67,16 +67,22 @@ async def remove_user_from_group(
     """
     Remove a user from a group by setting status to 'removed'.
 
+    Sets left_at timestamp and updates updated_at.
+
     Returns True if user was removed, False if not found.
     """
-    from ..enums import GroupUserStatus
+    from datetime import datetime, timezone
 
     result = await conn.execute(
         update(groups_users)
         .where(groups_users.c.group_id == group_id)
         .where(groups_users.c.user_id == user_id)
         .where(groups_users.c.status == GroupUserStatus.active)
-        .values(status="removed")
+        .values(
+            status=GroupUserStatus.removed,
+            left_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
         .returning(groups_users.c.group_user_id)
     )
     return result.first() is not None

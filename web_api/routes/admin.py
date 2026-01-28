@@ -157,13 +157,12 @@ async def add_member_endpoint(
 
         # Switch groups (no capacity/timing validation - admin can bypass)
         previous_group_id = current_group["group_id"] if current_group else None
-        from_group_user_id = current_group["group_user_id"] if current_group else None
 
         result = await assign_to_group(
             conn,
             user_id=request.user_id,
             to_group_id=group_id,
-            from_group_user_id=from_group_user_id,
+            from_group_id=previous_group_id,
         )
 
     # Sync after transaction commits (handles both new and old group if switching)
