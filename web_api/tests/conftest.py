@@ -113,6 +113,8 @@ def api_test_cache():
         modules=modules,
         articles={},
         video_transcripts={},
+        learning_outcomes={},
+        lenses={},
         last_refreshed=datetime.now(),
     )
     set_cache(cache)

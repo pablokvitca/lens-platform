@@ -294,11 +294,31 @@ async def fetch_all_content() -> ContentCache:
                 content = await _fetch_file_with_client(client, path)
                 video_transcripts[path] = content
 
+        # Fetch learning outcomes (raw markdown)
+        learning_outcome_files = await _list_directory_with_client(
+            client, "learning_outcomes"
+        )
+        learning_outcomes: dict[str, str] = {}
+        for path in learning_outcome_files:
+            if path.endswith(".md"):
+                content = await _fetch_file_with_client(client, path)
+                learning_outcomes[path] = content
+
+        # Fetch lenses (raw markdown)
+        lens_files = await _list_directory_with_client(client, "lenses")
+        lenses: dict[str, str] = {}
+        for path in lens_files:
+            if path.endswith(".md"):
+                content = await _fetch_file_with_client(client, path)
+                lenses[path] = content
+
         return ContentCache(
             courses=courses,
             modules=modules,
             articles=articles,
             video_transcripts=video_transcripts,
+            learning_outcomes=learning_outcomes,
+            lenses=lenses,
             last_refreshed=datetime.now(),
             last_commit_sha=commit_sha,
         )
@@ -388,6 +408,8 @@ async def initialize_cache() -> None:
     print(f"  Loaded {len(cache.modules)} modules")
     print(f"  Loaded {len(cache.articles)} articles")
     print(f"  Loaded {len(cache.video_transcripts)} video transcripts")
+    print(f"  Loaded {len(cache.learning_outcomes)} learning outcomes")
+    print(f"  Loaded {len(cache.lenses)} lenses")
     print("Content cache initialized")
 
 
@@ -403,7 +425,14 @@ async def refresh_cache() -> None:
 
 
 # Tracked directories for incremental updates
-TRACKED_DIRECTORIES = ("modules/", "courses/", "articles/", "video_transcripts/")
+TRACKED_DIRECTORIES = (
+    "modules/",
+    "courses/",
+    "articles/",
+    "video_transcripts/",
+    "learning_outcomes/",
+    "lenses/",
+)
 
 
 def _get_tracked_directory(path: str) -> str | None:
@@ -468,6 +497,16 @@ async def _apply_file_change(
                 del cache.video_transcripts[change.path]
                 logger.info(f"Removed video transcript: {change.path}")
 
+        elif tracked_dir == "learning_outcomes":
+            if change.path in cache.learning_outcomes:
+                del cache.learning_outcomes[change.path]
+                logger.info(f"Removed learning outcome: {change.path}")
+
+        elif tracked_dir == "lenses":
+            if change.path in cache.lenses:
+                del cache.lenses[change.path]
+                logger.info(f"Removed lens: {change.path}")
+
         return
 
     # Handle renamed files - delete old path first
@@ -499,6 +538,16 @@ async def _apply_file_change(
                 del cache.video_transcripts[change.previous_path]
                 logger.info(f"Removed renamed video transcript: {change.previous_path}")
 
+        elif prev_tracked_dir == "learning_outcomes":
+            if change.previous_path in cache.learning_outcomes:
+                del cache.learning_outcomes[change.previous_path]
+                logger.info(f"Removed renamed learning outcome: {change.previous_path}")
+
+        elif prev_tracked_dir == "lenses":
+            if change.previous_path in cache.lenses:
+                del cache.lenses[change.previous_path]
+                logger.info(f"Removed renamed lens: {change.previous_path}")
+
     # Handle added, modified, or renamed (fetch new content)
     if change.status in ("added", "modified", "renamed"):
         # Only process markdown files
@@ -525,6 +574,14 @@ async def _apply_file_change(
             elif tracked_dir == "video_transcripts":
                 cache.video_transcripts[change.path] = content
                 logger.info(f"Updated video transcript: {change.path}")
+
+            elif tracked_dir == "learning_outcomes":
+                cache.learning_outcomes[change.path] = content
+                logger.info(f"Updated learning outcome: {change.path}")
+
+            elif tracked_dir == "lenses":
+                cache.lenses[change.path] = content
+                logger.info(f"Updated lens: {change.path}")
 
         except Exception as e:
             logger.warning(f"Failed to fetch/parse {change.path}: {e}")

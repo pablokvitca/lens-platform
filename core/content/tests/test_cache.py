@@ -31,6 +31,8 @@ class TestContentCache:
             modules={},
             articles={},
             video_transcripts={},
+            learning_outcomes={},
+            lenses={},
             last_refreshed=datetime.now(),
         )
         set_cache(cache)
@@ -45,6 +47,8 @@ class TestContentCache:
             modules={},
             articles={},
             video_transcripts={},
+            learning_outcomes={},
+            lenses={},
             last_refreshed=datetime.now(),
         )
         set_cache(cache)
@@ -74,6 +78,8 @@ class TestContentCache:
             modules={"test-module": test_module},
             articles={},
             video_transcripts={},
+            learning_outcomes={},
+            lenses={},
             last_refreshed=datetime.now(),
         )
         set_cache(cache)
@@ -89,6 +95,8 @@ class TestContentCache:
             modules={},
             articles={"articles/test.md": "# Test Article\n\nSome content."},
             video_transcripts={},
+            learning_outcomes={},
+            lenses={},
             last_refreshed=datetime.now(),
         )
         set_cache(cache)
@@ -104,6 +112,8 @@ class TestContentCache:
             modules={},
             articles={},
             video_transcripts={"video_transcripts/test.md": "Transcript content"},
+            learning_outcomes={},
+            lenses={},
             last_refreshed=datetime.now(),
         )
         set_cache(cache)
@@ -119,9 +129,50 @@ class TestContentCache:
             modules={},
             articles={},
             video_transcripts={},
+            learning_outcomes={},
+            lenses={},
             last_refreshed=refresh_time,
         )
         set_cache(cache)
 
         retrieved = get_cache()
         assert retrieved.last_refreshed == refresh_time
+
+    def test_cache_stores_learning_outcomes(self):
+        """Should store and retrieve learning outcomes from cache."""
+        cache = ContentCache(
+            courses={},
+            modules={},
+            articles={},
+            video_transcripts={},
+            learning_outcomes={
+                "learning_outcomes/lo-001.md": "# Learning Outcome 001\n\nContent here."
+            },
+            lenses={},
+            last_refreshed=datetime.now(),
+        )
+        set_cache(cache)
+
+        retrieved = get_cache()
+        assert "learning_outcomes/lo-001.md" in retrieved.learning_outcomes
+        assert (
+            "# Learning Outcome 001"
+            in retrieved.learning_outcomes["learning_outcomes/lo-001.md"]
+        )
+
+    def test_cache_stores_lenses(self):
+        """Should store and retrieve lenses from cache."""
+        cache = ContentCache(
+            courses={},
+            modules={},
+            articles={},
+            video_transcripts={},
+            learning_outcomes={},
+            lenses={"lenses/technical.md": "# Technical Lens\n\nTechnical content."},
+            last_refreshed=datetime.now(),
+        )
+        set_cache(cache)
+
+        retrieved = get_cache()
+        assert "lenses/technical.md" in retrieved.lenses
+        assert "# Technical Lens" in retrieved.lenses["lenses/technical.md"]

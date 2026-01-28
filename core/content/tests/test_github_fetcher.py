@@ -705,6 +705,8 @@ class TestIncrementalRefresh:
             },
             articles={"articles/safety.md": "# Safety Article\nContent"},
             video_transcripts={"video_transcripts/vid1.md": "# Video 1\nTranscript"},
+            learning_outcomes={},
+            lenses={},
             last_refreshed=datetime.now(),
             last_commit_sha=last_commit_sha,
         )
@@ -1065,6 +1067,8 @@ class TestApplyFileChange:
             },
             articles={"articles/safety.md": "# Safety Article\nContent"},
             video_transcripts={"video_transcripts/vid1.md": "# Video 1\nTranscript"},
+            learning_outcomes={},
+            lenses={},
             last_refreshed=datetime.now(),
             last_commit_sha="testsha",
         )
