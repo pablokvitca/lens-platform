@@ -27,7 +27,7 @@ async def build_module_uuid_lookup() -> dict[str, tuple[str, str]]:
     cache = get_cache()
     lookup = {}
 
-    for slug, module in cache.modules.items():
+    for slug, module in cache.flattened_modules.items():
         if module.content_id:
             lookup[slug] = (str(module.content_id), module.title)
 

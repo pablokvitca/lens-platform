@@ -19,6 +19,7 @@ from .types import (
 from .loader import (
     load_module,
     load_narrative_module,
+    load_flattened_module,
     get_available_modules,
     ModuleNotFoundError,
 )
@@ -65,6 +66,7 @@ __all__ = [
     "VideoExcerptSegment",
     "load_module",
     "load_narrative_module",
+    "load_flattened_module",
     "get_available_modules",
     "ModuleNotFoundError",
     "load_article",
