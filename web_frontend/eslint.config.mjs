@@ -4,6 +4,15 @@ import reactPlugin from "eslint-plugin-react";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 
 export default [
+  {
+    ignores: [
+      "node_modules/**",
+      "dist/**",
+      "server/dist/**",
+      ".vite/**",
+      ".next/**",
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -22,8 +31,5 @@ export default [
         version: "detect",
       },
     },
-  },
-  {
-    ignores: ["node_modules/**", "dist/**", ".vite/**", ".next/**"],
   },
 ];

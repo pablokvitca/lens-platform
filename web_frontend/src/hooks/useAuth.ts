@@ -139,7 +139,7 @@ export function useAuth(): UseAuthReturn {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Standard data fetching pattern
+     
     fetchUser();
   }, [fetchUser]);
 
