@@ -9,6 +9,24 @@ import { getAnonymousToken } from "../hooks/useAnonymousToken";
 
 import { API_URL } from "../config";
 
+export interface LensProgress {
+  id: string | null;
+  title: string;
+  type: string;
+  optional: boolean;
+  completed: boolean;
+  completedAt: string | null;
+  timeSpentS: number;
+}
+
+export interface ModuleProgressResponse {
+  module: { id: string | null; slug: string; title: string };
+  status: "not_started" | "in_progress" | "completed";
+  progress: { completed: number; total: number };
+  lenses: LensProgress[];
+  chatSession: { sessionId: number; hasMessages: boolean };
+}
+
 const API_BASE = API_URL;
 
 // Default timeout for API requests (in milliseconds)
@@ -249,5 +267,24 @@ export async function getCourseProgress(
     { credentials: "include" },
   );
   if (!res.ok) throw new Error("Failed to fetch course progress");
+  return res.json();
+}
+
+export async function getModuleProgress(
+  moduleSlug: string,
+): Promise<ModuleProgressResponse | null> {
+  const res = await fetchWithTimeout(
+    `${API_BASE}/api/modules/${moduleSlug}/progress`,
+    {
+      credentials: "include",
+      headers: { "X-Anonymous-Token": getAnonymousToken() },
+    },
+  );
+  if (!res.ok) {
+    if (res.status === 401) {
+      return null;
+    }
+    throw new Error("Failed to fetch module progress");
+  }
   return res.json();
 }

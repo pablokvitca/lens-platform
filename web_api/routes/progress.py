@@ -31,15 +31,30 @@ class MarkCompleteRequest(BaseModel):
     content_type: str  # 'module', 'lo', 'lens', 'test'
     content_title: str
     time_spent_s: int = 0
-    # Optional: for computing parent module status when marking lens complete
+    module_slug: str | None = (
+        None  # If provided, return full module progress in response
+    )
+    # Legacy fields (deprecated - use module_slug instead)
     parent_module_id: UUID | None = None
     sibling_lens_ids: list[str] | None = None  # All lens UUIDs in the module
 
 
+class LensProgressResponse(BaseModel):
+    id: str | None
+    title: str
+    type: str
+    optional: bool
+    completed: bool
+    completedAt: str | None
+    timeSpentS: int
+
+
 class MarkCompleteResponse(BaseModel):
     completed_at: str | None
-    module_status: str | None = None
-    module_progress: dict | None = None
+    # Full module state (returned if module_slug provided in request)
+    module_status: str | None = None  # "not_started" | "in_progress" | "completed"
+    module_progress: dict | None = None  # { "completed": int, "total": int }
+    lenses: list[LensProgressResponse] | None = None
 
 
 class TimeUpdateRequest(BaseModel):
@@ -103,7 +118,7 @@ async def complete_content(
 
     Args:
         body: Request with content_id, content_type, content_title, time_spent_s,
-              and optionally parent_module_id and sibling_lens_ids for module status
+              and optionally module_slug for full module state response
 
     Returns:
         MarkCompleteResponse with completed_at timestamp and optionally module status
@@ -113,6 +128,8 @@ async def complete_content(
     if body.content_type not in ("module", "lo", "lens", "test"):
         raise HTTPException(400, "Invalid content_type")
 
+    # If module_slug provided, return full module progress in response
+    lenses = None
     module_status = None
     module_progress = None
 
@@ -127,8 +144,72 @@ async def complete_content(
             time_spent_s=body.time_spent_s,
         )
 
-        # If sibling_lens_ids provided, compute module status
-        if body.sibling_lens_ids:
+        # If module_slug provided, return full module progress
+        if body.module_slug:
+            from core.modules.loader import load_flattened_module, ModuleNotFoundError
+
+            try:
+                module = load_flattened_module(body.module_slug)
+                content_ids = [
+                    UUID(s["contentId"]) for s in module.sections if s.get("contentId")
+                ]
+
+                progress_map = await get_module_progress(
+                    conn,
+                    user_id=user_id,
+                    anonymous_token=anonymous_token,
+                    lens_ids=content_ids,
+                )
+
+                # Build lenses list
+                lenses = []
+                for section in module.sections:
+                    content_id_str = section.get("contentId")
+                    content_id = UUID(content_id_str) if content_id_str else None
+                    title = (
+                        section.get("meta", {}).get("title")
+                        or section.get("title")
+                        or "Untitled"
+                    )
+                    lens_data = LensProgressResponse(
+                        id=content_id_str,
+                        title=title,
+                        type=section.get("type"),
+                        optional=section.get("optional", False),
+                        completed=False,
+                        completedAt=None,
+                        timeSpentS=0,
+                    )
+                    if content_id and content_id in progress_map:
+                        prog = progress_map[content_id]
+                        lens_data.completed = prog.get("completed_at") is not None
+                        lens_data.completedAt = (
+                            prog["completed_at"].isoformat()
+                            if prog.get("completed_at")
+                            else None
+                        )
+                        lens_data.timeSpentS = prog.get("total_time_spent_s", 0)
+                    lenses.append(lens_data)
+
+                # Calculate module status
+                required_lenses = [lens for lens in lenses if not lens.optional]
+                completed_count = sum(1 for lens in required_lenses if lens.completed)
+                total_count = len(required_lenses)
+
+                if completed_count == 0:
+                    module_status = "not_started"
+                elif completed_count >= total_count:
+                    module_status = "completed"
+                else:
+                    module_status = "in_progress"
+
+                module_progress = {"completed": completed_count, "total": total_count}
+
+            except ModuleNotFoundError:
+                pass  # Module not found, skip returning full state
+
+        # Legacy: If sibling_lens_ids provided (but not module_slug), compute module status
+        elif body.sibling_lens_ids:
             try:
                 lens_uuids = [UUID(lid) for lid in body.sibling_lens_ids]
             except ValueError:
@@ -167,6 +248,7 @@ async def complete_content(
         ),
         module_status=module_status,
         module_progress=module_progress,
+        lenses=lenses,
     )
 
 

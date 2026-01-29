@@ -21,11 +21,15 @@ import {
   getNextModule,
   getModule,
   getCourseProgress,
+  getModuleProgress,
 } from "@/api/modules";
-import type { ModuleCompletionResult } from "@/api/modules";
+import type { ModuleCompletionResult, LensProgress } from "@/api/modules";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
+import type { MarkCompleteResponse } from "@/api/progress";
+import { claimSessionRecords } from "@/api/progress";
+import { useAnonymousToken } from "@/hooks/useAnonymousToken";
 import AuthoredText from "@/components/module/AuthoredText";
 import ArticleEmbed from "@/components/module/ArticleEmbed";
 import VideoEmbed from "@/components/module/VideoEmbed";
@@ -68,7 +72,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   );
   const [loadingModule, setLoadingModule] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-
+  
   // Extract all module slugs from course for navigation
   const courseModules = useMemo(() => {
     if (!courseProgress) return [];
@@ -98,16 +102,33 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       setLoadingModule(true);
       setLoadError(null);
       try {
-        // Fetch module and course progress in parallel
-        const [moduleResult, courseResult] = await Promise.all([
+        // Fetch module, course progress, and module progress in parallel
+        const [moduleResult, courseResult, progressResult] = await Promise.all([
           getModule(moduleId),
           courseId && courseId !== "default"
             ? getCourseProgress(courseId).catch(() => null)
             : Promise.resolve(null),
+          getModuleProgress(moduleId).catch(() => null),
         ]);
 
         setModule(moduleResult);
         setCourseProgress(courseResult);
+
+        // Initialize completedSections from progress API response
+        if (progressResult) {
+          const completed = new Set<number>();
+          progressResult.lenses.forEach((lens, index) => {
+            if (lens.completed) {
+              completed.add(index);
+            }
+          });
+          setCompletedSections(completed);
+
+          // If module already complete, set flag
+          if (progressResult.status === "completed") {
+            setApiConfirmedComplete(true);
+          }
+        }
       } catch (e) {
         setLoadError(e instanceof Error ? e.message : "Failed to load module");
       } finally {
@@ -117,6 +138,18 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
 
     load();
   }, [moduleId, courseId]);
+
+  // Helper to update completedSections from lenses array
+  const updateCompletedFromLenses = useCallback((lenses: LensProgress[]) => {
+    const completed = new Set<number>();
+    lenses.forEach((lens, index) => {
+      if (lens.completed) {
+        completed.add(index);
+      }
+    });
+    setCompletedSections(completed);
+  }, []);
+
   // Chat state (shared across all chat sections)
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(
@@ -167,25 +200,48 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const sectionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // Section completion tracking (persisted to localStorage)
+  // Section completion tracking (database is source of truth)
   const [completedSections, setCompletedSections] = useState<Set<number>>(
-    () => {
-      if (typeof window === "undefined") return new Set();
-      const stored = localStorage.getItem(`module-completed-${moduleId}`);
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    },
+    new Set(),
   );
-
-  // Persist completion state to localStorage
-  useEffect(() => {
-    localStorage.setItem(
-      `module-completed-${moduleId}`,
-      JSON.stringify([...completedSections]),
-    );
-  }, [completedSections, moduleId]);
 
   const { isAuthenticated, isInSignupsTable, isInActiveGroup, login } =
     useAuth();
+  const { token: anonymousToken } = useAnonymousToken();
+
+  // Track previous auth state for detecting login
+  const wasAuthenticated = useRef(isAuthenticated);
+
+  // Handle login: claim anonymous records and re-fetch progress
+  useEffect(() => {
+    // Only run when transitioning from anonymous to authenticated
+    if (
+      isAuthenticated &&
+      !wasAuthenticated.current &&
+      anonymousToken &&
+      moduleId
+    ) {
+      async function handleLogin() {
+        try {
+          // Claim any anonymous progress/chat records
+          await claimSessionRecords(anonymousToken!);
+
+          // Re-fetch progress (now includes claimed records)
+          const progressResult = await getModuleProgress(moduleId);
+          if (progressResult) {
+            updateCompletedFromLenses(progressResult.lenses);
+            if (progressResult.status === "completed") {
+              setApiConfirmedComplete(true);
+            }
+          }
+        } catch (e) {
+          console.error("[Module] Failed to handle login:", e);
+        }
+      }
+      handleLogin();
+    }
+    wasAuthenticated.current = isAuthenticated;
+  }, [isAuthenticated, anonymousToken, moduleId, updateCompletedFromLenses]);
 
   // For stage navigation (viewing non-current section)
   const [viewingStageIndex, setViewingStageIndex] = useState<number | null>(
@@ -588,16 +644,22 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   }, [currentSectionIndex, module, viewMode, handleStageClick]);
 
   const handleMarkComplete = useCallback(
-    (sectionIndex: number, apiResponse?: { module_status?: string }) => {
+    (sectionIndex: number, apiResponse?: MarkCompleteResponse) => {
       // Check if this is the first completion (for auth prompt)
       // Must check BEFORE updating state
       const isFirstCompletion = completedSections.size === 0;
 
-      setCompletedSections((prev) => {
-        const next = new Set(prev);
-        next.add(sectionIndex);
-        return next;
-      });
+      // Update state from API response if lenses array provided
+      if (apiResponse?.lenses) {
+        updateCompletedFromLenses(apiResponse.lenses);
+      } else {
+        // Fallback: just add this section (shouldn't happen with module_slug)
+        setCompletedSections((prev) => {
+          const next = new Set(prev);
+          next.add(sectionIndex);
+          return next;
+        });
+      }
 
       // Prompt for auth after first section completion (if anonymous)
       if (isFirstCompletion && !isAuthenticated && !hasPromptedAuth) {
@@ -632,6 +694,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       module,
       viewMode,
       handleStageClick,
+      updateCompletedFromLenses,
     ],
   );
 
@@ -1045,6 +1108,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                           `${section.type || "Section"} ${sectionIndex + 1}`
                         : `${section.type || "Section"} ${sectionIndex + 1}`
                 }
+                moduleSlug={moduleId}
               />
             </div>
           );

@@ -680,3 +680,166 @@ class TestProgressEdgeCases:
             data = response.json()
             assert data["module_status"] is None
             assert data["module_progress"] is None
+
+
+# --- Module Slug Response Tests ---
+
+
+class TestModuleSlugResponse:
+    """Tests for full module state when module_slug provided."""
+
+    def test_complete_with_module_slug_returns_lenses(self):
+        """POST /complete with module_slug should return full lenses array."""
+        from dataclasses import dataclass
+
+        anonymous_token = random_uuid_str()
+        content_id = random_uuid_str()
+        lens_id_1 = random_uuid_str()
+        lens_id_2 = random_uuid_str()
+
+        @dataclass
+        class MockModule:
+            slug: str = "test-module"
+            title: str = "Test Module"
+            content_id: str | None = None
+            sections: list = None
+
+            def __post_init__(self):
+                if self.sections is None:
+                    self.sections = [
+                        {
+                            "contentId": lens_id_1,
+                            "type": "video",
+                            "meta": {"title": "Video Section"},
+                            "optional": False,
+                        },
+                        {
+                            "contentId": lens_id_2,
+                            "type": "article",
+                            "meta": {"title": "Article Section"},
+                            "optional": False,
+                        },
+                    ]
+
+        with (
+            patch(
+                "web_api.routes.progress.get_transaction",
+            ) as mock_transaction,
+            patch(
+                "web_api.routes.progress.mark_content_complete",
+                new_callable=AsyncMock,
+            ) as mock_complete,
+            patch(
+                "web_api.routes.progress.get_module_progress",
+                new_callable=AsyncMock,
+            ) as mock_progress,
+            patch(
+                "core.modules.loader.load_flattened_module",
+            ) as mock_load_module,
+        ):
+            mock_transaction.return_value.__aenter__ = AsyncMock(
+                return_value=MagicMock()
+            )
+            mock_transaction.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            mock_complete.return_value = {
+                "id": 1,
+                "completed_at": datetime.now(timezone.utc),
+            }
+
+            # Lens 1 is completed, lens 2 is not
+            mock_progress.return_value = {
+                uuid.UUID(lens_id_1): {
+                    "completed_at": datetime.now(timezone.utc),
+                    "total_time_spent_s": 120,
+                },
+            }
+
+            mock_load_module.return_value = MockModule()
+
+            response = client.post(
+                "/api/progress/complete",
+                json={
+                    "content_id": content_id,
+                    "content_type": "lens",
+                    "content_title": "Test Lens",
+                    "time_spent_s": 60,
+                    "module_slug": "test-module",
+                },
+                headers={"X-Anonymous-Token": anonymous_token},
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+
+            # Should have lenses array
+            assert data["lenses"] is not None
+            assert len(data["lenses"]) == 2
+
+            # First lens should be completed
+            assert data["lenses"][0]["id"] == lens_id_1
+            assert data["lenses"][0]["completed"] is True
+            assert data["lenses"][0]["timeSpentS"] == 120
+            assert data["lenses"][0]["type"] == "video"
+
+            # Second lens should not be completed
+            assert data["lenses"][1]["id"] == lens_id_2
+            assert data["lenses"][1]["completed"] is False
+
+            # Module status should be in_progress (1 of 2 complete)
+            assert data["module_status"] == "in_progress"
+            assert data["module_progress"]["completed"] == 1
+            assert data["module_progress"]["total"] == 2
+
+    def test_complete_with_module_slug_not_found_skips_lenses(self):
+        """POST /complete with invalid module_slug should not return lenses."""
+        anonymous_token = random_uuid_str()
+        content_id = random_uuid_str()
+
+        with (
+            patch(
+                "web_api.routes.progress.get_transaction",
+            ) as mock_transaction,
+            patch(
+                "web_api.routes.progress.mark_content_complete",
+                new_callable=AsyncMock,
+            ) as mock_complete,
+            patch(
+                "core.modules.loader.load_flattened_module",
+            ) as mock_load_module,
+        ):
+            mock_transaction.return_value.__aenter__ = AsyncMock(
+                return_value=MagicMock()
+            )
+            mock_transaction.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            mock_complete.return_value = {
+                "id": 1,
+                "completed_at": datetime.now(timezone.utc),
+            }
+
+            from core.modules.loader import ModuleNotFoundError
+
+            mock_load_module.side_effect = ModuleNotFoundError("not found")
+
+            response = client.post(
+                "/api/progress/complete",
+                json={
+                    "content_id": content_id,
+                    "content_type": "lens",
+                    "content_title": "Test Lens",
+                    "time_spent_s": 60,
+                    "module_slug": "nonexistent-module",
+                },
+                headers={"X-Anonymous-Token": anonymous_token},
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+
+            # Should not have lenses (module not found)
+            assert data["lenses"] is None
+            assert data["module_status"] is None
+            assert data["module_progress"] is None
+            # But should still have completed_at
+            assert data["completed_at"] is not None

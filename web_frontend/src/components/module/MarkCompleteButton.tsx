@@ -13,6 +13,7 @@ type MarkCompleteButtonProps = {
   contentId?: string;
   contentType?: "module" | "lo" | "lens" | "test";
   contentTitle?: string;
+  moduleSlug?: string;
 };
 
 export default function MarkCompleteButton({
@@ -23,6 +24,7 @@ export default function MarkCompleteButton({
   contentId,
   contentType = "lens",
   contentTitle,
+  moduleSlug,
 }: MarkCompleteButtonProps) {
   const { isAuthenticated } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,6 +41,7 @@ export default function MarkCompleteButton({
             content_id: contentId,
             content_type: contentType,
             content_title: contentTitle,
+            module_slug: moduleSlug,
           },
           isAuthenticated,
         );

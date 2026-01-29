@@ -4,6 +4,7 @@
 
 import { API_URL } from "../config";
 import { getAnonymousToken } from "../hooks/useAnonymousToken";
+import type { LensProgress } from "./modules";
 
 const API_BASE = API_URL;
 
@@ -25,12 +26,14 @@ export interface MarkCompleteRequest {
   content_type: "module" | "lo" | "lens" | "test";
   content_title: string;
   time_spent_s?: number;
+  module_slug?: string; // If provided, response includes full module state
 }
 
 export interface MarkCompleteResponse {
   completed_at: string;
-  module_status?: string;
+  module_status?: "not_started" | "in_progress" | "completed";
   module_progress?: { completed: number; total: number };
+  lenses?: LensProgress[]; // Full lens array if module_slug was provided
 }
 
 export async function markComplete(
