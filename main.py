@@ -87,7 +87,7 @@ from core.config import check_required_env_vars
 from core.content import initialize_cache, ContentBranchNotConfiguredError
 from core.notifications import init_scheduler, shutdown_scheduler
 from core.calendar.rsvp import sync_upcoming_meeting_rsvps
-from core.notifications.channels.discord import set_bot as set_notification_bot
+from core.discord_outbound import set_bot as set_notification_bot
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -106,6 +106,8 @@ from web_api.routes.courses import router as courses_router
 from web_api.routes.facilitator import router as facilitator_router
 from web_api.routes.content import router as content_router
 from web_api.routes.groups import router as groups_router
+from web_api.routes.admin import router as admin_router
+from web_api.routes.progress import router as progress_router
 
 # Track bot task for cleanup
 _bot_task: asyncio.Task | None = None
@@ -256,6 +258,8 @@ app.include_router(courses_router)
 app.include_router(facilitator_router)
 app.include_router(content_router)
 app.include_router(groups_router)
+app.include_router(admin_router)
+app.include_router(progress_router)
 
 
 # New paths for static files
@@ -377,11 +381,11 @@ if __name__ == "__main__":
     import uvicorn
 
     # Extract workspace number from directory name (e.g., "platform-ws2" → 2)
-    # Used to auto-assign ports: ws1 gets 8000/3000, ws2 gets 8001/3001, etc.
+    # Used to auto-assign ports: ws1 gets 8001/3001, ws2 gets 8002/3002, etc.
     workspace_match = re.search(r"-ws(\d+)$", Path.cwd().name)
-    ws_num = int(workspace_match.group(1)) if workspace_match else 1
-    default_api_port = 8000 + (ws_num - 1)
-    default_frontend_port = 3000 + (ws_num - 1)
+    ws_num = int(workspace_match.group(1)) if workspace_match else 0
+    default_api_port = 8000 + ws_num
+    default_frontend_port = 3000 + ws_num
 
     parser = argparse.ArgumentParser(description="AI Safety Course Platform Server")
     parser.add_argument(

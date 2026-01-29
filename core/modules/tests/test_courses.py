@@ -7,6 +7,7 @@ Content validation tests are in test_content_validation.py.
 
 import pytest
 from datetime import datetime
+from uuid import UUID
 
 from core.content import ContentCache, set_cache, clear_cache
 from core.modules.course_loader import (
@@ -21,44 +22,75 @@ from core.modules.course_loader import (
 )
 from core.modules.markdown_parser import (
     ParsedCourse,
-    ParsedModule,
     ModuleRef,
     MeetingMarker,
-    ChatSection,
 )
+from core.modules.flattened_types import FlattenedModule
 
 
 @pytest.fixture
 def test_cache():
     """Set up a test cache with courses and modules."""
-    # Create test modules
-    modules = {
-        "module-a": ParsedModule(
+    # Create test modules using flattened types
+    flattened_modules = {
+        "module-a": FlattenedModule(
             slug="module-a",
             title="Module A",
+            content_id=UUID("00000000-0000-0000-0000-000000000001"),
             sections=[
-                ChatSection(instructions="Module A instructions"),
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000011",
+                    "title": "Module A Page",
+                    "segments": [
+                        {"type": "chat", "instructions": "Module A instructions"}
+                    ],
+                },
             ],
         ),
-        "module-b": ParsedModule(
+        "module-b": FlattenedModule(
             slug="module-b",
             title="Module B",
+            content_id=UUID("00000000-0000-0000-0000-000000000002"),
             sections=[
-                ChatSection(instructions="Module B instructions"),
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000021",
+                    "title": "Module B Page",
+                    "segments": [
+                        {"type": "chat", "instructions": "Module B instructions"}
+                    ],
+                },
             ],
         ),
-        "module-c": ParsedModule(
+        "module-c": FlattenedModule(
             slug="module-c",
             title="Module C",
+            content_id=UUID("00000000-0000-0000-0000-000000000003"),
             sections=[
-                ChatSection(instructions="Module C instructions"),
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000031",
+                    "title": "Module C Page",
+                    "segments": [
+                        {"type": "chat", "instructions": "Module C instructions"}
+                    ],
+                },
             ],
         ),
-        "module-d": ParsedModule(
+        "module-d": FlattenedModule(
             slug="module-d",
             title="Module D",
+            content_id=UUID("00000000-0000-0000-0000-000000000004"),
             sections=[
-                ChatSection(instructions="Module D instructions"),
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000041",
+                    "title": "Module D Page",
+                    "segments": [
+                        {"type": "chat", "instructions": "Module D instructions"}
+                    ],
+                },
             ],
         ),
     }
@@ -81,7 +113,9 @@ def test_cache():
 
     cache = ContentCache(
         courses=courses,
-        modules=modules,
+        flattened_modules=flattened_modules,
+        parsed_learning_outcomes={},
+        parsed_lenses={},
         articles={},
         video_transcripts={},
         last_refreshed=datetime.now(),
@@ -98,7 +132,9 @@ def empty_cache():
     """Set up an empty cache for testing not-found errors."""
     cache = ContentCache(
         courses={},
-        modules={},
+        flattened_modules={},
+        parsed_learning_outcomes={},
+        parsed_lenses={},
         articles={},
         video_transcripts={},
         last_refreshed=datetime.now(),

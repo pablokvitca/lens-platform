@@ -130,13 +130,13 @@ async def notify_member_left(
         discord_channel_id: Discord channel ID for the group they left
         discord_user_id: Discord user ID for mention in channel message
     """
-    from core.notifications.channels.discord import send_discord_channel_message
+    from core.discord_outbound import send_channel_message
     from core.notifications.templates import get_message
 
     context = {"member_mention": f"<@{discord_user_id}>"}
     message = get_message("member_left", "discord_channel", context)
 
-    result = await send_discord_channel_message(discord_channel_id, message)
+    result = await send_channel_message(discord_channel_id, message)
     return {"discord_channel": result}
 
 

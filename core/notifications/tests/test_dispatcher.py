@@ -123,7 +123,7 @@ class TestSendNotification:
                 "core.notifications.dispatcher.send_email", return_value=True
             ) as mock_email:
                 with patch(
-                    "core.notifications.dispatcher.send_discord_dm",
+                    "core.notifications.dispatcher.send_dm",
                     AsyncMock(return_value=True),
                 ):
                     result = await send_notification(
@@ -158,7 +158,7 @@ class TestSendNotification:
         ):
             with patch("core.notifications.dispatcher.send_email", return_value=True):
                 with patch(
-                    "core.notifications.dispatcher.send_discord_dm",
+                    "core.notifications.dispatcher.send_dm",
                     AsyncMock(return_value=True),
                 ) as mock_dm:
                     result = await send_notification(
@@ -195,7 +195,7 @@ class TestSendNotification:
                 "core.notifications.dispatcher.send_email", return_value=True
             ) as mock_email:
                 with patch(
-                    "core.notifications.dispatcher.send_discord_dm",
+                    "core.notifications.dispatcher.send_dm",
                     AsyncMock(return_value=True),
                 ) as mock_dm:
                     result = await send_notification(

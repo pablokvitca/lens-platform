@@ -5,15 +5,32 @@
 import type { Module } from "../types/module";
 import type { CourseProgress } from "../types/course";
 import { Sentry } from "../errorTracking";
+import { getAnonymousToken } from "../hooks/useAnonymousToken";
 
 import { API_URL } from "../config";
+
+export interface LensProgress {
+  id: string | null;
+  title: string;
+  type: string;
+  optional: boolean;
+  completed: boolean;
+  completedAt: string | null;
+  timeSpentS: number;
+}
+
+export interface ModuleProgressResponse {
+  module: { id: string | null; slug: string; title: string };
+  status: "not_started" | "in_progress" | "completed";
+  progress: { completed: number; total: number };
+  lenses: LensProgress[];
+  chatSession: { sessionId: number; hasMessages: boolean };
+}
 
 const API_BASE = API_URL;
 
 // Default timeout for API requests (in milliseconds)
 const DEFAULT_TIMEOUT_MS = 10000;
-// Shorter timeout for content-heavy requests that should be fast
-const CONTENT_TIMEOUT_MS = 8000;
 
 /**
  * Custom error class for request timeouts.
@@ -103,111 +120,32 @@ export async function getModule(moduleSlug: string): Promise<Module> {
   return res.json();
 }
 
-export async function createSession(moduleSlug: string): Promise<number> {
-  const res = await fetchWithTimeout(
-    `${API_BASE}/api/module-sessions`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ module_slug: moduleSlug }),
-    },
-    CONTENT_TIMEOUT_MS,
-  );
-  if (!res.ok) throw new Error("Failed to create session");
-  const data = await res.json();
-  return data.session_id;
-}
-
-// Session state type - dynamic response from API
-// For narrative modules: { session_id, module_slug, module_title, messages, completed, is_narrative }
-// For staged modules: includes current_stage_index, total_stages, stages array, etc.
-export interface SessionState {
-  session_id: number;
-  module_slug: string;
-  module_title: string;
-  messages: Array<{
-    role: "user" | "assistant" | "system";
-    content: string;
-    icon?: "article" | "video" | "chat";
-  }>;
-  completed: boolean;
-  is_narrative?: boolean;
-  current_stage_index?: number;
-  total_stages?: number;
-  current_stage?: { type: string; [key: string]: unknown };
-  stages?: Array<{ type: string; title: string; duration: number | null }>;
-  article?: {
-    content: string;
-    title: string;
-    author: string | null;
-    sourceUrl: string | null;
-    isExcerpt: boolean;
-  } | null;
-  previous_article?: {
-    content: string;
-    title: string;
-    author: string | null;
-    sourceUrl: string | null;
-    isExcerpt: boolean;
-  } | null;
-  previous_stage?: { type: string; [key: string]: unknown } | null;
-  hidePreviousContentFromUser?: boolean;
-}
-
-export async function getSession(
-  sessionId: number,
-  viewStage?: number,
-): Promise<SessionState> {
-  const url =
-    viewStage !== undefined
-      ? `${API_BASE}/api/module-sessions/${sessionId}?view_stage=${viewStage}`
-      : `${API_BASE}/api/module-sessions/${sessionId}`;
-
-  const res = await fetchWithTimeout(
-    url,
-    { credentials: "include" },
-    CONTENT_TIMEOUT_MS,
-  );
-  if (!res.ok) throw new Error("Failed to fetch session");
-  return res.json();
-}
-
-export async function advanceStage(
-  sessionId: number,
-): Promise<{ completed: boolean; new_stage_index?: number }> {
-  const res = await fetchWithTimeout(
-    `${API_BASE}/api/module-sessions/${sessionId}/advance`,
-    {
-      method: "POST",
-      credentials: "include",
-    },
-    CONTENT_TIMEOUT_MS,
-  );
-  if (!res.ok) throw new Error("Failed to advance stage");
-  return res.json();
-}
-
+/**
+ * Send a chat message and stream the response.
+ *
+ * Uses the /api/chat/module endpoint with position-based context.
+ * Backend owns chat history; we just send position and message.
+ */
 export async function* sendMessage(
-  sessionId: number,
-  content: string,
-  position?: { sectionIndex: number; segmentIndex: number },
+  slug: string,
+  sectionIndex: number,
+  segmentIndex: number,
+  message: string,
 ): AsyncGenerator<{ type: string; content?: string; name?: string }> {
-  const body: Record<string, unknown> = { content };
-  if (position) {
-    body.section_index = position.sectionIndex;
-    body.segment_index = position.segmentIndex;
-  }
-
-  const res = await fetch(
-    `${API_BASE}/api/module-sessions/${sessionId}/message`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(body),
+  const res = await fetch(`${API_BASE}/api/chat/module`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Anonymous-Token": getAnonymousToken(),
     },
-  );
+    credentials: "include",
+    body: JSON.stringify({
+      slug,
+      sectionIndex,
+      segmentIndex,
+      message,
+    }),
+  });
 
   if (!res.ok) throw new Error("Failed to send message");
 
@@ -233,6 +171,29 @@ export async function* sendMessage(
       }
     }
   }
+}
+
+/**
+ * Fetch chat history for a module.
+ */
+export async function getChatHistory(slug: string): Promise<{
+  sessionId: number;
+  messages: Array<{ role: string; content: string }>;
+}> {
+  const res = await fetchWithTimeout(
+    `${API_BASE}/api/chat/module/${slug}/history`,
+    {
+      credentials: "include",
+      headers: { "X-Anonymous-Token": getAnonymousToken() },
+    },
+  );
+  if (!res.ok) {
+    if (res.status === 401) {
+      return { sessionId: 0, messages: [] };
+    }
+    throw new Error("Failed to fetch chat history");
+  }
+  return res.json();
 }
 
 interface NextModuleResponse {
@@ -273,24 +234,6 @@ export async function getNextModule(
   };
 }
 
-export async function claimSession(
-  sessionId: number,
-): Promise<{ claimed: boolean }> {
-  const res = await fetchWithTimeout(
-    `${API_BASE}/api/module-sessions/${sessionId}/claim`,
-    {
-      method: "POST",
-      credentials: "include",
-    },
-  );
-  if (!res.ok) {
-    if (res.status === 403) throw new Error("Session already claimed");
-    if (res.status === 404) throw new Error("Session not found");
-    throw new Error("Failed to claim session");
-  }
-  return res.json();
-}
-
 export async function transcribeAudio(audioBlob: Blob): Promise<string> {
   const formData = new FormData();
   formData.append("audio", audioBlob, "recording.webm");
@@ -324,5 +267,24 @@ export async function getCourseProgress(
     { credentials: "include" },
   );
   if (!res.ok) throw new Error("Failed to fetch course progress");
+  return res.json();
+}
+
+export async function getModuleProgress(
+  moduleSlug: string,
+): Promise<ModuleProgressResponse | null> {
+  const res = await fetchWithTimeout(
+    `${API_BASE}/api/modules/${moduleSlug}/progress`,
+    {
+      credentials: "include",
+      headers: { "X-Anonymous-Token": getAnonymousToken() },
+    },
+  );
+  if (!res.ok) {
+    if (res.status === 401) {
+      return null;
+    }
+    throw new Error("Failed to fetch module progress");
+  }
   return res.json();
 }

@@ -51,7 +51,6 @@ export function Popover({
     return children;
   }
 
-  /* eslint-disable react-hooks/refs -- floating-ui's setReference/setFloating are callback refs (functions), not ref.current access */
   const childWithRef = cloneElement(children, {
     ref: refs.setReference,
     ...getReferenceProps(),

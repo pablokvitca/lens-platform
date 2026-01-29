@@ -27,7 +27,8 @@ export function StageIcon({
   type: string;
   small?: boolean;
 }) {
-  if (type === "article") {
+  // Article icon: article, lens-article, page
+  if (type === "article" || type === "lens-article" || type === "page") {
     const size = small ? "w-4 h-4" : "w-5 h-5";
     return (
       <svg className={size} fill="currentColor" viewBox="0 0 20 20">
@@ -40,7 +41,8 @@ export function StageIcon({
     );
   }
 
-  if (type === "video") {
+  // Video icon: video, lens-video
+  if (type === "video" || type === "lens-video") {
     const size = small ? "w-5 h-5" : "w-6 h-6";
     return (
       <svg className={size} fill="currentColor" viewBox="0 0 20 20">
@@ -53,7 +55,7 @@ export function StageIcon({
     );
   }
 
-  // Chat
+  // Chat (default)
   const size = small ? "w-5 h-5" : "w-6 h-6";
   return (
     <svg className={size} fill="currentColor" viewBox="0 0 20 20">
@@ -71,6 +73,8 @@ function getStageTitle(stage: Stage): string {
   // Fallback based on type
   if (stage.type === "video") return "Video";
   if (stage.type === "article") return "Article";
+  // Note: lens-video and lens-article always have titles from meta,
+  // so these fallbacks won't typically be used, but we include them for safety
   return "Discussion";
 }
 

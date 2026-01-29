@@ -1,24 +1,16 @@
 """Module management package."""
 
+# Stage types for chat context (v1 chat system)
 from .types import (
     ArticleStage,
     VideoStage,
     ChatStage,
     Stage,
-    Module,
-    NarrativeModule,
-    NarrativeSection,
-    NarrativeSegment,
-    TextSection,
-    ArticleSection,
-    VideoSection,
-    TextSegment,
-    ArticleExcerptSegment,
-    VideoExcerptSegment,
 )
 from .loader import (
     load_module,
     load_narrative_module,
+    load_flattened_module,
     get_available_modules,
     ModuleNotFoundError,
 )
@@ -28,27 +20,13 @@ from .content import (
     load_video_transcript,
     load_video_transcript_with_metadata,
     load_article_with_metadata,
-    bundle_narrative_module,
     ArticleContent,
     ArticleMetadata,
     VideoTranscriptContent,
     VideoTranscriptMetadata,
-    get_stage_title,
-    get_stage_duration,
-)
-from .sessions import (
-    create_session,
-    get_session,
-    get_user_sessions,
-    add_message,
-    advance_stage,
-    complete_session,
-    claim_session,
-    get_user_module_progress,
-    SessionNotFoundError,
-    SessionAlreadyClaimedError,
 )
 from .chat import send_module_message, get_stage_content
+from .context import gather_section_context
 from .llm import DEFAULT_PROVIDER
 from .course_loader import (
     load_course,
@@ -61,49 +39,34 @@ from .course_loader import (
 )
 
 __all__ = [
+    # Stage types for chat context
     "ArticleStage",
     "VideoStage",
     "ChatStage",
     "Stage",
-    "Module",
-    "NarrativeModule",
-    "NarrativeSection",
-    "NarrativeSegment",
-    "TextSection",
-    "ArticleSection",
-    "VideoSection",
-    "TextSegment",
-    "ArticleExcerptSegment",
-    "VideoExcerptSegment",
+    # Module loading
     "load_module",
     "load_narrative_module",
+    "load_flattened_module",
     "get_available_modules",
     "ModuleNotFoundError",
+    # Content loading
     "load_article",
     "extract_article_section",
     "load_video_transcript",
     "load_video_transcript_with_metadata",
     "load_article_with_metadata",
-    "bundle_narrative_module",
     "ArticleContent",
     "ArticleMetadata",
     "VideoTranscriptContent",
     "VideoTranscriptMetadata",
-    "get_stage_title",
-    "get_stage_duration",
-    "create_session",
-    "get_session",
-    "get_user_sessions",
-    "add_message",
-    "advance_stage",
-    "complete_session",
-    "claim_session",
-    "get_user_module_progress",
-    "SessionNotFoundError",
-    "SessionAlreadyClaimedError",
+    # Chat
     "send_module_message",
     "get_stage_content",
     "DEFAULT_PROVIDER",
+    # Context gathering
+    "gather_section_context",
+    # Course
     "load_course",
     "get_next_module",
     "get_all_module_slugs",

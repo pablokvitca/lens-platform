@@ -17,18 +17,19 @@ import type {
 import type { CourseProgress } from "@/types/course";
 import {
   sendMessage,
-  createSession,
-  getSession,
-  claimSession,
+  getChatHistory,
   getNextModule,
   getModule,
   getCourseProgress,
+  getModuleProgress,
 } from "@/api/modules";
-import type { ModuleCompletionResult } from "@/api/modules";
-import { useAnonymousSession } from "@/hooks/useAnonymousSession";
+import type { ModuleCompletionResult, LensProgress } from "@/api/modules";
+
 import { useAuth } from "@/hooks/useAuth";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
-import { useVideoActivityTracker } from "@/hooks/useVideoActivityTracker";
+import type { MarkCompleteResponse } from "@/api/progress";
+import { claimSessionRecords } from "@/api/progress";
+import { useAnonymousToken } from "@/hooks/useAnonymousToken";
 import AuthoredText from "@/components/module/AuthoredText";
 import ArticleEmbed from "@/components/module/ArticleEmbed";
 import VideoEmbed from "@/components/module/VideoEmbed";
@@ -46,10 +47,7 @@ import {
   trackModuleCompleted,
   trackChatMessageSent,
 } from "@/analytics";
-import { Sentry } from "@/errorTracking";
-import { RequestTimeoutError } from "@/api/modules";
 import { Skeleton, SkeletonText } from "@/components/Skeleton";
-
 interface ModuleProps {
   courseId: string;
   moduleId: string;
@@ -104,16 +102,33 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       setLoadingModule(true);
       setLoadError(null);
       try {
-        // Fetch module and course progress in parallel
-        const [moduleResult, courseResult] = await Promise.all([
+        // Fetch module, course progress, and module progress in parallel
+        const [moduleResult, courseResult, progressResult] = await Promise.all([
           getModule(moduleId),
           courseId && courseId !== "default"
             ? getCourseProgress(courseId).catch(() => null)
             : Promise.resolve(null),
+          getModuleProgress(moduleId).catch(() => null),
         ]);
 
         setModule(moduleResult);
         setCourseProgress(courseResult);
+
+        // Initialize completedSections from progress API response
+        if (progressResult) {
+          const completed = new Set<number>();
+          progressResult.lenses.forEach((lens, index) => {
+            if (lens.completed) {
+              completed.add(index);
+            }
+          });
+          setCompletedSections(completed);
+
+          // If module already complete, set flag
+          if (progressResult.status === "completed") {
+            setApiConfirmedComplete(true);
+          }
+        }
       } catch (e) {
         setLoadError(e instanceof Error ? e.message : "Failed to load module");
       } finally {
@@ -123,6 +138,18 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
 
     load();
   }, [moduleId, courseId]);
+
+  // Helper to update completedSections from lenses array
+  const updateCompletedFromLenses = useCallback((lenses: LensProgress[]) => {
+    const completed = new Set<number>();
+    lenses.forEach((lens, index) => {
+      if (lens.completed) {
+        completed.add(index);
+      }
+    });
+    setCompletedSections(completed);
+  }, []);
+
   // Chat state (shared across all chat sections)
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingMessage, setPendingMessage] = useState<PendingMessage | null>(
@@ -131,34 +158,90 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   const [streamingContent, setStreamingContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Session state
-  const [sessionId, setSessionId] = useState<number | null>(null);
-  const { getStoredSessionId, storeSessionId, clearSessionId } =
-    useAnonymousSession(moduleId);
+  // Fetch chat history when module loads
+  useEffect(() => {
+    if (!module) return;
+
+    // Clear messages when switching modules
+    setMessages([]);
+
+    // Track if effect is still active (prevent race condition)
+    let cancelled = false;
+
+    async function loadHistory() {
+      try {
+        const history = await getChatHistory(module!.slug);
+        if (cancelled) return; // Don't update if module changed
+
+        if (history.messages.length > 0) {
+          setMessages(
+            history.messages.map((m) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            })),
+          );
+        }
+        // Messages already cleared above if history is empty
+      } catch (e) {
+        if (!cancelled) {
+          console.error("[Module] Failed to load chat history:", e);
+        }
+      }
+    }
+
+    loadHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [module]);
 
   // Progress tracking
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const sectionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // Section completion tracking (persisted to localStorage)
+  // Section completion tracking (database is source of truth)
   const [completedSections, setCompletedSections] = useState<Set<number>>(
-    () => {
-      if (typeof window === "undefined") return new Set();
-      const stored = localStorage.getItem(`module-completed-${moduleId}`);
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    },
+    new Set(),
   );
-
-  // Persist completion state to localStorage
-  useEffect(() => {
-    localStorage.setItem(
-      `module-completed-${moduleId}`,
-      JSON.stringify([...completedSections]),
-    );
-  }, [completedSections, moduleId]);
 
   const { isAuthenticated, isInSignupsTable, isInActiveGroup, login } =
     useAuth();
+  const { token: anonymousToken } = useAnonymousToken();
+
+  // Track previous auth state for detecting login
+  const wasAuthenticated = useRef(isAuthenticated);
+
+  // Handle login: claim anonymous records and re-fetch progress
+  useEffect(() => {
+    // Only run when transitioning from anonymous to authenticated
+    if (
+      isAuthenticated &&
+      !wasAuthenticated.current &&
+      anonymousToken &&
+      moduleId
+    ) {
+      async function handleLogin() {
+        try {
+          // Claim any anonymous progress/chat records
+          await claimSessionRecords(anonymousToken!);
+
+          // Re-fetch progress (now includes claimed records)
+          const progressResult = await getModuleProgress(moduleId);
+          if (progressResult) {
+            updateCompletedFromLenses(progressResult.lenses);
+            if (progressResult.status === "completed") {
+              setApiConfirmedComplete(true);
+            }
+          }
+        } catch (e) {
+          console.error("[Module] Failed to handle login:", e);
+        }
+      }
+      handleLogin();
+    }
+    wasAuthenticated.current = isAuthenticated;
+  }, [isAuthenticated, anonymousToken, moduleId, updateCompletedFromLenses]);
 
   // For stage navigation (viewing non-current section)
   const [viewingStageIndex, setViewingStageIndex] = useState<number | null>(
@@ -170,6 +253,8 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
     useState<ModuleCompletionResult>(null);
   const [completionModalDismissed, setCompletionModalDismissed] =
     useState(false);
+  // Track if module was marked complete by API (all required lenses done)
+  const [apiConfirmedComplete, setApiConfirmedComplete] = useState(false);
 
   // Auth prompt modal state
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
@@ -178,9 +263,6 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   // Analytics tracking ref
   const hasTrackedModuleStart = useRef(false);
 
-  // Error state
-  const [error, setError] = useState<string | null>(null);
-
   // View mode state (default to paginated)
   const [viewMode] = useState<ViewMode>("paginated");
 
@@ -188,12 +270,32 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   const stages: Stage[] = useMemo(() => {
     if (!module) return [];
     return module.sections.map((section, index): Stage => {
-      const stageType = section.type === "text" ? "article" : section.type;
+      // Map section types to stage types
+      // v2 types: page, lens-video, lens-article
+      // v1 types: text, article, video, chat
+      let stageType: "article" | "video" | "chat";
+      if (section.type === "video" || section.type === "lens-video") {
+        stageType = "video";
+      } else if (
+        section.type === "article" ||
+        section.type === "lens-article" ||
+        section.type === "text" ||
+        section.type === "page"
+      ) {
+        stageType = "article";
+      } else {
+        stageType = "chat";
+      }
+
       const isOptional = "optional" in section && section.optional === true;
       const title =
         section.type === "text"
           ? `Section ${index + 1}`
-          : section.meta?.title || `${section.type || "Section"} ${index + 1}`;
+          : section.type === "page"
+            ? section.meta?.title || `Page ${index + 1}`
+            : section.meta?.title ||
+              `${section.type || "Section"} ${index + 1}`;
+
       if (stageType === "article") {
         return {
           type: "article",
@@ -203,10 +305,17 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
           optional: isOptional,
           title,
         };
-      } else if (stageType === "video" && section.type === "video") {
+      } else if (stageType === "video") {
+        // Get videoId from video or lens-video sections
+        const videoId =
+          section.type === "video"
+            ? section.videoId
+            : section.type === "lens-video"
+              ? section.videoId
+              : "";
         return {
           type: "video",
-          videoId: section.videoId,
+          videoId,
           from: 0,
           to: null,
           optional: isOptional,
@@ -227,20 +336,41 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   // Convert to StageInfo format for drawer
   const stagesForDrawer: StageInfo[] = useMemo(() => {
     if (!module) return [];
-    return module.sections.map((section, index) => ({
-      type: section.type === "text" ? "article" : section.type,
-      title:
-        section.type === "text"
-          ? `Section ${index + 1}`
-          : section.meta?.title || `${section.type || "Section"} ${index + 1}`,
-      duration: null,
-      optional: "optional" in section && section.optional === true,
-    }));
+    return module.sections.map((section, index) => {
+      // Map section types to drawer display types
+      // v2 types get their own display, v1 types map as before
+      let displayType: StageInfo["type"];
+      if (section.type === "lens-video") {
+        displayType = "lens-video";
+      } else if (section.type === "lens-article") {
+        displayType = "lens-article";
+      } else if (section.type === "page") {
+        displayType = "page";
+      } else if (section.type === "text") {
+        displayType = "article";
+      } else {
+        displayType = section.type;
+      }
+
+      return {
+        type: displayType,
+        title:
+          section.type === "text"
+            ? `Section ${index + 1}`
+            : section.type === "page"
+              ? section.meta?.title || `Page ${index + 1}`
+              : section.meta?.title ||
+                `${section.type || "Section"} ${index + 1}`,
+        duration: null,
+        optional: "optional" in section && section.optional === true,
+      };
+    });
   }, [module]);
 
   // Derived value for module completion
+  // Complete if: API confirmed complete OR all sections marked locally
   const isModuleComplete = module
-    ? completedSections.size === module.sections.length
+    ? apiConfirmedComplete || completedSections.size === module.sections.length
     : false;
 
   // Activity tracking for current section
@@ -250,31 +380,30 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
 
   // Article/text activity tracking (3 min inactivity timeout)
   useActivityTracker({
-    sessionId: sessionId ?? 0,
-    stageIndex: currentSectionIndex,
-    stageType: "article",
+    contentId: currentSection?.contentId ?? undefined,
+    isAuthenticated,
     inactivityTimeout: 180_000,
     enabled:
-      !!sessionId &&
+      !!currentSection?.contentId &&
       (currentSectionType === "article" || currentSection?.type === "text"),
   });
 
-  // Video activity tracking
-  const videoTracker = useVideoActivityTracker({
-    sessionId: sessionId ?? 0,
-    stageIndex: currentSectionIndex,
-    enabled: !!sessionId && currentSectionType === "video",
+  // Video activity tracking (3 min inactivity timeout)
+  useActivityTracker({
+    contentId: currentSection?.contentId ?? undefined,
+    isAuthenticated,
+    inactivityTimeout: 180_000,
+    enabled: !!currentSection?.contentId && currentSectionType === "video",
   });
 
   // Chat activity tracking (5 min inactivity timeout)
   // Chat segments can appear within any section type, so we keep the tracker
   // ready and trigger it manually via triggerChatActivity() in handleSendMessage
   const { triggerActivity: triggerChatActivity } = useActivityTracker({
-    sessionId: sessionId ?? 0,
-    stageIndex: currentSectionIndex,
-    stageType: "chat",
+    contentId: currentSection?.contentId ?? undefined,
+    isAuthenticated,
     inactivityTimeout: 300_000,
-    enabled: !!sessionId,
+    enabled: !!currentSection?.contentId,
   });
 
   // Fetch next module info when module completes
@@ -311,73 +440,14 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
     }
   }, [isModuleComplete, module]);
 
-  // Initialize session (only after module is loaded)
+  // Track module start
   useEffect(() => {
     if (!module) return;
-
-    // Capture module in a const so TypeScript knows it's not null in the async function
-    const currentModule = module;
-
-    async function init() {
-      try {
-        const storedId = getStoredSessionId();
-        if (storedId) {
-          try {
-            const state = await getSession(storedId);
-            setSessionId(storedId);
-            setMessages(state.messages);
-
-            // If user is now authenticated, try to claim the session
-            if (isAuthenticated) {
-              try {
-                await claimSession(storedId);
-              } catch {
-                // Session already claimed or other error - ignore
-              }
-            }
-            return;
-          } catch {
-            clearSessionId();
-          }
-        }
-
-        // Create new session
-        const sid = await createSession(currentModule.slug);
-        storeSessionId(sid);
-        setSessionId(sid);
-
-        // Track module start (only for new sessions)
-        if (!hasTrackedModuleStart.current) {
-          hasTrackedModuleStart.current = true;
-          trackModuleStarted(currentModule.slug, currentModule.title);
-        }
-      } catch (e) {
-        console.error("[Module] Session init failed:", e);
-        if (e instanceof RequestTimeoutError) {
-          setError(
-            "Content is taking too long to load. Please check your connection and try refreshing the page.",
-          );
-        } else {
-          setError(e instanceof Error ? e.message : "Failed to start module");
-        }
-
-        Sentry.captureException(e, {
-          tags: {
-            error_type: "session_init_failed",
-            module_slug: currentModule.slug,
-          },
-        });
-      }
+    if (!hasTrackedModuleStart.current) {
+      hasTrackedModuleStart.current = true;
+      trackModuleStarted(module.slug, module.title);
     }
-
-    init();
-  }, [
-    module,
-    getStoredSessionId,
-    storeSessionId,
-    clearSessionId,
-    isAuthenticated,
-  ]);
+  }, [module]);
 
   // Track position for retry
   const [lastPosition, setLastPosition] = useState<{
@@ -388,8 +458,6 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   // Send message handler (shared across all chat sections)
   const handleSendMessage = useCallback(
     async (content: string, sectionIndex: number, segmentIndex: number) => {
-      if (!sessionId) return;
-
       // Track chat activity on message send
       triggerChatActivity();
 
@@ -406,17 +474,20 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       try {
         let assistantContent = "";
 
-        for await (const chunk of sendMessage(sessionId, content, {
+        // Use new position-based API
+        for await (const chunk of sendMessage(
+          moduleId, // slug
           sectionIndex,
           segmentIndex,
-        })) {
+          content,
+        )) {
           if (chunk.type === "text" && chunk.content) {
             assistantContent += chunk.content;
             setStreamingContent(assistantContent);
           }
         }
 
-        // Update messages
+        // Update local display state
         setMessages((prev) => [
           ...prev,
           ...(content ? [{ role: "user" as const, content }] : []),
@@ -433,7 +504,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
         setIsLoading(false);
       }
     },
-    [sessionId, triggerChatActivity, moduleId],
+    [triggerChatActivity, moduleId],
   );
 
   const handleRetryMessage = useCallback(() => {
@@ -573,21 +644,36 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   }, [currentSectionIndex, module, viewMode, handleStageClick]);
 
   const handleMarkComplete = useCallback(
-    (sectionIndex: number) => {
+    (sectionIndex: number, apiResponse?: MarkCompleteResponse) => {
       // Check if this is the first completion (for auth prompt)
       // Must check BEFORE updating state
       const isFirstCompletion = completedSections.size === 0;
 
-      setCompletedSections((prev) => {
-        const next = new Set(prev);
-        next.add(sectionIndex);
-        return next;
-      });
+      // Update state from API response if lenses array provided
+      if (apiResponse?.lenses) {
+        updateCompletedFromLenses(apiResponse.lenses);
+      } else {
+        // Fallback: just add this section (shouldn't happen with module_slug)
+        setCompletedSections((prev) => {
+          const next = new Set(prev);
+          next.add(sectionIndex);
+          return next;
+        });
+      }
 
       // Prompt for auth after first section completion (if anonymous)
       if (isFirstCompletion && !isAuthenticated && !hasPromptedAuth) {
         setShowAuthPrompt(true);
         setHasPromptedAuth(true);
+      }
+
+      // Check if module is now complete based on API response
+      // This handles the case where server says "completed" even if local state doesn't match
+      if (apiResponse?.module_status === "completed") {
+        // Module is complete - mark as confirmed by API to show modal
+        setApiConfirmedComplete(true);
+        // No need to navigate to next section
+        return;
       }
 
       // Navigate to next section
@@ -608,6 +694,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       module,
       viewMode,
       handleStageClick,
+      updateCompletedFromLenses,
     ],
   );
 
@@ -628,7 +715,11 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
 
       case "article-excerpt": {
         // Content is now bundled directly in the segment
-        const articleMeta = section.type === "article" ? section.meta : null;
+        // Get meta from article or lens-article sections
+        const articleMeta =
+          section.type === "article" || section.type === "lens-article"
+            ? section.meta
+            : null;
         const excerptData: ArticleData = {
           content: segment.content,
           title: articleMeta?.title ?? null,
@@ -641,7 +732,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
 
         // Count how many article-excerpt segments came before this one
         const excerptsBefore =
-          section.type === "article"
+          section.type === "article" || section.type === "lens-article"
             ? section.segments
                 .slice(0, segmentIndex)
                 .filter((s) => s.type === "article-excerpt").length
@@ -658,10 +749,12 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       }
 
       case "video-excerpt": {
-        if (section.type !== "video") return null;
+        // Video excerpts can be in video or lens-video sections
+        if (section.type !== "video" && section.type !== "lens-video")
+          return null;
 
         // Count video excerpts to number them (Part 1, Part 2, etc.)
-        // All video-excerpts in a video section share the same videoId.
+        // All video-excerpts in a video/lens-video section share the same videoId.
         const videoExcerptsBefore = section.segments
           .slice(0, segmentIndex)
           .filter((s) => s.type === "video-excerpt").length;
@@ -676,9 +769,6 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
             excerptNumber={excerptNumber}
             title={section.meta.title}
             channel={section.meta.channel}
-            onPlay={videoTracker.onPlay}
-            onPause={videoTracker.onPause}
-            onTimeUpdate={videoTracker.onTimeUpdate}
           />
         );
       }
@@ -740,19 +830,6 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-dvh flex items-center justify-center bg-stone-50">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <a href="/" className="text-emerald-600 hover:underline">
-            Go home
-          </a>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-dvh bg-white overflow-x-clip">
       <div className="sticky top-0 z-50 bg-white">
@@ -797,6 +874,17 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                   />
                   <AuthoredText content={section.content} />
                 </>
+              ) : section.type === "page" ? (
+                // v2 Page section: text/chat segments only, no embedded content
+                <>
+                  <SectionDivider
+                    type="page"
+                    title={section.meta?.title || `Page ${sectionIndex + 1}`}
+                  />
+                  {section.segments?.map((segment, segmentIndex) =>
+                    renderSegment(segment, section, sectionIndex, segmentIndex),
+                  )}
+                </>
               ) : section.type === "chat" ? (
                 <>
                   <SectionDivider type="chat" title={section.meta?.title} />
@@ -811,7 +899,104 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                     onRetryMessage={handleRetryMessage}
                   />
                 </>
+              ) : section.type === "lens-video" ? (
+                // v2 Lens Video section: video content with optional text/chat segments
+                <>
+                  <SectionDivider
+                    type="lens-video"
+                    optional={section.optional}
+                    title={section.meta?.title}
+                  />
+                  {/* Render the main video first (full video, not excerpt) */}
+                  <VideoEmbed
+                    videoId={section.videoId}
+                    start={0}
+                    end={null}
+                    title={section.meta.title}
+                    channel={section.meta.channel}
+                  />
+                  {/* Then render any segments (text, video-excerpt, chat) */}
+                  {section.segments?.map((segment, segmentIndex) =>
+                    renderSegment(segment, section, sectionIndex, segmentIndex),
+                  )}
+                </>
+              ) : section.type === "lens-article" ? (
+                // v2 Lens Article section: article content with optional text/chat segments
+                <>
+                  <SectionDivider
+                    type="lens-article"
+                    optional={section.optional}
+                    title={section.meta?.title}
+                  />
+                  <ArticleSectionWrapper>
+                    {(() => {
+                      // Split segments into pre-excerpt, excerpt, post-excerpt groups
+                      const segments = section.segments ?? [];
+                      const firstExcerptIdx = segments.findIndex(
+                        (s) => s.type === "article-excerpt",
+                      );
+                      const lastExcerptIdx = segments.reduceRight(
+                        (found, s, i) =>
+                          found === -1 && s.type === "article-excerpt"
+                            ? i
+                            : found,
+                        -1,
+                      );
+
+                      // If no excerpts, render all segments normally
+                      if (firstExcerptIdx === -1) {
+                        return segments.map((segment, segmentIndex) =>
+                          renderSegment(
+                            segment,
+                            section,
+                            sectionIndex,
+                            segmentIndex,
+                          ),
+                        );
+                      }
+
+                      const preExcerpt = segments.slice(0, firstExcerptIdx);
+                      const excerpts = segments.slice(
+                        firstExcerptIdx,
+                        lastExcerptIdx + 1,
+                      );
+                      const postExcerpt = segments.slice(lastExcerptIdx + 1);
+
+                      return (
+                        <>
+                          {/* Pre-excerpt content (intro, setup) */}
+                          {preExcerpt.map((segment, i) =>
+                            renderSegment(segment, section, sectionIndex, i),
+                          )}
+
+                          {/* Excerpt group with sticky TOC */}
+                          <ArticleExcerptGroup section={section}>
+                            {excerpts.map((segment, i) =>
+                              renderSegment(
+                                segment,
+                                section,
+                                sectionIndex,
+                                firstExcerptIdx + i,
+                              ),
+                            )}
+                          </ArticleExcerptGroup>
+
+                          {/* Post-excerpt content (reflection, chat) */}
+                          {postExcerpt.map((segment, i) =>
+                            renderSegment(
+                              segment,
+                              section,
+                              sectionIndex,
+                              lastExcerptIdx + 1 + i,
+                            ),
+                          )}
+                        </>
+                      );
+                    })()}
+                  </ArticleSectionWrapper>
+                </>
               ) : section.type === "article" ? (
+                // v1 Article section
                 <>
                   <SectionDivider
                     type="article"
@@ -886,22 +1071,44 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                   </ArticleSectionWrapper>
                 </>
               ) : (
+                // v1 Video section and fallback
                 <>
                   <SectionDivider
                     type={section.type}
-                    optional={section.optional}
-                    title={section.meta?.title}
+                    optional={"optional" in section ? section.optional : false}
+                    title={"meta" in section ? section.meta?.title : undefined}
                   />
-                  {section.segments?.map((segment, segmentIndex) =>
-                    renderSegment(segment, section, sectionIndex, segmentIndex),
-                  )}
+                  {"segments" in section &&
+                    section.segments?.map((segment, segmentIndex) =>
+                      renderSegment(
+                        segment,
+                        section,
+                        sectionIndex,
+                        segmentIndex,
+                      ),
+                    )}
                 </>
               )}
               <MarkCompleteButton
                 isCompleted={completedSections.has(sectionIndex)}
-                onComplete={() => handleMarkComplete(sectionIndex)}
+                onComplete={(response) =>
+                  handleMarkComplete(sectionIndex, response)
+                }
                 onNext={handleNext}
                 hasNext={sectionIndex < module.sections.length - 1}
+                contentId={section.contentId ?? undefined}
+                contentType="lens"
+                contentTitle={
+                  section.type === "text"
+                    ? `Section ${sectionIndex + 1}`
+                    : section.type === "page"
+                      ? section.meta?.title || `Page ${sectionIndex + 1}`
+                      : "meta" in section
+                        ? section.meta?.title ||
+                          `${section.type || "Section"} ${sectionIndex + 1}`
+                        : `${section.type || "Section"} ${sectionIndex + 1}`
+                }
+                moduleSlug={moduleId}
               />
             </div>
           );

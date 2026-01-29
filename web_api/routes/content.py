@@ -127,7 +127,7 @@ async def cache_status():
             else None,
             "counts": {
                 "courses": len(cache.courses),
-                "modules": len(cache.modules),
+                "modules": len(cache.flattened_modules),
                 "articles": len(cache.articles),
                 "video_transcripts": len(cache.video_transcripts),
             },

@@ -4,6 +4,7 @@ import os
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 from datetime import datetime
+from uuid import UUID
 
 # These imports will fail until we implement the module
 from core.content.github_fetcher import (
@@ -23,6 +24,7 @@ from core.content.github_fetcher import (
     _get_tracked_directory,
 )
 from core.content.cache import ContentCache, set_cache, clear_cache, get_cache
+from core.modules.flattened_types import FlattenedModule
 
 
 class TestConfig:
@@ -254,9 +256,9 @@ title: AI Safety Fundamentals
 
                 cache = await fetch_all_content()
 
-                # Verify cache structure
-                assert "intro" in cache.modules
-                assert cache.modules["intro"].title == "Introduction"
+                # Verify cache structure - now uses flattened_modules
+                assert "intro" in cache.flattened_modules
+                assert cache.flattened_modules["intro"].title == "Introduction"
 
                 assert "fundamentals" in cache.courses
                 assert cache.courses["fundamentals"].title == "AI Safety Fundamentals"
@@ -685,15 +687,23 @@ class TestIncrementalRefresh:
     def _create_test_cache(
         self, last_commit_sha: str | None = "oldsha123"
     ) -> ContentCache:
-        """Create a test cache with some initial content."""
-        from core.modules.markdown_parser import ParsedModule, ParsedCourse, ChatSection
+        """Create a test cache with some initial content using new field names."""
+        from core.modules.markdown_parser import ParsedCourse
 
         cache = ContentCache(
-            modules={
-                "intro": ParsedModule(
+            flattened_modules={
+                "intro": FlattenedModule(
                     slug="intro",
                     title="Introduction",
-                    sections=[ChatSection(instructions="Hello")],
+                    content_id=UUID("00000000-0000-0000-0000-000000000001"),
+                    sections=[
+                        {
+                            "type": "page",
+                            "contentId": "00000000-0000-0000-0000-000000000002",
+                            "title": "Welcome",
+                            "segments": [{"type": "text", "content": "Hello"}],
+                        }
+                    ],
                 )
             },
             courses={
@@ -705,6 +715,8 @@ class TestIncrementalRefresh:
             },
             articles={"articles/safety.md": "# Safety Article\nContent"},
             video_transcripts={"video_transcripts/vid1.md": "# Video 1\nTranscript"},
+            parsed_learning_outcomes={},
+            parsed_lenses={},
             last_refreshed=datetime.now(),
             last_commit_sha=last_commit_sha,
         )
@@ -713,7 +725,11 @@ class TestIncrementalRefresh:
 
     @pytest.mark.asyncio
     async def test_incremental_refresh_with_modified_module(self):
-        """Should update module when file is modified."""
+        """Should trigger full refresh when module is modified.
+
+        Note: With flattened modules, module changes require re-flattening
+        which is complex, so we fall back to full refresh for now.
+        """
         self._create_test_cache(last_commit_sha="oldsha123")
 
         # Mock compare_commits to return a modified module
@@ -723,29 +739,6 @@ class TestIncrementalRefresh:
             "files": [{"filename": "modules/intro.md", "status": "modified"}]
         }
 
-        # Mock file fetch for the updated module (via Contents API)
-        updated_module_md = """---
-slug: intro
-title: Updated Introduction
----
-
-# Chat: Welcome
-instructions:: Updated hello!
-"""
-        import base64
-
-        mock_file_response = MagicMock()
-        mock_file_response.status_code = 200
-        mock_file_response.json.return_value = {
-            "content": base64.b64encode(updated_module_md.encode()).decode()
-        }
-
-        def mock_get_side_effect(url, **kwargs):
-            if "compare" in url:
-                return mock_compare_response
-            else:
-                return mock_file_response
-
         with patch.dict(
             os.environ, {"EDUCATIONAL_CONTENT_BRANCH": "main", "GITHUB_TOKEN": "token"}
         ):
@@ -753,14 +746,16 @@ instructions:: Updated hello!
                 mock_client = AsyncMock()
                 mock_client.__aenter__.return_value = mock_client
                 mock_client.__aexit__.return_value = None
-                mock_client.get.side_effect = mock_get_side_effect
+                mock_client.get.return_value = mock_compare_response
                 mock_client_class.return_value = mock_client
 
-                await incremental_refresh("newsha456")
+                with patch(
+                    "core.content.github_fetcher.refresh_cache", new_callable=AsyncMock
+                ) as mock_refresh:
+                    await incremental_refresh("newsha456")
 
-                cache = get_cache()
-                assert cache.modules["intro"].title == "Updated Introduction"
-                assert cache.last_commit_sha == "newsha456"
+                    # Module changes should trigger full refresh
+                    mock_refresh.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_incremental_refresh_with_added_file(self):
@@ -934,14 +929,14 @@ instructions:: Updated hello!
                 mock_client.get.return_value = mock_compare_response
                 mock_client_class.return_value = mock_client
 
-                initial_modules = get_cache().modules.copy()
+                initial_modules = get_cache().flattened_modules.copy()
                 initial_articles = get_cache().articles.copy()
 
                 await incremental_refresh("newsha456")
 
                 cache = get_cache()
                 # Cache should be unchanged (except metadata)
-                assert cache.modules == initial_modules
+                assert cache.flattened_modules == initial_modules
                 assert cache.articles == initial_articles
                 # But commit SHA should be updated
                 assert cache.last_commit_sha == "newsha456"
@@ -1045,15 +1040,23 @@ class TestApplyFileChange:
         clear_cache()
 
     def _create_test_cache(self) -> ContentCache:
-        """Create a test cache with some initial content."""
-        from core.modules.markdown_parser import ParsedModule, ParsedCourse, ChatSection
+        """Create a test cache with some initial content using new field names."""
+        from core.modules.markdown_parser import ParsedCourse
 
         cache = ContentCache(
-            modules={
-                "intro": ParsedModule(
+            flattened_modules={
+                "intro": FlattenedModule(
                     slug="intro",
                     title="Introduction",
-                    sections=[ChatSection(instructions="Hello")],
+                    content_id=UUID("00000000-0000-0000-0000-000000000001"),
+                    sections=[
+                        {
+                            "type": "page",
+                            "contentId": "00000000-0000-0000-0000-000000000002",
+                            "title": "Welcome",
+                            "segments": [{"type": "text", "content": "Hello"}],
+                        }
+                    ],
                 )
             },
             courses={
@@ -1065,6 +1068,8 @@ class TestApplyFileChange:
             },
             articles={"articles/safety.md": "# Safety Article\nContent"},
             video_transcripts={"video_transcripts/vid1.md": "# Video 1\nTranscript"},
+            parsed_learning_outcomes={},
+            parsed_lenses={},
             last_refreshed=datetime.now(),
             last_commit_sha="testsha",
         )
@@ -1087,19 +1092,20 @@ class TestApplyFileChange:
             mock_client.get.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_apply_file_change_removes_module(self):
-        """Should remove module from cache on removal."""
+    async def test_apply_file_change_triggers_full_refresh_for_module(self):
+        """Should return True (needs full refresh) for module changes."""
         cache = self._create_test_cache()
-        assert "intro" in cache.modules
+        assert "intro" in cache.flattened_modules
 
         change = ChangedFile(path="modules/intro.md", status="removed")
 
         mock_client = AsyncMock()
 
         with patch.dict(os.environ, {"EDUCATIONAL_CONTENT_BRANCH": "main"}):
-            await _apply_file_change(mock_client, cache, change)
+            needs_refresh = await _apply_file_change(mock_client, cache, change)
 
-            assert "intro" not in cache.modules
+            # Module changes need full refresh for re-flattening
+            assert needs_refresh is True
 
     @pytest.mark.asyncio
     async def test_apply_file_change_removes_article(self):
@@ -1112,9 +1118,10 @@ class TestApplyFileChange:
         mock_client = AsyncMock()
 
         with patch.dict(os.environ, {"EDUCATIONAL_CONTENT_BRANCH": "main"}):
-            await _apply_file_change(mock_client, cache, change)
+            needs_refresh = await _apply_file_change(mock_client, cache, change)
 
             assert "articles/safety.md" not in cache.articles
+            assert needs_refresh is False
 
     @pytest.mark.asyncio
     async def test_apply_file_change_adds_article(self):
@@ -1132,37 +1139,26 @@ class TestApplyFileChange:
         mock_client.get.return_value = mock_response
 
         with patch.dict(os.environ, {"EDUCATIONAL_CONTENT_BRANCH": "main"}):
-            await _apply_file_change(mock_client, cache, change)
+            needs_refresh = await _apply_file_change(mock_client, cache, change)
 
             assert "articles/new.md" in cache.articles
             assert cache.articles["articles/new.md"] == new_content
+            assert needs_refresh is False
 
     @pytest.mark.asyncio
-    async def test_apply_file_change_updates_module(self):
-        """Should update module when modified."""
+    async def test_apply_file_change_triggers_full_refresh_for_module_update(self):
+        """Should return True (needs full refresh) when module is modified."""
         cache = self._create_test_cache()
 
         change = ChangedFile(path="modules/intro.md", status="modified")
 
-        updated_content = """---
-slug: intro
-title: Updated Title
----
-
-# Chat: Welcome
-instructions:: Updated!
-"""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = updated_content
-
         mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
 
         with patch.dict(os.environ, {"EDUCATIONAL_CONTENT_BRANCH": "main"}):
-            await _apply_file_change(mock_client, cache, change)
+            needs_refresh = await _apply_file_change(mock_client, cache, change)
 
-            assert cache.modules["intro"].title == "Updated Title"
+            # Module changes need full refresh for re-flattening
+            assert needs_refresh is True
 
     @pytest.mark.asyncio
     async def test_apply_file_change_ignores_non_md_files(self):
@@ -1174,7 +1170,8 @@ instructions:: Updated!
         mock_client = AsyncMock()
 
         with patch.dict(os.environ, {"EDUCATIONAL_CONTENT_BRANCH": "main"}):
-            await _apply_file_change(mock_client, cache, change)
+            needs_refresh = await _apply_file_change(mock_client, cache, change)
 
             # Client should not have been called
             mock_client.get.assert_not_called()
+            assert needs_refresh is False

@@ -7,10 +7,7 @@ from datetime import datetime
 from core.enums import NotificationReferenceType
 from core.notifications.templates import get_message, load_templates
 from core.notifications.channels.email import send_email
-from core.notifications.channels.discord import (
-    send_discord_dm,
-    send_discord_channel_message,
-)
+from core.discord_outbound import send_dm, send_channel_message
 from core.timezone import format_datetime_in_timezone, format_date_in_timezone
 
 
@@ -187,7 +184,7 @@ async def send_notification(
         # Use channel message if channel_id provided, otherwise DM
         if channel_id and "discord_channel" in message_templates:
             message = get_message(message_type, "discord_channel", full_context)
-            result["discord"] = await send_discord_channel_message(channel_id, message)
+            result["discord"] = await send_channel_message(channel_id, message)
             await log_notification(
                 user_id=user_id,
                 channel_id=channel_id,
@@ -199,7 +196,7 @@ async def send_notification(
             )
         elif "discord" in message_templates:
             message = get_message(message_type, "discord", full_context)
-            result["discord"] = await send_discord_dm(user["discord_id"], message)
+            result["discord"] = await send_dm(user["discord_id"], message)
             await log_notification(
                 user_id=user_id,
                 channel_id=None,
@@ -237,7 +234,7 @@ async def send_channel_notification(
         return False
 
     message = get_message(message_type, "discord_channel", context)
-    success = await send_discord_channel_message(channel_id, message)
+    success = await send_channel_message(channel_id, message)
 
     await log_notification(
         user_id=None,

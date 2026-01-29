@@ -28,9 +28,11 @@ def init_content_cache():
                 progression=[],
             )
         },
-        modules={},
+        flattened_modules={},
         articles={},
         video_transcripts={},
+        parsed_learning_outcomes={},
+        parsed_lenses={},
         last_refreshed=datetime.now(timezone.utc),
         last_commit_sha=None,
     )

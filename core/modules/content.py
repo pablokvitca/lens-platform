@@ -1,8 +1,11 @@
 # core/modules/content.py
 """Content loading and extraction utilities."""
 
+import logging
 import re
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 def extract_video_id_from_url(url: str) -> str:
@@ -204,17 +207,6 @@ def load_article_with_metadata(
 
     raw_text = cache.articles[source_path]
     metadata, full_content = parse_frontmatter(raw_text)
-
-    # Debug: log h2 headers to trace where they're lost
-    print(f"[load_article_with_metadata] Path: {source_path}")
-    print(f"[load_article_with_metadata] Raw text length: {len(raw_text)}")
-    print(f"[load_article_with_metadata] Full content length: {len(full_content)}")
-    print(
-        f"[load_article_with_metadata] '## History' in raw: {'## History' in raw_text}"
-    )
-    print(
-        f"[load_article_with_metadata] '## History' in full_content: {'## History' in full_content}"
-    )
 
     # Check if we're extracting an excerpt
     is_excerpt = from_text is not None or to_text is not None
@@ -605,16 +597,25 @@ def bundle_article_section(section) -> dict:
         ArticleExcerptSegment,
         TextSegment,
         ChatSegment,
+        LensArticleExcerptSegment,
+        LensTextSegment,
+        LensChatSegment,
     )
+    from .path_resolver import resolve_wiki_link
+
+    # Resolve wiki-link to get cache key (e.g., "[[../articles/foo]]" -> "foo")
+    _, article_key = resolve_wiki_link(section.source)
+    # Reconstruct path for load function
+    article_path = f"articles/{article_key}"
 
     # 1. Load full article once
-    full_result = load_article_with_metadata(section.source)
+    full_result = load_article_with_metadata(article_path)
     full_content = full_result.content
 
-    # 2. Find positions for all article-excerpt segments
+    # 2. Find positions for all article-excerpt segments (handle both regular and Lens types)
     excerpt_data = []
     for seg in section.segments:
-        if isinstance(seg, ArticleExcerptSegment):
+        if isinstance(seg, (ArticleExcerptSegment, LensArticleExcerptSegment)):
             start, end = find_excerpt_bounds(full_content, seg.from_text, seg.to_text)
             excerpt_data.append(
                 {
@@ -645,7 +646,7 @@ def bundle_article_section(section) -> dict:
     bundled_segments = []
 
     for seg in section.segments:
-        if isinstance(seg, ArticleExcerptSegment):
+        if isinstance(seg, (ArticleExcerptSegment, LensArticleExcerptSegment)):
             ep = excerpt_map[id(seg)]
             bundled_segments.append(
                 {
@@ -655,15 +656,15 @@ def bundle_article_section(section) -> dict:
                     "collapsed_after": ep["collapsed_after"],
                 }
             )
-        elif isinstance(seg, TextSegment):
+        elif isinstance(seg, (TextSegment, LensTextSegment)):
             bundled_segments.append({"type": "text", "content": seg.content})
-        elif isinstance(seg, ChatSegment):
+        elif isinstance(seg, (ChatSegment, LensChatSegment)):
             bundled_segments.append(
                 {
                     "type": "chat",
                     "instructions": seg.instructions,
-                    "showUserPreviousContent": not seg.hide_previous_content_from_user,
-                    "showTutorPreviousContent": not seg.hide_previous_content_from_tutor,
+                    "hidePreviousContentFromUser": seg.hide_previous_content_from_user,
+                    "hidePreviousContentFromTutor": seg.hide_previous_content_from_tutor,
                 }
             )
 
@@ -675,7 +676,106 @@ def bundle_article_section(section) -> dict:
             "sourceUrl": full_result.metadata.source_url,
         },
         "segments": bundled_segments,
-        "optional": section.optional,
+        "optional": getattr(section, "optional", False),
+    }
+
+
+def bundle_video_section(section) -> dict:
+    """
+    Bundle a video section with transcript excerpts.
+
+    Args:
+        section: VideoSection or LensVideoSection with source and segments
+
+    Returns:
+        Dict with type, videoId, meta, segments, optional
+    """
+    from .markdown_parser import (
+        TextSegment,
+        ChatSegment,
+        VideoExcerptSegment,
+        LensTextSegment,
+        LensChatSegment,
+        LensVideoExcerptSegment,
+    )
+    from .path_resolver import resolve_wiki_link
+    from core.transcripts import get_text_at_time
+
+    def _parse_time_to_seconds(time_str: str) -> int:
+        """Convert time string (e.g., '1:30' or '1:30:45') to seconds."""
+        if not time_str:
+            return 0
+        time_str = time_str.strip().split("\n")[0].strip()
+        try:
+            parts = time_str.split(":")
+            if len(parts) == 2:
+                minutes, seconds = int(parts[0]), int(parts[1])
+                return minutes * 60 + seconds
+            elif len(parts) == 3:
+                hours, minutes, seconds = int(parts[0]), int(parts[1]), int(parts[2])
+                return hours * 3600 + minutes * 60 + seconds
+            else:
+                return int(time_str)
+        except ValueError:
+            return 0
+
+    # Resolve wiki-link to get cache key (e.g., "[[../video_transcripts/foo]]" -> "foo")
+    _, video_key = resolve_wiki_link(section.source)
+    # Reconstruct path for load function
+    video_path = f"video_transcripts/{video_key}"
+
+    # Load video metadata
+    try:
+        result = load_video_transcript_with_metadata(video_path)
+        video_id = result.metadata.video_id
+        meta = {
+            "title": section.title or result.metadata.title,
+            "channel": result.metadata.channel,
+        }
+    except FileNotFoundError:
+        video_id = None
+        meta = {"title": section.title or None, "channel": None}
+
+    # Bundle segments (handle both regular and Lens segment types)
+    bundled_segments = []
+    for seg in section.segments:
+        if isinstance(seg, (TextSegment, LensTextSegment)):
+            bundled_segments.append({"type": "text", "content": seg.content})
+        elif isinstance(seg, (VideoExcerptSegment, LensVideoExcerptSegment)):
+            from_seconds = _parse_time_to_seconds(seg.from_time) if seg.from_time else 0
+            to_seconds = _parse_time_to_seconds(seg.to_time) if seg.to_time else 99999
+            try:
+                transcript = get_text_at_time(video_id, from_seconds, to_seconds)
+            except (FileNotFoundError, TypeError) as e:
+                logger.warning(
+                    f"Failed to load transcript for video {video_id} "
+                    f"(time {from_seconds}-{to_seconds}): {e}"
+                )
+                transcript = ""
+            bundled_segments.append(
+                {
+                    "type": "video-excerpt",
+                    "from": from_seconds,
+                    "to": to_seconds if seg.to_time else None,
+                    "transcript": transcript,
+                }
+            )
+        elif isinstance(seg, (ChatSegment, LensChatSegment)):
+            bundled_segments.append(
+                {
+                    "type": "chat",
+                    "instructions": seg.instructions,
+                    "hidePreviousContentFromUser": seg.hide_previous_content_from_user,
+                    "hidePreviousContentFromTutor": seg.hide_previous_content_from_tutor,
+                }
+            )
+
+    return {
+        "type": "video",
+        "videoId": video_id,
+        "meta": meta,
+        "segments": bundled_segments,
+        "optional": getattr(section, "optional", False),
     }
 
 
@@ -696,6 +796,9 @@ def bundle_narrative_module(module) -> dict:
         ArticleSection,
         VideoSection,
         ChatSection,
+        PageSection,
+        LearningOutcomeRef,
+        UncategorizedSection,
         TextSegment,
         ArticleExcerptSegment,
         VideoExcerptSegment,
@@ -737,18 +840,7 @@ def bundle_narrative_module(module) -> dict:
                     segment.from_text,
                     segment.to_text,
                 )
-                # Debug: log h2 headers to trace where they're lost
-                content = result.content
-                print(f"[bundle_segment] Source: {section.source}")
-                print(f"[bundle_segment] Content length: {len(content)}")
-                print(
-                    f"[bundle_segment] Contains '## History': {'## History' in content}"
-                )
-                print(
-                    f"[bundle_segment] '## History' position: {content.find('## History')}"
-                )
-                print(f"[bundle_segment] First 300 chars: {repr(content[:300])}")
-                return {"type": "article-excerpt", "content": content}
+                return {"type": "article-excerpt", "content": result.content}
             return {"type": "article-excerpt", "content": ""}
 
         elif isinstance(segment, VideoExcerptSegment):
@@ -771,7 +863,11 @@ def bundle_narrative_module(module) -> dict:
                         from_seconds,
                         to_seconds,
                     )
-                except FileNotFoundError:
+                except FileNotFoundError as e:
+                    logger.warning(
+                        f"Failed to load transcript for video {video_id} "
+                        f"(time {from_seconds}-{to_seconds}): {e}"
+                    )
                     transcript = ""
                 return {
                     "type": "video-excerpt",
@@ -793,16 +889,52 @@ def bundle_narrative_module(module) -> dict:
 
     def bundle_section(section) -> dict:
         """Bundle a single section with metadata and content."""
-        if isinstance(section, TextSection):
+        # Helper to get content_id as string if present (not all section types have it)
+        content_id = None
+        if hasattr(section, "content_id") and section.content_id:
+            content_id = str(section.content_id)
+
+        if isinstance(section, PageSection):
+            # v2 Page section with Text/Chat segments
+            segments = [bundle_segment(s, section) for s in section.segments]
+            return {
+                "type": "page",
+                "meta": {"title": section.title or None},
+                "segments": segments,
+                "contentId": content_id,
+            }
+
+        elif isinstance(section, LearningOutcomeRef):
+            # v2 Learning Outcome reference - resolve to actual content
+            return {
+                "type": "learning-outcome",
+                "source": section.source,
+                "optional": section.optional,
+            }
+
+        elif isinstance(section, UncategorizedSection):
+            # v2 Uncategorized section with Lens references
+            return {
+                "type": "uncategorized",
+                "lenses": [
+                    {"source": lens.source, "optional": lens.optional}
+                    for lens in section.lenses
+                ],
+            }
+
+        elif isinstance(section, TextSection):
             return {
                 "type": "text",
                 "meta": {"title": section.title or None},
                 "content": section.content,
+                "contentId": content_id,
             }
 
         elif isinstance(section, ArticleSection):
             # Use bundle_article_section for collapsed content support
-            return bundle_article_section(section)
+            bundled = bundle_article_section(section)
+            bundled["contentId"] = content_id
+            return bundled
 
         elif isinstance(section, VideoSection):
             # Load video metadata
@@ -824,6 +956,7 @@ def bundle_narrative_module(module) -> dict:
                 "meta": meta,
                 "segments": segments,
                 "optional": section.optional,
+                "contentId": content_id,
             }
 
         elif isinstance(section, ChatSection):
@@ -833,6 +966,7 @@ def bundle_narrative_module(module) -> dict:
                 "instructions": section.instructions,
                 "hidePreviousContentFromUser": section.hide_previous_content_from_user,
                 "hidePreviousContentFromTutor": section.hide_previous_content_from_tutor,
+                "contentId": content_id,
             }
 
         return {}

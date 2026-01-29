@@ -4,17 +4,17 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 
-class TestSendDiscordDM:
+class TestSendDM:
     @pytest.mark.asyncio
     async def test_sends_dm_to_user(self):
-        from core.notifications.channels.discord import send_discord_dm
+        from core.discord_outbound import send_dm
 
         mock_bot = MagicMock()
         mock_user = AsyncMock()
         mock_bot.fetch_user = AsyncMock(return_value=mock_user)
 
-        with patch("core.notifications.channels.discord._bot", mock_bot):
-            result = await send_discord_dm(
+        with patch("core.discord_outbound.bot._bot", mock_bot):
+            result = await send_dm(
                 discord_id="123456789",
                 message="Hello!",
             )
@@ -25,10 +25,10 @@ class TestSendDiscordDM:
 
     @pytest.mark.asyncio
     async def test_returns_false_when_bot_not_set(self):
-        from core.notifications.channels.discord import send_discord_dm
+        from core.discord_outbound import send_dm
 
-        with patch("core.notifications.channels.discord._bot", None):
-            result = await send_discord_dm(
+        with patch("core.discord_outbound.bot._bot", None):
+            result = await send_dm(
                 discord_id="123456789",
                 message="Hello!",
             )
@@ -36,17 +36,17 @@ class TestSendDiscordDM:
         assert result is False
 
 
-class TestSendDiscordChannelMessage:
+class TestSendChannelMessage:
     @pytest.mark.asyncio
     async def test_sends_message_to_channel(self):
-        from core.notifications.channels.discord import send_discord_channel_message
+        from core.discord_outbound import send_channel_message
 
         mock_bot = MagicMock()
         mock_channel = AsyncMock()
         mock_bot.fetch_channel = AsyncMock(return_value=mock_channel)
 
-        with patch("core.notifications.channels.discord._bot", mock_bot):
-            result = await send_discord_channel_message(
+        with patch("core.discord_outbound.bot._bot", mock_bot):
+            result = await send_channel_message(
                 channel_id="987654321",
                 message="Meeting reminder!",
             )

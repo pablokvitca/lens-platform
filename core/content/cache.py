@@ -3,7 +3,8 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from core.modules.markdown_parser import ParsedModule, ParsedCourse
+from core.modules.markdown_parser import ParsedCourse, ParsedLearningOutcome, ParsedLens
+from core.modules.flattened_types import FlattenedModule
 
 
 class CacheNotInitializedError(Exception):
@@ -14,13 +15,24 @@ class CacheNotInitializedError(Exception):
 
 @dataclass
 class ContentCache:
-    """Cache for all educational content."""
+    """Cache for all educational content.
+
+    Modules are stored in flattened form - all Learning Outcome and
+    Uncategorized references resolved to lens-video/lens-article sections.
+    """
 
     courses: dict[str, ParsedCourse]  # slug -> parsed course
-    modules: dict[str, ParsedModule]  # slug -> parsed module
-    articles: dict[str, str]  # path -> raw markdown
-    video_transcripts: dict[str, str]  # path -> raw markdown
+    flattened_modules: dict[str, FlattenedModule]  # slug -> flattened module
+    parsed_learning_outcomes: dict[
+        str, ParsedLearningOutcome
+    ]  # filename stem -> parsed LO
+    parsed_lenses: dict[str, ParsedLens]  # filename stem -> parsed lens
+    articles: dict[str, str]  # path -> raw markdown (for metadata extraction)
+    video_transcripts: dict[str, str]  # path -> raw markdown (for metadata extraction)
     last_refreshed: datetime
+    video_timestamps: dict[str, list[dict]] | None = (
+        None  # video_id -> timestamp word list
+    )
     last_commit_sha: str | None = None  # Git commit SHA of current cache state
 
 

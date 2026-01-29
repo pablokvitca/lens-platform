@@ -13,6 +13,11 @@ export type {
   TextSection,
   ArticleSection,
   VideoSection,
+  // v2 section types
+  PageSection,
+  LensVideoSection,
+  LensArticleSection,
+  // Union type
   ModuleSection,
   Module,
   ChatMessage,
@@ -30,5 +35,4 @@ export * from "./course";
 // Facilitator types
 export * from "./facilitator";
 
-// Signup types
-export * from "./signup";
+// Signup types - file removed, no exports needed

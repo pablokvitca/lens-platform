@@ -23,6 +23,25 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
+def _strip_critic_markup(text: str) -> str:
+    """
+    Strip critic markup from text using "reject all changes" behavior.
+
+    Critic markup types:
+    - {>>comment<<}     → remove entirely
+    - {++addition++}    → remove entirely (reject the addition)
+    - {--deletion--}    → keep inner content (reject the deletion)
+    - {~~old~>new~~}    → keep old, discard new (reject the substitution)
+    - {==highlight==}   → keep inner content, remove markers
+    """
+    text = re.sub(r"\{>>.*?<<\}", "", text, flags=re.DOTALL)
+    text = re.sub(r"\{\+\+.*?\+\+\}", "", text, flags=re.DOTALL)
+    text = re.sub(r"\{--(.*?)--\}", r"\1", text, flags=re.DOTALL)
+    text = re.sub(r"\{~~(.*?)~>.*?~~\}", r"\1", text, flags=re.DOTALL)
+    text = re.sub(r"\{==(.*?)==\}", r"\1", text, flags=re.DOTALL)
+    return text
+
+
 @dataclass
 class ValidationError:
     """A single validation error."""
@@ -62,23 +81,38 @@ class ValidationResult:
         return f"{prefix}{len(self.errors)} error(s)\n" + "\n".join(error_strs)
 
 
-# Valid types
-VALID_SECTION_TYPES = {"video", "article", "text", "chat"}
-VALID_SEGMENT_TYPES = {"text", "chat", "video-excerpt", "article-excerpt"}
+# Valid types for H1 sections in v2 modules
+# Note: video, article, text, chat are OLD format (v1) - they should only appear in Lens files
+VALID_SECTION_TYPES = {
+    "page",
+    "learning outcome",
+    "uncategorized",
+}
+
+# Old v1 section types - disallowed at H1 level in modules
+OLD_SECTION_TYPES = {
+    "video": "Use Lens files instead (reference via # Learning Outcome: or # Uncategorized: with ## Lens:)",
+    "article": "Use Lens files instead (reference via # Learning Outcome: or # Uncategorized: with ## Lens:)",
+    "text": "Use # Page: with ## Text segment instead",
+    "chat": "Use # Page: with ## Chat segment instead",
+}
+
+VALID_SEGMENT_TYPES = {"text", "chat", "video-excerpt", "article-excerpt", "lens"}
 
 # Sections that contain child segments
-CONTAINER_SECTION_TYPES = {"video", "article"}
+CONTAINER_SECTION_TYPES = {"page", "uncategorized"}
 
-# Allowed fields per section type
+# Sections that require a title after the colon
+TITLE_REQUIRED_SECTION_TYPES = {"page"}
+
+# Sections that must NOT have a title (just "# Type:")
+TITLE_FORBIDDEN_SECTION_TYPES = {"learning outcome", "uncategorized"}
+
+# Allowed fields per section type (v2 module sections only)
 ALLOWED_SECTION_FIELDS = {
-    "video": {"source", "optional"},
-    "article": {"source", "optional"},
-    "text": {"content"},
-    "chat": {
-        "instructions",
-        "hidePreviousContentFromUser",
-        "hidePreviousContentFromTutor",
-    },
+    "page": {"id", "optional"},
+    "learning outcome": {"source", "optional"},
+    "uncategorized": set(),  # No fields directly, only Lens subsections
 }
 
 # Allowed fields per segment type
@@ -91,6 +125,7 @@ ALLOWED_SEGMENT_FIELDS = {
     },
     "video-excerpt": {"from", "to"},
     "article-excerpt": {"from", "to"},
+    "lens": {"source", "optional"},
 }
 
 
@@ -114,13 +149,14 @@ def _parse_frontmatter_for_validation(
 
     Returns empty dict and None lines if no frontmatter found.
     """
-    pattern = r"^---\s*\n(.*?)\n---\s*\n"
+    # Allow empty frontmatter (---\n---) by making content optional
+    pattern = r"^---\s*\n(.*?)---\s*\n"
     match = re.match(pattern, text, re.DOTALL)
 
     if not match:
         return {}, None, None
 
-    frontmatter_text = match.group(1)
+    frontmatter_text = match.group(1).strip()
 
     # Count lines to find positions
     start_line = 1  # First ---
@@ -173,16 +209,19 @@ def _parse_fields_for_validation(text: str) -> dict[str, str]:
     return fields
 
 
-def validate_lesson(text: str) -> list[ValidationError]:
+def validate_module(text: str) -> list[ValidationError]:
     """
-    Validate a lesson Markdown file against the format specification.
+    Validate a module Markdown file against the format specification.
 
     Args:
-        text: Full markdown text of the lesson file
+        text: Full markdown text of the module file
 
     Returns:
         List of ValidationError objects (empty if valid)
     """
+    # Strip critic markup before validation
+    text = _strip_critic_markup(text)
+
     errors: list[ValidationError] = []
 
     # 1. Validate frontmatter
@@ -201,7 +240,10 @@ def validate_lesson(text: str) -> list[ValidationError]:
             )
 
     # 2. Split and validate sections
-    section_pattern = r"^# (\w+):\s*(.+)$"
+    # Pattern matches "# Type:" or "# Type: Title" or "# Multi Word Type:" etc.
+    # Group 1: section type (everything before the colon)
+    # Group 2: optional title (everything after the colon, may be empty)
+    section_pattern = r"^# ([^:]+):\s*(.*)$"
     lines = text.split("\n")
 
     # Find all section headers
@@ -226,8 +268,8 @@ def validate_lesson(text: str) -> list[ValidationError]:
                 )
 
             current_section_start = i
-            current_section_type = match.group(1).lower()
-            current_section_title = match.group(2).strip()
+            current_section_type = match.group(1).strip().lower()
+            current_section_title = match.group(2).strip() if match.group(2) else ""
             current_section_lines = []
         elif current_section_start is not None:
             current_section_lines.append(line)
@@ -245,7 +287,23 @@ def validate_lesson(text: str) -> list[ValidationError]:
 
     # Validate each section
     for line_num, section_type, section_title, section_content in sections:
-        context = f"# {section_type.title()}: {section_title}"
+        # Format context string based on whether there's a title
+        if section_title:
+            context = f"# {section_type.title()}: {section_title}"
+        else:
+            context = f"# {section_type.title()}:"
+
+        # Check if this is an old v1 section type (disallowed in modules)
+        if section_type in OLD_SECTION_TYPES:
+            suggestion = OLD_SECTION_TYPES[section_type]
+            errors.append(
+                ValidationError(
+                    f"Section type '# {section_type.title()}:' is not allowed in v2 modules. {suggestion}",
+                    line=line_num,
+                    context=context,
+                )
+            )
+            continue
 
         # Check section type is valid
         if section_type not in VALID_SECTION_TYPES:
@@ -257,6 +315,24 @@ def validate_lesson(text: str) -> list[ValidationError]:
                 )
             )
             continue
+
+        # Validate title requirements
+        if section_type in TITLE_REQUIRED_SECTION_TYPES and not section_title:
+            errors.append(
+                ValidationError(
+                    f"Missing title: {section_type.title()} sections require a title after the colon",
+                    line=line_num,
+                    context=context,
+                )
+            )
+        elif section_type in TITLE_FORBIDDEN_SECTION_TYPES and section_title:
+            errors.append(
+                ValidationError(
+                    f"Unexpected title: {section_type.title()} sections should not have a title",
+                    line=line_num,
+                    context=context,
+                )
+            )
 
         fields = _parse_fields_for_validation(section_content)
         allowed_fields = ALLOWED_SECTION_FIELDS.get(section_type, set())
@@ -273,7 +349,22 @@ def validate_lesson(text: str) -> list[ValidationError]:
                 )
 
         # Validate required fields per section type
-        if section_type == "video":
+        if section_type == "page":
+            if not fields.get("id"):
+                errors.append(
+                    ValidationError(
+                        "Missing required field: id::",
+                        line=line_num,
+                        context=context,
+                    )
+                )
+            # Validate segments (Page can contain Text, Chat, etc.)
+            segment_errors = _validate_segments(
+                section_content, line_num, context, "page"
+            )
+            errors.extend(segment_errors)
+
+        elif section_type == "learning outcome":
             if not fields.get("source"):
                 errors.append(
                     ValidationError(
@@ -282,46 +373,87 @@ def validate_lesson(text: str) -> list[ValidationError]:
                         context=context,
                     )
                 )
-            # Validate segments
-            segment_errors = _validate_segments(
-                section_content, line_num, context, "video"
+
+        elif section_type == "uncategorized":
+            # Validate Lens subsections
+            segment_errors = _validate_uncategorized_section(
+                section_content, line_num, context
             )
             errors.extend(segment_errors)
 
-        elif section_type == "article":
-            if not fields.get("source"):
-                errors.append(
-                    ValidationError(
-                        "Missing required field: source::",
-                        line=line_num,
-                        context=context,
-                    )
-                )
-            # Validate segments
-            segment_errors = _validate_segments(
-                section_content, line_num, context, "article"
+    return errors
+
+
+# Backwards compatibility alias
+validate_lesson = validate_module
+
+
+def _validate_uncategorized_section(
+    section_content: str, section_line: int, section_context: str
+) -> list[ValidationError]:
+    """Validate an Uncategorized section - must contain at least one Lens subsection."""
+    errors: list[ValidationError] = []
+
+    # Find all Lens subsections
+    lens_pattern = r"^## Lens:\s*$"
+    lines = section_content.split("\n")
+
+    lenses: list[tuple[int, str]] = []  # (relative_line, content)
+    current_lens_start = None
+    current_lens_lines: list[str] = []
+
+    for i, line in enumerate(lines, 1):
+        match = re.match(lens_pattern, line)
+        if match:
+            if current_lens_start is not None:
+                lenses.append((current_lens_start, "\n".join(current_lens_lines)))
+            current_lens_start = i
+            current_lens_lines = []
+        elif current_lens_start is not None:
+            current_lens_lines.append(line)
+
+    if current_lens_start is not None:
+        lenses.append((current_lens_start, "\n".join(current_lens_lines)))
+
+    # Check that at least one Lens exists
+    if not lenses:
+        errors.append(
+            ValidationError(
+                "Uncategorized section must contain at least one ## Lens: subsection",
+                line=section_line,
+                context=section_context,
             )
-            errors.extend(segment_errors)
+        )
+        return errors
 
-        elif section_type == "text":
-            if not fields.get("content"):
+    # Validate each Lens
+    for relative_line, lens_content in lenses:
+        approx_line = section_line + relative_line
+        context = f"{section_context} > ## Lens:"
+
+        fields = _parse_fields_for_validation(lens_content)
+        allowed_fields = ALLOWED_SEGMENT_FIELDS.get("lens", set())
+
+        # Check for unknown fields
+        for field_name in fields:
+            if field_name not in allowed_fields:
                 errors.append(
                     ValidationError(
-                        "Missing required field: content::",
-                        line=line_num,
+                        f"Unknown field: {field_name}::",
+                        line=approx_line,
                         context=context,
                     )
                 )
 
-        elif section_type == "chat":
-            if not fields.get("instructions"):
-                errors.append(
-                    ValidationError(
-                        "Missing required field: instructions::",
-                        line=line_num,
-                        context=context,
-                    )
+        # Check required field
+        if not fields.get("source"):
+            errors.append(
+                ValidationError(
+                    "Missing required field: source::",
+                    line=approx_line,
+                    context=context,
                 )
+            )
 
     return errors
 
@@ -400,6 +532,17 @@ def _validate_segments(
                     context=context,
                 )
             )
+        elif section_type == "page" and segment_type in (
+            "video-excerpt",
+            "article-excerpt",
+        ):
+            errors.append(
+                ValidationError(
+                    f"{segment_type.title()} segment not allowed in Page section",
+                    line=approx_line,
+                    context=context,
+                )
+            )
 
         fields = _parse_fields_for_validation(segment_content)
         allowed_fields = ALLOWED_SEGMENT_FIELDS.get(segment_type, set())
@@ -450,12 +593,14 @@ def _validate_segments(
 def _extract_wiki_links(text: str) -> list[tuple[int, str]]:
     """Extract all wiki-links from text with their line numbers.
 
+    Handles both [[link]] and ![[embed]] (Obsidian embed) syntax.
     Only returns wiki-links that look like file paths (contain '/' or '..').
     Ignores things like Wikipedia citation links [[1]], [[2]], etc.
 
     Returns list of (line_number, link_path) tuples.
     """
-    wiki_link_pattern = r"\[\[([^\]]+)\]\]"
+    # Match both [[link]] and ![[embed]] syntax
+    wiki_link_pattern = r"!?\[\[([^\]]+)\]\]"
     links = []
     for i, line in enumerate(text.split("\n"), 1):
         for match in re.finditer(wiki_link_pattern, line):
@@ -480,9 +625,12 @@ def _validate_wiki_links(text: str, file_path: Path) -> list[ValidationError]:
         if not link_path.startswith("../"):
             # Check if adding ../ would make it valid
             corrected_path = f"../{link_path}"
-            corrected_target = (file_dir / corrected_path).resolve()
-            if not corrected_target.suffix:
-                corrected_target = corrected_target.with_suffix(".md")
+            # Add .md if not already present (check string, not suffix - handles dots in filenames)
+            if not corrected_path.endswith(".md"):
+                corrected_path_with_md = corrected_path + ".md"
+            else:
+                corrected_path_with_md = corrected_path
+            corrected_target = (file_dir / corrected_path_with_md).resolve()
 
             if corrected_target.exists():
                 errors.append(
@@ -501,11 +649,12 @@ def _validate_wiki_links(text: str, file_path: Path) -> list[ValidationError]:
             continue
 
         # Resolve relative path from the file's directory
-        target = (file_dir / link_path).resolve()
-
-        # Add .md extension if not present
-        if not target.suffix:
-            target = target.with_suffix(".md")
+        # Add .md if not already present (check string, not suffix - handles dots in filenames like "A.I.")
+        if not link_path.endswith(".md"):
+            link_path_with_md = link_path + ".md"
+        else:
+            link_path_with_md = link_path
+        target = (file_dir / link_path_with_md).resolve()
 
         if not target.exists():
             errors.append(
@@ -639,10 +788,475 @@ def validate_course_file(path: Path | str) -> ValidationResult:
     return ValidationResult(path=path, errors=errors)
 
 
+def validate_learning_outcome(text: str) -> list[ValidationError]:
+    """
+    Validate a Learning Outcome Markdown file against the format specification.
+
+    Learning Outcome files have:
+    - Frontmatter with required `id` field (UUID), optional `discussion` field
+    - Optional `## Test:` section (0 or 1) with optional `source::` field (can be empty/TBD)
+    - Required `## Lens:` sections (1 or many) with required `source::` field, optional `optional::` field
+
+    Args:
+        text: Full markdown text of the Learning Outcome file
+
+    Returns:
+        List of ValidationError objects (empty if valid)
+    """
+    # Strip critic markup before validation
+    text = _strip_critic_markup(text)
+
+    errors: list[ValidationError] = []
+
+    # 1. Validate frontmatter
+    metadata, fm_start, fm_end = _parse_frontmatter_for_validation(text)
+
+    if fm_start is None:
+        errors.append(ValidationError("Missing frontmatter (---)", line=1))
+    else:
+        if not metadata.get("id"):
+            errors.append(
+                ValidationError("Missing required field: id", context="frontmatter")
+            )
+
+    # 2. Parse and validate sections (## Test: and ## Lens:)
+    # Pattern matches "## Test:" or "## Lens:" (no title after colon)
+    section_pattern = r"^## (Test|Lens):\s*$"
+    lines = text.split("\n")
+
+    sections: list[tuple[int, str, str]] = []  # (line_num, type, content)
+    current_section_start = None
+    current_section_type = None
+    current_section_lines: list[str] = []
+
+    for i, line in enumerate(lines, 1):
+        match = re.match(section_pattern, line)
+        if match:
+            # Save previous section
+            if current_section_start is not None:
+                sections.append(
+                    (
+                        current_section_start,
+                        current_section_type,
+                        "\n".join(current_section_lines),
+                    )
+                )
+
+            current_section_start = i
+            current_section_type = match.group(1).lower()
+            current_section_lines = []
+        elif current_section_start is not None:
+            current_section_lines.append(line)
+
+    # Save last section
+    if current_section_start is not None:
+        sections.append(
+            (
+                current_section_start,
+                current_section_type,
+                "\n".join(current_section_lines),
+            )
+        )
+
+    # 3. Validate section counts
+    test_sections = [s for s in sections if s[1] == "test"]
+    lens_sections = [s for s in sections if s[1] == "lens"]
+
+    if len(test_sections) > 1:
+        errors.append(
+            ValidationError(
+                "Multiple ## Test: sections found (only 0 or 1 allowed)",
+                line=test_sections[1][0],
+            )
+        )
+
+    if len(lens_sections) == 0:
+        errors.append(
+            ValidationError("Missing required ## Lens: section (at least one required)")
+        )
+
+    # 4. Validate each section's fields
+    for line_num, section_type, section_content in sections:
+        context = f"## {section_type.title()}:"
+        fields = _parse_fields_for_validation(section_content)
+
+        if section_type == "test":
+            # Test section - source:: is optional (can be empty/TBD for now)
+            pass
+
+        elif section_type == "lens":
+            # Lens section requires source::, allows optional::
+            if not fields.get("source"):
+                errors.append(
+                    ValidationError(
+                        "Missing required field: source::",
+                        line=line_num,
+                        context=context,
+                    )
+                )
+
+    return errors
+
+
+def validate_lens(text: str) -> list[ValidationError]:
+    """
+    Validate a Lens Markdown file against the format specification.
+
+    Lens files have:
+    - Frontmatter with required `id` field (no slug or title - title comes from
+      the Article/Video section header)
+    - One or more `### Article: Title` or `### Video: Title` sections
+    - Each section must have a `source::` field
+    - Each section must have at least one appropriate excerpt segment
+      (Article-excerpt for Article, Video-excerpt for Video)
+    - Other segments (#### Text, #### Chat) are optional
+    - Segments can have `optional:: true` field
+
+    Args:
+        text: Full markdown text of the Lens file
+
+    Returns:
+        List of ValidationError objects (empty if valid)
+    """
+    # Strip critic markup before validation
+    text = _strip_critic_markup(text)
+
+    errors: list[ValidationError] = []
+
+    # 1. Validate frontmatter
+    metadata, fm_start, fm_end = _parse_frontmatter_for_validation(text)
+
+    if fm_start is None:
+        errors.append(ValidationError("Missing frontmatter (---)", line=1))
+    else:
+        if not metadata.get("id"):
+            errors.append(
+                ValidationError("Missing required field: id", context="frontmatter")
+            )
+        # Title is prohibited in Lens frontmatter - it comes from the Article/Video header
+        if "title" in metadata:
+            errors.append(
+                ValidationError(
+                    "Field 'title' is not allowed in Lens frontmatter (title comes from ### Article/Video header)",
+                    context="frontmatter",
+                )
+            )
+
+    # 2. Parse sections (### Article: or ### Video:)
+    # Lens files use ### for sections (h3) and #### for segments (h4)
+    section_pattern = r"^### (Article|Video):\s*(.+)$"
+    lines = text.split("\n")
+
+    sections: list[tuple[int, str, str, str]] = []  # (line_num, type, title, content)
+    current_section_start = None
+    current_section_type = None
+    current_section_title = None
+    current_section_lines: list[str] = []
+
+    for i, line in enumerate(lines, 1):
+        match = re.match(section_pattern, line)
+        if match:
+            # Save previous section
+            if current_section_start is not None:
+                sections.append(
+                    (
+                        current_section_start,
+                        current_section_type,
+                        current_section_title,
+                        "\n".join(current_section_lines),
+                    )
+                )
+
+            current_section_start = i
+            current_section_type = match.group(1).lower()
+            current_section_title = match.group(2).strip()
+            current_section_lines = []
+        elif current_section_start is not None:
+            current_section_lines.append(line)
+
+    # Save last section
+    if current_section_start is not None:
+        sections.append(
+            (
+                current_section_start,
+                current_section_type,
+                current_section_title,
+                "\n".join(current_section_lines),
+            )
+        )
+
+    # 3. Validate at least one section exists
+    if len(sections) == 0:
+        errors.append(
+            ValidationError(
+                "Missing required ### Article: or ### Video: section (at least one required)"
+            )
+        )
+        return errors
+
+    # 4. Validate each section
+    for line_num, section_type, section_title, section_content in sections:
+        context = f"### {section_type.title()}: {section_title}"
+
+        # Parse fields from section content
+        fields = _parse_lens_section_fields(section_content)
+
+        # Check required source field
+        if not fields.get("source"):
+            errors.append(
+                ValidationError(
+                    "Missing required field: source::",
+                    line=line_num,
+                    context=context,
+                )
+            )
+
+        # Validate segments within section
+        segment_errors = _validate_lens_segments(
+            section_content, line_num, context, section_type
+        )
+        errors.extend(segment_errors)
+
+    return errors
+
+
+def validate_learning_outcome_file(path: Path | str) -> ValidationResult:
+    """
+    Validate a Learning Outcome Markdown file from disk.
+
+    Args:
+        path: Path to the Learning Outcome .md file
+
+    Returns:
+        ValidationResult with path and any errors
+    """
+    path = Path(path)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ValidationResult(
+            path=path, errors=[ValidationError(f"File not found: {path}")]
+        )
+    except Exception as e:
+        return ValidationResult(
+            path=path, errors=[ValidationError(f"Error reading file: {e}")]
+        )
+
+    errors = validate_learning_outcome(text)
+    errors.extend(_validate_wiki_links(text, path))
+
+    return ValidationResult(path=path, errors=errors)
+
+
+def validate_lens_file(path: Path | str) -> ValidationResult:
+    """
+    Validate a Lens Markdown file from disk.
+
+    Args:
+        path: Path to the Lens .md file
+
+    Returns:
+        ValidationResult with path and any errors
+    """
+    path = Path(path)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ValidationResult(
+            path=path, errors=[ValidationError(f"File not found: {path}")]
+        )
+    except Exception as e:
+        return ValidationResult(
+            path=path, errors=[ValidationError(f"Error reading file: {e}")]
+        )
+
+    errors = validate_lens(text)
+    errors.extend(_validate_wiki_links(text, path))
+
+    return ValidationResult(path=path, errors=errors)
+
+
+def _parse_lens_section_fields(text: str) -> dict[str, str]:
+    """Parse key:: value fields from a Lens section (stop at #### headers)."""
+    fields = {}
+    lines = text.split("\n")
+    current_key = None
+    current_value_lines = []
+
+    for line in lines:
+        # Stop at segment headers (#### Type or #### Type: Title)
+        if re.match(r"^#### \S+(?::\s*.*)?$", line):
+            if current_key is not None:
+                fields[current_key] = "\n".join(current_value_lines).strip()
+            break
+
+        field_match = re.match(r"^(\w+)::\s*(.*)?$", line)
+
+        if field_match:
+            if current_key is not None:
+                fields[current_key] = "\n".join(current_value_lines).strip()
+
+            current_key = field_match.group(1)
+            value_on_line = field_match.group(2) or ""
+
+            if value_on_line:
+                current_value_lines = [value_on_line]
+            else:
+                current_value_lines = []
+        elif current_key is not None:
+            current_value_lines.append(line)
+
+    if current_key is not None:
+        fields[current_key] = "\n".join(current_value_lines).strip()
+
+    return fields
+
+
+def _validate_lens_segments(
+    section_content: str, section_line: int, section_context: str, section_type: str
+) -> list[ValidationError]:
+    """Validate segments within a Lens Article/Video section.
+
+    Validates:
+    - At least one excerpt segment of the appropriate type
+    - No mismatched excerpt types (Article-excerpt in Video, etc.)
+    """
+    errors: list[ValidationError] = []
+
+    # Find all segment headers (#### Type or #### Type: Title)
+    segment_pattern = r"^#### (\S+)(?::\s*.*)?$"
+    lines = section_content.split("\n")
+
+    segments: list[tuple[int, str, str]] = []  # (relative_line, type, content)
+    current_segment_start = None
+    current_segment_type = None
+    current_segment_lines: list[str] = []
+
+    for i, line in enumerate(lines, 1):
+        match = re.match(segment_pattern, line)
+        if match:
+            if current_segment_start is not None:
+                segments.append(
+                    (
+                        current_segment_start,
+                        current_segment_type,
+                        "\n".join(current_segment_lines),
+                    )
+                )
+
+            current_segment_start = i
+            current_segment_type = match.group(1).lower()
+            current_segment_lines = []
+        elif current_segment_start is not None:
+            current_segment_lines.append(line)
+
+    if current_segment_start is not None:
+        segments.append(
+            (
+                current_segment_start,
+                current_segment_type,
+                "\n".join(current_segment_lines),
+            )
+        )
+
+    # Check for at least one appropriate excerpt
+    expected_excerpt = f"{section_type}-excerpt"
+    has_excerpt = any(seg_type == expected_excerpt for _, seg_type, _ in segments)
+
+    if not has_excerpt:
+        errors.append(
+            ValidationError(
+                f"Missing required #### {expected_excerpt.title()} segment",
+                line=section_line,
+                context=section_context,
+            )
+        )
+
+    # Validate each segment
+    for relative_line, segment_type, segment_content in segments:
+        approx_line = section_line + relative_line
+        context = f"{section_context} > #### {segment_type.title()}"
+
+        # Check for mismatched excerpt types
+        if section_type == "video" and segment_type == "article-excerpt":
+            errors.append(
+                ValidationError(
+                    "Article-excerpt segment not allowed in Video section",
+                    line=approx_line,
+                    context=context,
+                )
+            )
+        elif section_type == "article" and segment_type == "video-excerpt":
+            errors.append(
+                ValidationError(
+                    "Video-excerpt segment not allowed in Article section",
+                    line=approx_line,
+                    context=context,
+                )
+            )
+
+    return errors
+
+
 def _is_course_file(path: Path) -> bool:
     """Check if a file is a course file based on its location."""
     # Check if any parent directory is named "courses"
     return "courses" in path.parts
+
+
+def _detect_file_type(path: Path) -> str:
+    """
+    Detect file type based on directory location.
+
+    Args:
+        path: Path to the markdown file
+
+    Returns:
+        One of: "module", "learning_outcome", "lens", "article",
+                "video_transcript", "course", "unknown"
+    """
+    parts = path.parts
+
+    # Check each directory name in the path
+    for part in parts:
+        part_lower = part.lower()
+
+        if part_lower == "courses":
+            return "course"
+        elif part_lower in ("learning outcomes", "learning_outcomes"):
+            return "learning_outcome"
+        elif part_lower == "lenses":
+            return "lens"
+        elif part_lower == "articles":
+            return "article"
+        elif part_lower == "video_transcripts":
+            return "video_transcript"
+        elif part_lower == "modules":
+            return "module"
+
+    return "unknown"
+
+
+# Files to skip during validation (case-insensitive filename matching)
+SKIP_FILES = {"readme.md", "obsidian setup.md"}
+
+# Directory patterns to skip (case-insensitive, checks if any part contains these)
+SKIP_DIRECTORY_PATTERNS = {"wip", "work in progress", "draft", "drafts"}
+
+
+def _should_skip_file(path: Path) -> bool:
+    """Check if a file should be skipped during validation."""
+    # Skip specific files by name
+    if path.name.lower() in SKIP_FILES:
+        return True
+
+    # Skip files in WIP/draft directories
+    path_parts_lower = [p.lower() for p in path.parts]
+    for pattern in SKIP_DIRECTORY_PATTERNS:
+        if any(pattern in part for part in path_parts_lower):
+            return True
+
+    return False
 
 
 def validate_directory(
@@ -651,12 +1265,23 @@ def validate_directory(
     course_glob: str = "courses/**/*.md",
 ) -> list[ValidationResult]:
     """
-    Validate all lesson and course files in a directory.
+    Validate all Markdown files in a directory based on their location.
+
+    Files are routed to appropriate validators based on their directory:
+    - modules/ -> validate as modules
+    - Learning Outcomes/ or learning_outcomes/ -> validate as learning outcomes
+    - Lenses/ or lenses/ -> validate as lenses
+    - articles/ or video_transcripts/ -> skip validation (return empty errors)
+    - courses/ -> validate as courses
+
+    Skipped automatically:
+    - README.md, Obsidian Setup.md
+    - Files in WIP, draft, or work-in-progress directories
 
     Args:
         directory: Root directory to search
-        lesson_glob: Glob pattern for lesson files (default: **/*.md)
-        course_glob: Glob pattern for course files (default: courses/**/*.md)
+        lesson_glob: Glob pattern for markdown files (default: **/*.md)
+        course_glob: Glob pattern for course files (deprecated, ignored)
 
     Returns:
         List of ValidationResult for each file
@@ -664,11 +1289,27 @@ def validate_directory(
     directory = Path(directory)
     results = []
 
-    # Find all markdown files and categorize by location
+    # Find all markdown files and route based on detected file type
     for md_path in sorted(directory.glob(lesson_glob)):
-        if _is_course_file(md_path):
+        # Skip specific files and WIP directories
+        if _should_skip_file(md_path):
+            continue
+
+        file_type = _detect_file_type(md_path)
+
+        if file_type == "course":
             results.append(validate_course_file(md_path))
+        elif file_type == "learning_outcome":
+            results.append(validate_learning_outcome_file(md_path))
+        elif file_type == "lens":
+            results.append(validate_lens_file(md_path))
+        elif file_type in ("article", "video_transcript"):
+            # Skip validation for articles and video transcripts
+            results.append(ValidationResult(path=md_path, errors=[]))
+        elif file_type == "module":
+            results.append(validate_lesson_file(md_path))
         else:
+            # Unknown file type - validate as module (backwards compatibility)
             results.append(validate_lesson_file(md_path))
 
     return results

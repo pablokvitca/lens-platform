@@ -7,17 +7,15 @@ can run without requiring actual content files or GitHub access.
 
 import pytest
 from datetime import datetime
+from uuid import UUID
 
 from core.content import ContentCache, set_cache, clear_cache
 from core.modules.markdown_parser import (
     ParsedCourse,
-    ParsedModule,
     ModuleRef,
     MeetingMarker,
-    ChatSection,
-    VideoSection,
-    ArticleSection,
 )
+from core.modules.flattened_types import FlattenedModule
 
 
 @pytest.fixture(autouse=True)
@@ -28,61 +26,118 @@ def api_test_cache():
     It provides a realistic course structure with multiple modules,
     meetings, and both required and optional modules.
     """
-    # Create test modules with varied section types
-    modules = {
-        "introduction": ParsedModule(
+    # Create test modules using flattened types (sections are dicts)
+    flattened_modules = {
+        "introduction": FlattenedModule(
             slug="introduction",
             title="Introduction to AI Safety",
+            content_id=UUID("00000000-0000-0000-0000-000000000101"),
             sections=[
-                VideoSection(
-                    source="video_transcripts/intro-video.md",
-                    segments=[],
-                ),
-                ChatSection(
-                    instructions="Discuss what you learned from the introduction video.",
-                ),
+                {
+                    "type": "video",
+                    "contentId": "00000000-0000-0000-0000-000000000102",
+                    "learningOutcomeId": "00000000-0000-0000-0000-000000000150",
+                    "videoId": "intro123",
+                    "meta": {"title": "Intro Video", "channel": "AI Safety Channel"},
+                    "segments": [],
+                    "optional": False,
+                },
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000103",
+                    "title": "Discussion",
+                    "segments": [
+                        {
+                            "type": "chat",
+                            "instructions": "Discuss what you learned from the introduction video.",
+                        }
+                    ],
+                },
             ],
         ),
-        "core-concepts": ParsedModule(
+        "core-concepts": FlattenedModule(
             slug="core-concepts",
             title="Core Concepts in AI Alignment",
+            content_id=UUID("00000000-0000-0000-0000-000000000201"),
             sections=[
-                ArticleSection(
-                    source="articles/core-concepts.md",
-                    segments=[],
-                ),
-                ChatSection(
-                    instructions="Explain the core concepts in your own words.",
-                ),
+                {
+                    "type": "article",
+                    "contentId": "00000000-0000-0000-0000-000000000202",
+                    "learningOutcomeId": "00000000-0000-0000-0000-000000000250",
+                    "meta": {
+                        "title": "Core Concepts Article",
+                        "author": "AI Safety Researcher",
+                        "sourceUrl": "https://example.com/core-concepts",
+                    },
+                    "segments": [],
+                    "optional": False,
+                },
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000203",
+                    "title": "Discussion",
+                    "segments": [
+                        {
+                            "type": "chat",
+                            "instructions": "Explain the core concepts in your own words.",
+                        }
+                    ],
+                },
             ],
         ),
-        "advanced-topics": ParsedModule(
+        "advanced-topics": FlattenedModule(
             slug="advanced-topics",
             title="Advanced Topics",
+            content_id=UUID("00000000-0000-0000-0000-000000000301"),
             sections=[
-                ChatSection(
-                    instructions="Deep dive into advanced alignment topics.",
-                ),
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000302",
+                    "title": "Deep Dive",
+                    "segments": [
+                        {
+                            "type": "chat",
+                            "instructions": "Deep dive into advanced alignment topics.",
+                        }
+                    ],
+                },
             ],
         ),
-        "supplementary-reading": ParsedModule(
+        "supplementary-reading": FlattenedModule(
             slug="supplementary-reading",
             title="Supplementary Reading",
+            content_id=UUID("00000000-0000-0000-0000-000000000401"),
             sections=[
-                ArticleSection(
-                    source="articles/supplementary.md",
-                    segments=[],
-                    optional=True,
-                ),
+                {
+                    "type": "article",
+                    "contentId": "00000000-0000-0000-0000-000000000402",
+                    "learningOutcomeId": None,  # Uncategorized
+                    "meta": {
+                        "title": "Supplementary Article",
+                        "author": "Guest Author",
+                        "sourceUrl": "https://example.com/supplementary",
+                    },
+                    "segments": [],
+                    "optional": True,
+                },
             ],
         ),
-        "final-discussion": ParsedModule(
+        "final-discussion": FlattenedModule(
             slug="final-discussion",
             title="Final Discussion",
+            content_id=UUID("00000000-0000-0000-0000-000000000501"),
             sections=[
-                ChatSection(
-                    instructions="Synthesize everything you've learned.",
-                ),
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000502",
+                    "title": "Synthesis",
+                    "segments": [
+                        {
+                            "type": "chat",
+                            "instructions": "Synthesize everything you've learned.",
+                        }
+                    ],
+                },
             ],
         ),
     }
@@ -110,7 +165,9 @@ def api_test_cache():
 
     cache = ContentCache(
         courses=courses,
-        modules=modules,
+        flattened_modules=flattened_modules,
+        parsed_learning_outcomes={},
+        parsed_lenses={},
         articles={},
         video_transcripts={},
         last_refreshed=datetime.now(),

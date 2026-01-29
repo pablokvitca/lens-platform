@@ -2,6 +2,7 @@
 
 import pytest
 from datetime import datetime
+from uuid import UUID
 
 from core.content.cache import (
     ContentCache,
@@ -10,6 +11,7 @@ from core.content.cache import (
     clear_cache,
     CacheNotInitializedError,
 )
+from core.modules.flattened_types import FlattenedModule
 
 
 class TestContentCache:
@@ -28,9 +30,11 @@ class TestContentCache:
         """Should store and retrieve cache."""
         cache = ContentCache(
             courses={},
-            modules={},
+            flattened_modules={},
             articles={},
             video_transcripts={},
+            parsed_learning_outcomes={},
+            parsed_lenses={},
             last_refreshed=datetime.now(),
         )
         set_cache(cache)
@@ -42,9 +46,11 @@ class TestContentCache:
         """Should clear the cache."""
         cache = ContentCache(
             courses={},
-            modules={},
+            flattened_modules={},
             articles={},
             video_transcripts={},
+            parsed_learning_outcomes={},
+            parsed_lenses={},
             last_refreshed=datetime.now(),
         )
         set_cache(cache)
@@ -53,42 +59,46 @@ class TestContentCache:
         with pytest.raises(CacheNotInitializedError):
             get_cache()
 
-    def test_cache_stores_modules(self):
-        """Should store and retrieve modules from cache."""
-        from core.modules.markdown_parser import ParsedModule, ChatSection
-
-        test_module = ParsedModule(
+    def test_cache_stores_flattened_modules(self):
+        """Should store and retrieve flattened modules from cache."""
+        test_module = FlattenedModule(
             slug="test-module",
             title="Test Module",
+            content_id=UUID("00000000-0000-0000-0000-000000000001"),
             sections=[
-                ChatSection(
-                    instructions="Test instructions",
-                    hide_previous_content_from_user=False,
-                    hide_previous_content_from_tutor=False,
-                )
+                {
+                    "type": "page",
+                    "contentId": "00000000-0000-0000-0000-000000000002",
+                    "title": "Welcome",
+                    "segments": [{"type": "text", "content": "Hello"}],
+                }
             ],
         )
 
         cache = ContentCache(
             courses={},
-            modules={"test-module": test_module},
+            flattened_modules={"test-module": test_module},
             articles={},
             video_transcripts={},
+            parsed_learning_outcomes={},
+            parsed_lenses={},
             last_refreshed=datetime.now(),
         )
         set_cache(cache)
 
         retrieved = get_cache()
-        assert "test-module" in retrieved.modules
-        assert retrieved.modules["test-module"].title == "Test Module"
+        assert "test-module" in retrieved.flattened_modules
+        assert retrieved.flattened_modules["test-module"].title == "Test Module"
 
     def test_cache_stores_articles(self):
         """Should store and retrieve articles from cache."""
         cache = ContentCache(
             courses={},
-            modules={},
+            flattened_modules={},
             articles={"articles/test.md": "# Test Article\n\nSome content."},
             video_transcripts={},
+            parsed_learning_outcomes={},
+            parsed_lenses={},
             last_refreshed=datetime.now(),
         )
         set_cache(cache)
@@ -101,9 +111,11 @@ class TestContentCache:
         """Should store and retrieve video transcripts from cache."""
         cache = ContentCache(
             courses={},
-            modules={},
+            flattened_modules={},
             articles={},
             video_transcripts={"video_transcripts/test.md": "Transcript content"},
+            parsed_learning_outcomes={},
+            parsed_lenses={},
             last_refreshed=datetime.now(),
         )
         set_cache(cache)
@@ -116,12 +128,66 @@ class TestContentCache:
         refresh_time = datetime(2026, 1, 18, 12, 0, 0)
         cache = ContentCache(
             courses={},
-            modules={},
+            flattened_modules={},
             articles={},
             video_transcripts={},
+            parsed_learning_outcomes={},
+            parsed_lenses={},
             last_refreshed=refresh_time,
         )
         set_cache(cache)
 
         retrieved = get_cache()
         assert retrieved.last_refreshed == refresh_time
+
+    def test_cache_stores_parsed_learning_outcomes(self):
+        """Should store and retrieve parsed learning outcomes from cache."""
+        from core.modules.markdown_parser import ParsedLearningOutcome
+
+        lo = ParsedLearningOutcome(
+            content_id=UUID("00000000-0000-0000-0000-000000000010"),
+            lenses=[],
+        )
+
+        cache = ContentCache(
+            courses={},
+            flattened_modules={},
+            articles={},
+            video_transcripts={},
+            parsed_learning_outcomes={"AI Risks": lo},
+            parsed_lenses={},
+            last_refreshed=datetime.now(),
+        )
+        set_cache(cache)
+
+        retrieved = get_cache()
+        assert "AI Risks" in retrieved.parsed_learning_outcomes
+        assert retrieved.parsed_learning_outcomes["AI Risks"].content_id == UUID(
+            "00000000-0000-0000-0000-000000000010"
+        )
+
+    def test_cache_stores_parsed_lenses(self):
+        """Should store and retrieve parsed lenses from cache."""
+        from core.modules.markdown_parser import ParsedLens
+
+        lens = ParsedLens(
+            content_id=UUID("00000000-0000-0000-0000-000000000020"),
+            sections=[],
+        )
+
+        cache = ContentCache(
+            courses={},
+            flattened_modules={},
+            articles={},
+            video_transcripts={},
+            parsed_learning_outcomes={},
+            parsed_lenses={"Video Lens": lens},
+            last_refreshed=datetime.now(),
+        )
+        set_cache(cache)
+
+        retrieved = get_cache()
+        assert "Video Lens" in retrieved.parsed_lenses
+        assert retrieved.parsed_lenses["Video Lens"].content_id == UUID(
+            "00000000-0000-0000-0000-000000000020"
+        )
