@@ -5,6 +5,7 @@
 import type { Module } from "../types/module";
 import type { CourseProgress } from "../types/course";
 import { Sentry } from "../errorTracking";
+import { getAnonymousToken } from "../hooks/useAnonymousToken";
 
 import { API_URL } from "../config";
 
@@ -115,7 +116,10 @@ export async function* sendMessage(
 ): AsyncGenerator<{ type: string; content?: string; name?: string }> {
   const res = await fetch(`${API_BASE}/api/chat/module`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Anonymous-Token": getAnonymousToken(),
+    },
     credentials: "include",
     body: JSON.stringify({
       slug,
@@ -162,7 +166,10 @@ export async function getChatHistory(
 }> {
   const res = await fetchWithTimeout(
     `${API_BASE}/api/chat/module/${slug}/history`,
-    { credentials: "include" },
+    {
+      credentials: "include",
+      headers: { "X-Anonymous-Token": getAnonymousToken() },
+    },
   );
   if (!res.ok) {
     if (res.status === 401) {

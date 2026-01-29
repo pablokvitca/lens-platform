@@ -24,7 +24,12 @@ async def get_or_create_chat_session(
     """Get active chat session or create new one.
 
     Active = archived_at IS NULL
+
+    Uses SELECT-then-INSERT with retry on unique constraint violation
+    to handle race conditions gracefully.
     """
+    from sqlalchemy.exc import IntegrityError
+
     # Build WHERE clause for active session
     conditions = [chat_sessions.c.archived_at.is_(None)]
 
@@ -58,12 +63,23 @@ async def get_or_create_chat_session(
     else:
         insert_values["anonymous_token"] = anonymous_token
 
-    result = await conn.execute(
-        chat_sessions.insert().values(**insert_values).returning(chat_sessions)
-    )
-    row = result.fetchone()
-    await conn.commit()
-    return dict(row._mapping)
+    try:
+        result = await conn.execute(
+            chat_sessions.insert().values(**insert_values).returning(chat_sessions)
+        )
+        row = result.fetchone()
+        await conn.commit()
+        return dict(row._mapping)
+    except IntegrityError:
+        # Race condition: another request created the session first
+        # Rollback and fetch the existing session
+        await conn.rollback()
+        result = await conn.execute(select(chat_sessions).where(and_(*conditions)))
+        row = result.fetchone()
+        if row:
+            return dict(row._mapping)
+        # Should never happen, but re-raise if it does
+        raise
 
 
 async def add_chat_message(
@@ -126,12 +142,75 @@ async def claim_chat_sessions(
 ) -> int:
     """Claim all anonymous chat sessions for a user.
 
-    Returns count of sessions claimed.
+    If user already has an active session for the same content_id,
+    the messages from the anonymous session are prepended to the user's session
+    (since anonymous messages came first), then the anonymous session is deleted.
+
+    Returns count of sessions claimed or merged.
     """
-    result = await conn.execute(
-        update(chat_sessions)
-        .where(chat_sessions.c.anonymous_token == anonymous_token)
-        .values(user_id=user_id, anonymous_token=None)
+    # First, find all anonymous sessions for this token
+    anon_sessions = await conn.execute(
+        select(chat_sessions).where(
+            and_(
+                chat_sessions.c.anonymous_token == anonymous_token,
+                chat_sessions.c.archived_at.is_(None),
+            )
+        )
     )
+    anon_rows = anon_sessions.fetchall()
+
+    if not anon_rows:
+        return 0
+
+    # Find user's active sessions with their content_ids and session_ids
+    user_sessions = await conn.execute(
+        select(
+            chat_sessions.c.session_id,
+            chat_sessions.c.content_id,
+            chat_sessions.c.messages,
+        ).where(
+            and_(
+                chat_sessions.c.user_id == user_id,
+                chat_sessions.c.archived_at.is_(None),
+            )
+        )
+    )
+    user_sessions_by_content = {
+        row[1]: {"session_id": row[0], "messages": row[2] or []}
+        for row in user_sessions.fetchall()
+    }
+
+    claimed_count = 0
+    for anon_row in anon_rows:
+        anon_session_id = anon_row[0]
+        anon_content_id = anon_row[3]
+        anon_messages = anon_row[5] or []  # messages is 6th column (index 5)
+
+        if anon_content_id in user_sessions_by_content:
+            # Conflict: merge anonymous messages into user's session
+            user_session = user_sessions_by_content[anon_content_id]
+            if anon_messages:
+                # Prepend anonymous messages (they came first)
+                merged_messages = anon_messages + user_session["messages"]
+                await conn.execute(
+                    update(chat_sessions)
+                    .where(chat_sessions.c.session_id == user_session["session_id"])
+                    .values(messages=merged_messages)
+                )
+            # Delete the anonymous session
+            await conn.execute(
+                chat_sessions.delete().where(
+                    chat_sessions.c.session_id == anon_session_id
+                )
+            )
+        else:
+            # No conflict: just claim by updating anonymous_token -> user_id
+            await conn.execute(
+                update(chat_sessions)
+                .where(chat_sessions.c.session_id == anon_session_id)
+                .values(user_id=user_id, anonymous_token=None)
+            )
+        claimed_count += 1
+
     await conn.commit()
-    return result.rowcount
+    return claimed_count

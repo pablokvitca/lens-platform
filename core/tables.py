@@ -391,6 +391,21 @@ chat_sessions = Table(
     Column("archived_at", DateTime(timezone=True), nullable=True),
     Index("idx_chat_sessions_user_content", "user_id", "content_id", "archived_at"),
     Index("idx_chat_sessions_token", "anonymous_token"),
+    # Unique partial indexes to prevent duplicate active sessions (race condition fix)
+    Index(
+        "idx_chat_sessions_unique_anon_active",
+        "anonymous_token",
+        "content_id",
+        unique=True,
+        postgresql_where=text("anonymous_token IS NOT NULL AND archived_at IS NULL"),
+    ),
+    Index(
+        "idx_chat_sessions_unique_user_active",
+        "user_id",
+        "content_id",
+        unique=True,
+        postgresql_where=text("user_id IS NOT NULL AND archived_at IS NULL"),
+    ),
     CheckConstraint(
         "content_type IS NULL OR content_type IN ('module', 'lo', 'lens', 'test')",
         name="valid_chat_content_type",

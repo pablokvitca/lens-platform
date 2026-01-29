@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
 from pydantic import BaseModel
 
 from core import get_or_create_user
-from core.database import get_connection
+from core.database import get_connection, get_transaction
 from core.modules.progress import (
     mark_content_complete,
     update_time_spent,
@@ -116,7 +116,7 @@ async def complete_content(
     module_status = None
     module_progress = None
 
-    async with get_connection() as conn:
+    async with get_transaction() as conn:
         progress = await mark_content_complete(
             conn,
             user_id=user_id,
@@ -201,7 +201,7 @@ async def update_time_endpoint(
         content_id = body.content_id
         time_delta_s = body.time_delta_s
 
-    async with get_connection() as conn:
+    async with get_transaction() as conn:
         await update_time_spent(
             conn,
             user_id=user_id,
@@ -236,7 +236,7 @@ async def claim_records(
     user = await get_or_create_user(discord_id)
     user_id = user["user_id"]
 
-    async with get_connection() as conn:
+    async with get_transaction() as conn:
         progress_count = await claim_progress_records(
             conn,
             anonymous_token=body.anonymous_token,

@@ -30,7 +30,7 @@ from core.modules.progress import (
     mark_content_complete,
 )
 from core.modules.chat_sessions import get_or_create_chat_session
-from core.database import get_connection
+from core.database import get_connection, get_transaction
 from web_api.auth import get_optional_user
 
 
@@ -266,7 +266,7 @@ async def update_module_progress(
         or "Untitled"
     )
 
-    async with get_connection() as conn:
+    async with get_transaction() as conn:
         if body.completed:
             # Mark the lens as complete
             progress = await mark_content_complete(

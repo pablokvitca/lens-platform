@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { API_URL } from "../config";
 import { identifyUser, resetUser, hasConsent } from "../analytics";
 import {
@@ -6,6 +6,8 @@ import {
   resetSentryUser,
   isSentryInitialized,
 } from "../errorTracking";
+import { claimSessionRecords } from "../api/progress";
+import { getAnonymousToken } from "./useAnonymousToken";
 
 export interface User {
   user_id: number;
@@ -55,6 +57,9 @@ export function useAuth(): UseAuthReturn {
     tosAccepted: false,
   });
 
+  // Track if we've already tried to claim anonymous records for this session
+  const hasClaimedRef = useRef(false);
+
   const fetchUser = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/auth/me`, {
@@ -80,6 +85,24 @@ export function useAuth(): UseAuthReturn {
       const data = await response.json();
 
       if (data.authenticated) {
+        // Claim anonymous progress/chat records BEFORE setting authenticated state
+        // This ensures claim happens before any authenticated sessions are created
+        if (!hasClaimedRef.current) {
+          hasClaimedRef.current = true;
+          try {
+            const anonymousToken = getAnonymousToken();
+            const result = await claimSessionRecords(anonymousToken);
+            if (result.progress_records_claimed > 0 || result.chat_sessions_claimed > 0) {
+              console.log(
+                `[Auth] Claimed ${result.progress_records_claimed} progress records and ${result.chat_sessions_claimed} chat sessions`
+              );
+            }
+          } catch (error) {
+            // Non-critical - just log and continue
+            console.warn("[Auth] Failed to claim session records:", error);
+          }
+        }
+
         setState({
           isAuthenticated: true,
           isLoading: false,
