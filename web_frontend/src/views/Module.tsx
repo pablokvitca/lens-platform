@@ -72,7 +72,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   );
   const [loadingModule, setLoadingModule] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  
+
   // Extract all module slugs from course for navigation
   const courseModules = useMemo(() => {
     if (!courseProgress) return [];

@@ -31,6 +31,7 @@ from core.modules.progress import (
 )
 from core.modules.chat_sessions import get_or_create_chat_session
 from core.database import get_connection, get_transaction
+from core import get_or_create_user
 from web_api.auth import get_optional_user
 
 
@@ -112,8 +113,14 @@ async def get_module_progress_endpoint(
     Returns lens-level completion status, time spent, and chat session info.
     """
     # Get user or session token
-    user = await get_optional_user(request)
-    user_id = user["user_id"] if user else None
+    user_jwt = await get_optional_user(request)
+    user_id = None
+    if user_jwt:
+        # Authenticated user - look up user_id from discord_id
+        discord_id = user_jwt["sub"]
+        user = await get_or_create_user(discord_id)
+        user_id = user["user_id"]
+
     anonymous_token = None
     if not user_id and x_anonymous_token:
         try:
@@ -226,8 +233,14 @@ async def update_module_progress(
         ProgressUpdateResponse with success status and current progress state
     """
     # Get user or session token
-    user = await get_optional_user(request)
-    user_id = user["user_id"] if user else None
+    user_jwt = await get_optional_user(request)
+    user_id = None
+    if user_jwt:
+        # Authenticated user - look up user_id from discord_id
+        discord_id = user_jwt["sub"]
+        user = await get_or_create_user(discord_id)
+        user_id = user["user_id"]
+
     anonymous_token = None
     if not user_id and x_anonymous_token:
         try:
