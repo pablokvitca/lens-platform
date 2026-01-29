@@ -1220,7 +1220,10 @@ source:: [[../Lenses/Foo]]
 """
         errors = validate_learning_outcome(text)
         # No error for empty Test section
-        assert not any("test" in e.message.lower() and "source" in e.message.lower() for e in errors)
+        assert not any(
+            "test" in e.message.lower() and "source" in e.message.lower()
+            for e in errors
+        )
 
     def test_learning_outcome_strips_critic_markup(self):
         """Critic markup should be stripped before validation."""

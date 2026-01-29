@@ -187,7 +187,9 @@ class TestBundleVideoSection:
 
         # Also add video transcript .md to cache for metadata lookup
         cache = get_cache()
-        cache.video_transcripts["video_transcripts/test_video_id_Test_Title.md"] = """---
+        cache.video_transcripts[
+            "video_transcripts/test_video_id_Test_Title.md"
+        ] = """---
 title: Test Video Title
 url: https://www.youtube.com/watch?v=test_video_id
 channel: Test Channel

@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
 from pydantic import BaseModel
 
 from core import get_or_create_user
-from core.database import get_connection, get_transaction
+from core.database import get_transaction
 from core.modules.progress import (
     mark_content_complete,
     update_time_spent,

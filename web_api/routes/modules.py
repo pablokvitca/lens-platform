@@ -131,9 +131,7 @@ async def get_module_progress_endpoint(
         raise HTTPException(404, "Module not found")
 
     # Collect content IDs from flattened sections (sections are dicts)
-    content_ids = [
-        UUID(s["contentId"]) for s in module.sections if s.get("contentId")
-    ]
+    content_ids = [UUID(s["contentId"]) for s in module.sections if s.get("contentId")]
 
     async with get_connection() as conn:
         # Get progress for all lenses/sections

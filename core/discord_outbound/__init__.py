@@ -10,7 +10,11 @@ from .channels import (
 )
 from .events import create_scheduled_event
 from .messages import send_channel_message, send_dm
-from .permissions import get_members_with_access, grant_channel_access, revoke_channel_access
+from .permissions import (
+    get_members_with_access,
+    grant_channel_access,
+    revoke_channel_access,
+)
 
 __all__ = [
     "set_bot",

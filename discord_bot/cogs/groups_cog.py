@@ -164,10 +164,14 @@ class GroupsCog(commands.Cog):
                         )
 
             except Exception as e:
-                logger.error(f"Failed to sync group {group['group_id']} for {member}: {e}")
+                logger.error(
+                    f"Failed to sync group {group['group_id']} for {member}: {e}"
+                )
 
         if granted_groups:
-            logger.info(f"Granted {member} access to groups: {', '.join(granted_groups)}")
+            logger.info(
+                f"Granted {member} access to groups: {', '.join(granted_groups)}"
+            )
 
 
 async def setup(bot):

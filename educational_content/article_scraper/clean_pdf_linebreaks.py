@@ -16,12 +16,12 @@ from pathlib import Path
 
 # Common OCR math symbol replacements
 OCR_REPLACEMENTS = {
-    ' £ ': ' ≤ ',
-    '£': '≤',  # fallback without spaces
-    ' ³ ': ' ≥ ',
-    '³': '≥',
-    '¥': '∞',
-    'minus ¥': 'minus ∞',
+    " £ ": " ≤ ",
+    "£": "≤",  # fallback without spaces
+    " ³ ": " ≥ ",
+    "³": "≥",
+    "¥": "∞",
+    "minus ¥": "minus ∞",
 }
 
 
@@ -30,19 +30,19 @@ def is_list_item(line: str) -> bool:
     stripped = line.strip()
 
     # a), b), c) style
-    if re.match(r'^[a-z]\)\s', stripped):
+    if re.match(r"^[a-z]\)\s", stripped):
         return True
 
     # a., b., c. style
-    if re.match(r'^[a-z]\.\s', stripped):
+    if re.match(r"^[a-z]\.\s", stripped):
         return True
 
     # i., ii., iii., iv., v., vi., vii., viii., ix., x. (Roman numerals)
-    if re.match(r'^[ivx]+\.\s', stripped):
+    if re.match(r"^[ivx]+\.\s", stripped):
         return True
 
     # i), ii), iii) style
-    if re.match(r'^[ivx]+\)\s', stripped):
+    if re.match(r"^[ivx]+\)\s", stripped):
         return True
 
     return False
@@ -52,27 +52,27 @@ def is_toc_line(line: str) -> bool:
     """Check if line looks like part of a table of contents."""
     stripped = line.strip()
     # Standalone number (section number)
-    if re.match(r'^\d+\.\s*$', stripped):
+    if re.match(r"^\d+\.\s*$", stripped):
         return True
     # Standalone page number
-    if re.match(r'^\d{1,3}$', stripped):
+    if re.match(r"^\d{1,3}$", stripped):
         return True
     return False
 
 
 def is_section_header(line: str) -> bool:
     """Check if line looks like a section header in body text."""
-    return bool(re.match(r'^\d+\.\s+[A-Z]', line.strip()))
+    return bool(re.match(r"^\d+\.\s+[A-Z]", line.strip()))
 
 
 def split_section_header(line: str) -> tuple[str, str] | None:
     """If line starts with a section header merged with text, split them."""
     # Pattern: "1. Title Text Continuation text starts here..."
     # We want to split after the title (which is typically Title Case words)
-    match = re.match(r'^(\d+\.\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+([A-Z][a-z])', line)
+    match = re.match(r"^(\d+\.\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+([A-Z][a-z])", line)
     if match:
         header = match.group(1)
-        rest = match.group(2) + line[match.end()-1:]
+        rest = match.group(2) + line[match.end() - 1 :]
         return header, rest
     return None
 
@@ -110,7 +110,7 @@ def should_join_lines(current: str, next_line: str, was_page_break: bool) -> boo
         return False
 
     # If current line ends mid-word (hyphenation), definitely join
-    if current.endswith('-') and next_stripped and next_stripped[0].islower():
+    if current.endswith("-") and next_stripped and next_stripped[0].islower():
         return True
 
     # Check if next line starts with lowercase
@@ -118,7 +118,7 @@ def should_join_lines(current: str, next_line: str, was_page_break: bool) -> boo
 
     # If current line ends with sentence-ending punctuation, only join if
     # next line starts lowercase (indicating a broken sentence)
-    if current.endswith(('.', '?', '!')):
+    if current.endswith((".", "?", "!")):
         # Short lines ending with period + lowercase continuation = likely broken
         if next_starts_lower and len(current) < 80:
             return True
@@ -128,7 +128,7 @@ def should_join_lines(current: str, next_line: str, was_page_break: bool) -> boo
         return False
 
     # Semicolon/colon: join if next starts lowercase
-    if current.endswith((';', ':')):
+    if current.endswith((";", ":")):
         return next_starts_lower
 
     # No ending punctuation: likely a broken line, join it
@@ -141,12 +141,12 @@ def fix_ocr_artifacts(content: str) -> str:
         content = content.replace(old, new)
 
     # Fix missing spaces in journal references like "Biometrika40" -> "Biometrika 40"
-    content = re.sub(r'([a-zA-Z])(\d{2,3}),\s*(\d+)', r'\1 \2, \3', content)
+    content = re.sub(r"([a-zA-Z])(\d{2,3}),\s*(\d+)", r"\1 \2, \3", content)
 
     # Fix merged words (lowercase followed by uppercase mid-word)
     # e.g., "placedsubcortical" - this is tricky and prone to false positives
     # so we only do specific known patterns
-    content = content.replace('consciousnessprovoking', 'consciousness-provoking')
+    content = content.replace("consciousnessprovoking", "consciousness-provoking")
 
     return content
 
@@ -155,11 +155,11 @@ def clean_pdf_linebreaks(content: str) -> str:
     """Clean PDF line breaks while preserving intentional structure."""
 
     # Split into YAML frontmatter and body
-    if content.startswith('---'):
-        parts = content.split('---', 2)
+    if content.startswith("---"):
+        parts = content.split("---", 2)
         if len(parts) >= 3:
             frontmatter = f"---{parts[1]}---\n"
-            body = parts[2].lstrip('\n')
+            body = parts[2].lstrip("\n")
         else:
             frontmatter = ""
             body = content
@@ -167,13 +167,13 @@ def clean_pdf_linebreaks(content: str) -> str:
         frontmatter = ""
         body = content
 
-    lines = body.split('\n')
+    lines = body.split("\n")
 
     # Track page breaks (--- markers)
     page_break_indices = set()
     filtered_lines = []
     for i, line in enumerate(lines):
-        if line.strip() == '---':
+        if line.strip() == "---":
             page_break_indices.add(len(filtered_lines))
         else:
             filtered_lines.append(line)
@@ -182,20 +182,18 @@ def clean_pdf_linebreaks(content: str) -> str:
     # Find and process the table of contents
     # TOC typically starts after author info and ends before "1. Introduction" body
     toc_start = None
-    toc_end = None
     intro_body_start = None
 
     for i, line in enumerate(lines):
         # Find first "1." which is start of TOC
-        if toc_start is None and re.match(r'^1\.\s*$', line.strip()):
+        if toc_start is None and re.match(r"^1\.\s*$", line.strip()):
             toc_start = i
         # Find where body text starts (after TOC, a "1. Introduction" followed by actual paragraphs)
-        if toc_start is not None and re.match(r'^1\.\s+Introduction', line.strip()):
+        if toc_start is not None and re.match(r"^1\.\s+Introduction", line.strip()):
             # Check if next non-empty line is a paragraph (not a number)
             for j in range(i + 1, min(i + 5, len(lines))):
-                if lines[j].strip() and not re.match(r'^\d', lines[j].strip()):
+                if lines[j].strip() and not re.match(r"^\d", lines[j].strip()):
                     intro_body_start = i
-                    toc_end = i
                     break
             if intro_body_start:
                 break
@@ -221,7 +219,7 @@ def clean_pdf_linebreaks(content: str) -> str:
 
         # Keep blank lines as paragraph separators
         if not line.strip():
-            result_lines.append('')
+            result_lines.append("")
             i += 1
             continue
 
@@ -237,11 +235,11 @@ def clean_pdf_linebreaks(content: str) -> str:
                 break
 
             # Handle hyphenation
-            if accumulated.rstrip().endswith('-'):
+            if accumulated.rstrip().endswith("-"):
                 # Remove hyphen and join directly
                 accumulated = accumulated.rstrip()[:-1] + next_line.strip()
             else:
-                accumulated = accumulated.rstrip() + ' ' + next_line.strip()
+                accumulated = accumulated.rstrip() + " " + next_line.strip()
 
             i += 1
             was_page_break = next_was_break
@@ -268,18 +266,20 @@ def clean_pdf_linebreaks(content: str) -> str:
         line = result_lines[i]
 
         # Check if next line starts with lowercase and should be joined
-        if (i + 1 < len(result_lines) and
-            result_lines[i + 1].strip() and
-            result_lines[i + 1].strip()[0].islower() and
-            not is_list_item(result_lines[i + 1]) and
-            line.strip()):  # current line is not empty
-
+        if (
+            i + 1 < len(result_lines)
+            and result_lines[i + 1].strip()
+            and result_lines[i + 1].strip()[0].islower()
+            and not is_list_item(result_lines[i + 1])
+            and line.strip()
+        ):  # current line is not empty
             # Join if current doesn't end with sentence punctuation
             # or if it's a short line ending with period
             current_stripped = line.rstrip()
-            if (not current_stripped.endswith(('.', '?', '!')) or
-                (current_stripped.endswith('.') and len(current_stripped) < 80)):
-                line = current_stripped + ' ' + result_lines[i + 1].strip()
+            if not current_stripped.endswith((".", "?", "!")) or (
+                current_stripped.endswith(".") and len(current_stripped) < 80
+            ):
+                line = current_stripped + " " + result_lines[i + 1].strip()
                 joined_lines.append(line)
                 i += 2
                 continue
@@ -298,7 +298,7 @@ def clean_pdf_linebreaks(content: str) -> str:
         final_lines.append(line)
         prev_blank = is_blank
 
-    result = frontmatter + '\n'.join(final_lines)
+    result = frontmatter + "\n".join(final_lines)
 
     # Apply OCR artifact fixes
     result = fix_ocr_artifacts(result)
@@ -317,20 +317,22 @@ def main():
     if len(sys.argv) >= 3:
         output_path = Path(sys.argv[2])
     else:
-        output_path = input_path.with_stem(input_path.stem + '_cleaned')
+        output_path = input_path.with_stem(input_path.stem + "_cleaned")
 
-    content = input_path.read_text(encoding='utf-8')
+    content = input_path.read_text(encoding="utf-8")
     cleaned = clean_pdf_linebreaks(content)
-    output_path.write_text(cleaned, encoding='utf-8')
+    output_path.write_text(cleaned, encoding="utf-8")
 
     # Stats
-    orig_lines = len(content.split('\n'))
-    new_lines = len(cleaned.split('\n'))
+    orig_lines = len(content.split("\n"))
+    new_lines = len(cleaned.split("\n"))
 
     print(f"Input:  {input_path} ({orig_lines} lines)")
     print(f"Output: {output_path} ({new_lines} lines)")
-    print(f"Reduced by {orig_lines - new_lines} lines ({100*(orig_lines-new_lines)/orig_lines:.1f}%)")
+    print(
+        f"Reduced by {orig_lines - new_lines} lines ({100 * (orig_lines - new_lines) / orig_lines:.1f}%)"
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

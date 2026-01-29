@@ -121,15 +121,12 @@ async def get_all_cohorts_summary(
     Returns list of dicts with cohort_id, cohort_name, course_slug, status, course_name.
     Ordered by cohort_start_date descending (most recent first).
     """
-    query = (
-        select(
-            cohorts.c.cohort_id,
-            cohorts.c.cohort_name,
-            cohorts.c.course_slug,
-            cohorts.c.status,
-        )
-        .order_by(cohorts.c.cohort_start_date.desc())
-    )
+    query = select(
+        cohorts.c.cohort_id,
+        cohorts.c.cohort_name,
+        cohorts.c.course_slug,
+        cohorts.c.status,
+    ).order_by(cohorts.c.cohort_start_date.desc())
 
     result = await conn.execute(query)
     cohort_list = []

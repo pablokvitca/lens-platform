@@ -356,9 +356,7 @@ class TestAdminMemberAdd:
             mock_conn, user_id=2, to_group_id=5, from_group_id=3
         )
         # Sync should be called once with both group IDs
-        mock_sync.assert_called_once_with(
-            group_id=5, previous_group_id=3, user_id=2
-        )
+        mock_sync.assert_called_once_with(group_id=5, previous_group_id=3, user_id=2)
 
     @patch("web_api.routes.admin.get_transaction")
     @patch("web_api.routes.admin.sync_after_group_change")

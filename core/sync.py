@@ -807,7 +807,13 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
     Returns dict with counts: {"granted": N, "revoked": N, "unchanged": N, "failed": N}
     """
     from .database import get_connection
-    from .discord_outbound import get_bot, get_or_fetch_member, get_members_with_access, grant_channel_access, revoke_channel_access
+    from .discord_outbound import (
+        get_bot,
+        get_or_fetch_member,
+        get_members_with_access,
+        grant_channel_access,
+        revoke_channel_access,
+    )
     from .tables import groups, groups_users, users
     from .enums import GroupUserStatus
     from sqlalchemy import select

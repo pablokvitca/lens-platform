@@ -373,11 +373,15 @@ class TestRealModuleParsing:
                         assert (
                             actual_seg.hide_previous_content_from_user
                             == exp_seg["hide_previous_content_from_user"]
-                        ), f"Section {i} segment {j} hide_previous_content_from_user mismatch"
+                        ), (
+                            f"Section {i} segment {j} hide_previous_content_from_user mismatch"
+                        )
                         assert (
                             actual_seg.hide_previous_content_from_tutor
                             == exp_seg["hide_previous_content_from_tutor"]
-                        ), f"Section {i} segment {j} hide_previous_content_from_tutor mismatch"
+                        ), (
+                            f"Section {i} segment {j} hide_previous_content_from_tutor mismatch"
+                        )
 
             elif exp["type"] == "learning_outcome":
                 assert actual.source == exp["source"], (

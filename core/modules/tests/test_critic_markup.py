@@ -94,7 +94,9 @@ class TestStripCriticMarkup:
 
     # Mixed markup
     def test_handles_mixed_markup(self):
-        text = "Start{>>comment<<}{++added++}{--deleted--}{~~old~>new~~}{==highlight==}end"
+        text = (
+            "Start{>>comment<<}{++added++}{--deleted--}{~~old~>new~~}{==highlight==}end"
+        )
         assert strip_critic_markup(text) == "Startdeletedoldhighlightend"
 
     def test_handles_real_world_example(self):
