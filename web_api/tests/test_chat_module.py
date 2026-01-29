@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from core.content.cache import ContentCache, set_cache, clear_cache
 from core.modules.flattened_types import FlattenedModule
 from main import app
-from web_api.auth import get_current_user
+from web_api.auth import get_user_or_anonymous
 
 
 @pytest.fixture
@@ -64,10 +64,10 @@ def client():
 
 @pytest.fixture
 def mock_auth():
-    """Override the get_current_user dependency to return a test user."""
-    test_user = {"sub": "123456789", "username": "testuser"}
-    app.dependency_overrides[get_current_user] = lambda: test_user
-    yield test_user
+    """Override the get_user_or_anonymous dependency to return a test user."""
+    # Returns (user_id, anonymous_token) tuple
+    app.dependency_overrides[get_user_or_anonymous] = lambda: (1, None)
+    yield (1, None)
     app.dependency_overrides.clear()
 
 
@@ -93,10 +93,6 @@ class TestPostChatModule:
             patch(
                 "web_api.routes.module.get_connection",
                 return_value=mock_conn,
-            ),
-            patch(
-                "web_api.routes.module.get_user_by_discord_id",
-                return_value={"user_id": 1, "discord_id": "123456789"},
             ),
             patch(
                 "web_api.routes.module.get_or_create_chat_session",
@@ -147,10 +143,6 @@ class TestPostChatModule:
             patch(
                 "web_api.routes.module.get_connection",
                 return_value=mock_conn,
-            ),
-            patch(
-                "web_api.routes.module.get_user_by_discord_id",
-                return_value={"user_id": 1, "discord_id": "123456789"},
             ),
             patch(
                 "web_api.routes.module.get_or_create_chat_session",
@@ -204,10 +196,6 @@ class TestPostChatModule:
                 return_value=mock_conn,
             ),
             patch(
-                "web_api.routes.module.get_user_by_discord_id",
-                return_value={"user_id": 1, "discord_id": "123456789"},
-            ),
-            patch(
                 "web_api.routes.module.get_or_create_chat_session",
                 return_value={"session_id": 1, "messages": []},
             ),
@@ -243,12 +231,11 @@ class TestPostChatModule:
     def test_returns_401_when_not_authenticated(self, client, mock_chat_module_cache):
         """Should return 401 for unauthenticated requests."""
 
-        # No mock_auth fixture - no dependency override, so get_current_user will fail
-        # But we need to make sure it raises an HTTPException
+        # Override dependency to raise 401
         async def raise_401():
-            raise HTTPException(status_code=401, detail="Not authenticated")
+            raise HTTPException(status_code=401, detail="Authentication required")
 
-        app.dependency_overrides[get_current_user] = raise_401
+        app.dependency_overrides[get_user_or_anonymous] = raise_401
         try:
             response = client.post(
                 "/api/chat/module",
@@ -267,30 +254,15 @@ class TestPostChatModule:
         self, client, mock_chat_module_cache, mock_auth
     ):
         """Should return 404 for unknown module slug."""
-        # Create a mock connection context manager
-        mock_conn = MagicMock()
-        mock_conn.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_conn.__aexit__ = AsyncMock(return_value=None)
-
-        with (
-            patch(
-                "web_api.routes.module.get_connection",
-                return_value=mock_conn,
-            ),
-            patch(
-                "web_api.routes.module.get_user_by_discord_id",
-                return_value={"user_id": 1, "discord_id": "123456789"},
-            ),
-        ):
-            response = client.post(
-                "/api/chat/module",
-                json={
-                    "slug": "unknown-module",
-                    "sectionIndex": 0,
-                    "segmentIndex": 0,
-                    "message": "Hello",
-                },
-            )
+        response = client.post(
+            "/api/chat/module",
+            json={
+                "slug": "unknown-module",
+                "sectionIndex": 0,
+                "segmentIndex": 0,
+                "message": "Hello",
+            },
+        )
 
         assert response.status_code == 404
 
@@ -313,10 +285,6 @@ class TestPostChatModule:
             patch(
                 "web_api.routes.module.get_connection",
                 return_value=mock_conn,
-            ),
-            patch(
-                "web_api.routes.module.get_user_by_discord_id",
-                return_value={"user_id": 1, "discord_id": "123456789"},
             ),
             patch(
                 "web_api.routes.module.get_or_create_chat_session",
@@ -368,10 +336,6 @@ class TestPostChatModule:
             patch(
                 "web_api.routes.module.get_connection",
                 return_value=mock_conn,
-            ),
-            patch(
-                "web_api.routes.module.get_user_by_discord_id",
-                return_value={"user_id": 1, "discord_id": "123456789"},
             ),
             patch(
                 "web_api.routes.module.get_or_create_chat_session",

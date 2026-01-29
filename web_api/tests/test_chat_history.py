@@ -6,10 +6,13 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from core.content.cache import ContentCache, set_cache, clear_cache
 from core.modules.flattened_types import FlattenedModule
+from main import app
+from web_api.auth import get_user_or_anonymous
 
 
 @pytest.fixture
@@ -51,28 +54,40 @@ def mock_chat_history_cache():
 @pytest.fixture
 def client():
     """Create test client."""
-    from main import app
-
     return TestClient(app)
+
+
+@pytest.fixture
+def mock_auth():
+    """Override the get_user_or_anonymous dependency to return a test user."""
+    app.dependency_overrides[get_user_or_anonymous] = lambda: (1, None)
+    yield (1, None)
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def mock_auth_anonymous():
+    """Override the get_user_or_anonymous dependency to return anonymous token."""
+    anon_token = uuid.uuid4()
+    app.dependency_overrides[get_user_or_anonymous] = lambda: (None, anon_token)
+    yield (None, anon_token)
+    app.dependency_overrides.clear()
 
 
 class TestGetChatHistory:
     """Tests for GET /api/chat/module/{slug}/history."""
 
-    def test_returns_chat_history(self, client, mock_chat_history_cache):
+    def test_returns_chat_history(self, client, mock_chat_history_cache, mock_auth):
         """Should return chat history for authenticated user."""
-        # Patch where functions are used (routes.module) not where defined
+        mock_conn = MagicMock()
+        mock_conn.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_conn.__aexit__ = AsyncMock(return_value=None)
+
         with (
-            patch(
-                "web_api.routes.module.get_optional_user",
-                return_value={"sub": "123456789", "username": "testuser"},
-            ),
-            patch(
-                "web_api.routes.module.get_user_by_discord_id",
-                return_value={"user_id": 1, "discord_id": "123456789"},
-            ),
+            patch("web_api.routes.module.get_connection", return_value=mock_conn),
             patch(
                 "web_api.routes.module.get_or_create_chat_session",
+                new_callable=AsyncMock,
                 return_value={
                     "session_id": 1,
                     "messages": [
@@ -94,92 +109,61 @@ class TestGetChatHistory:
 
     def test_returns_401_when_not_authenticated(self, client, mock_chat_history_cache):
         """Should return 401 when user is not authenticated and no anonymous token."""
-        with patch("web_api.routes.module.get_optional_user", return_value=None):
+
+        async def raise_401():
+            raise HTTPException(status_code=401, detail="Authentication required")
+
+        app.dependency_overrides[get_user_or_anonymous] = raise_401
+        try:
             response = client.get("/api/chat/module/test-module/history")
+            assert response.status_code == 401
+        finally:
+            app.dependency_overrides.clear()
 
-        assert response.status_code == 401
-
-    def test_returns_404_for_unknown_module(self, client, mock_chat_history_cache):
+    def test_returns_404_for_unknown_module(
+        self, client, mock_chat_history_cache, mock_auth
+    ):
         """Should return 404 for unknown module slug."""
-        # Create a mock connection context manager
-        mock_conn = MagicMock()
-        mock_conn.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_conn.__aexit__ = AsyncMock(return_value=None)
-
-        with (
-            patch(
-                "web_api.routes.module.get_optional_user",
-                return_value={"sub": "123456789", "username": "testuser"},
-            ),
-            patch(
-                "web_api.routes.module.get_connection",
-                return_value=mock_conn,
-            ),
-            patch(
-                "web_api.routes.module.get_user_by_discord_id",
-                return_value={"user_id": 1, "discord_id": "123456789"},
-            ),
-        ):
-            response = client.get("/api/chat/module/not-found/history")
-
+        response = client.get("/api/chat/module/not-found/history")
         assert response.status_code == 404
 
-    def test_works_with_anonymous_token(self, client, mock_chat_history_cache):
+    def test_works_with_anonymous_token(
+        self, client, mock_chat_history_cache, mock_auth_anonymous
+    ):
         """Should work with X-Anonymous-Token header for anonymous users."""
-        anon_token = str(uuid.uuid4())
-
-        # Create a mock connection context manager
         mock_conn = MagicMock()
         mock_conn.__aenter__ = AsyncMock(return_value=mock_conn)
         mock_conn.__aexit__ = AsyncMock(return_value=None)
 
         with (
-            patch("web_api.routes.module.get_optional_user", return_value=None),
-            patch(
-                "web_api.routes.module.get_connection",
-                return_value=mock_conn,
-            ),
+            patch("web_api.routes.module.get_connection", return_value=mock_conn),
             patch(
                 "web_api.routes.module.get_or_create_chat_session",
+                new_callable=AsyncMock,
                 return_value={"session_id": 1, "messages": []},
             ),
         ):
-            response = client.get(
-                "/api/chat/module/test-module/history",
-                headers={"X-Anonymous-Token": anon_token},
-            )
-
-        assert response.status_code == 200
+            response = client.get("/api/chat/module/test-module/history")
+            assert response.status_code == 200
 
     def test_returns_empty_messages_for_new_session(
-        self, client, mock_chat_history_cache
+        self, client, mock_chat_history_cache, mock_auth
     ):
         """Should return empty messages array for new chat session."""
-        # Create a mock connection context manager
         mock_conn = MagicMock()
         mock_conn.__aenter__ = AsyncMock(return_value=mock_conn)
         mock_conn.__aexit__ = AsyncMock(return_value=None)
 
         with (
-            patch(
-                "web_api.routes.module.get_optional_user",
-                return_value={"sub": "123456789", "username": "testuser"},
-            ),
-            patch(
-                "web_api.routes.module.get_connection",
-                return_value=mock_conn,
-            ),
-            patch(
-                "web_api.routes.module.get_user_by_discord_id",
-                return_value={"user_id": 1, "discord_id": "123456789"},
-            ),
+            patch("web_api.routes.module.get_connection", return_value=mock_conn),
             patch(
                 "web_api.routes.module.get_or_create_chat_session",
+                new_callable=AsyncMock,
                 return_value={"session_id": 1, "messages": []},
             ),
         ):
             response = client.get("/api/chat/module/test-module/history")
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["messages"] == []
+            assert response.status_code == 200
+            data = response.json()
+            assert data["messages"] == []

@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -24,8 +24,7 @@ from core.modules.chat_sessions import add_chat_message, get_or_create_chat_sess
 from core.modules.context import gather_section_context
 from core.modules.loader import load_flattened_module
 from core.modules.types import ChatStage
-from core.queries.users import get_user_by_discord_id
-from web_api.auth import get_current_user, get_optional_user
+from web_api.auth import get_user_or_anonymous
 
 router = APIRouter(prefix="/api/chat", tags=["module"])
 
@@ -47,7 +46,8 @@ class ChatHistoryResponse(BaseModel):
 
 
 async def event_generator(
-    user_id: int,
+    user_id: int | None,
+    anonymous_token: UUID | None,
     module,
     section_index: int,
     segment_index: int,
@@ -59,7 +59,7 @@ async def event_generator(
         session = await get_or_create_chat_session(
             conn,
             user_id=user_id,
-            anonymous_token=None,
+            anonymous_token=anonymous_token,
             content_id=module.content_id,
             content_type="module",
         )
@@ -131,10 +131,12 @@ async def event_generator(
 @router.post("/module")
 async def chat_module(
     request: ModuleChatRequest,
-    user: dict = Depends(get_current_user),
+    auth: tuple[int | None, UUID | None] = Depends(get_user_or_anonymous),
 ) -> StreamingResponse:
     """
     Send a message to the module chat and stream the response.
+
+    Auth: JWT cookie (for authenticated users) or X-Anonymous-Token header (for anonymous users)
 
     Request body:
     - slug: Module identifier
@@ -148,14 +150,7 @@ async def chat_module(
     - {"type": "done"} when complete
     - {"type": "error", "message": "..."} on error
     """
-    # Get database user_id
-    async with get_connection() as conn:
-        db_user = await get_user_by_discord_id(conn, user["sub"])
-
-    if not db_user:
-        raise HTTPException(status_code=401, detail="User not found")
-
-    user_id = db_user["user_id"]
+    user_id, anonymous_token = auth
 
     # Load module
     try:
@@ -166,6 +161,7 @@ async def chat_module(
     return StreamingResponse(
         event_generator(
             user_id=user_id,
+            anonymous_token=anonymous_token,
             module=module,
             section_index=request.sectionIndex,
             segment_index=request.segmentIndex,
@@ -182,35 +178,17 @@ async def chat_module(
 @router.get("/module/{slug}/history", response_model=ChatHistoryResponse)
 async def get_chat_history(
     slug: str,
-    request: Request,
-    x_anonymous_token: str | None = Header(None),
+    auth: tuple[int | None, UUID | None] = Depends(get_user_or_anonymous),
 ):
     """
     Get chat history for a module.
 
+    Auth: JWT cookie (for authenticated users) or X-Anonymous-Token header (for anonymous users)
+
     Returns the chat session messages for the current user/anonymous token.
     Creates a new empty session if none exists.
     """
-    # Get user or anonymous token
-    user = await get_optional_user(request)
-    user_id = None
-    anonymous_token = None
-
-    if user:
-        # Look up database user_id from Discord ID
-        async with get_connection() as conn:
-            db_user = await get_user_by_discord_id(conn, user["sub"])
-            if db_user:
-                user_id = db_user["user_id"]
-
-    if not user_id and x_anonymous_token:
-        try:
-            anonymous_token = UUID(x_anonymous_token)
-        except ValueError:
-            pass
-
-    if not user_id and not anonymous_token:
-        raise HTTPException(status_code=401, detail="Authentication required")
+    user_id, anonymous_token = auth
 
     # Load module to get content_id
     try:
