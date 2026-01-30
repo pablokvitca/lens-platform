@@ -357,7 +357,13 @@ class TestSyncGroupDiscordPermissions:
 
         mock_bot = MagicMock()
         mock_bot.guilds = [mock_guild]
-        mock_bot.get_channel.return_value = None  # Channel not found in Discord
+        mock_bot.get_channel.return_value = None  # Not in cache
+        # fetch_channel raises NotFound when channel deleted from Discord
+        import discord
+
+        mock_bot.fetch_channel = AsyncMock(
+            side_effect=discord.NotFound(MagicMock(), "Unknown Channel")
+        )
 
         with patch("core.discord_outbound.bot._bot", mock_bot):
             with patch("core.database.get_connection") as mock_get_conn:
@@ -754,7 +760,13 @@ class TestEnsureCohortCategory:
         mock_conn.execute = AsyncMock(return_value=mock_result)
 
         mock_bot = MagicMock()
-        mock_bot.get_channel.return_value = None  # Deleted from Discord
+        mock_bot.get_channel.return_value = None  # Not in cache
+        # fetch_channel raises NotFound when channel deleted from Discord
+        import discord
+
+        mock_bot.fetch_channel = AsyncMock(
+            side_effect=discord.NotFound(MagicMock(), "Unknown Channel")
+        )
 
         with patch("core.discord_outbound.bot._bot", mock_bot):
             with patch("core.database.get_connection") as mock_get_conn:
@@ -1051,7 +1063,13 @@ class TestEnsureGroupChannels:
         mock_conn.execute = AsyncMock(return_value=mock_result)
 
         mock_bot = MagicMock()
-        mock_bot.get_channel.return_value = None  # Both channels deleted from Discord
+        mock_bot.get_channel.return_value = None  # Not in cache
+        # fetch_channel raises NotFound when channels deleted from Discord
+        import discord
+
+        mock_bot.fetch_channel = AsyncMock(
+            side_effect=discord.NotFound(MagicMock(), "Unknown Channel")
+        )
 
         with patch("core.discord_outbound.bot._bot", mock_bot):
             with patch("core.database.get_connection") as mock_get_conn:
@@ -1088,7 +1106,13 @@ class TestEnsureGroupChannels:
         mock_new_voice.id = 555
 
         mock_bot = MagicMock()
-        mock_bot.get_channel.return_value = None
+        mock_bot.get_channel.return_value = None  # Not in cache
+        # fetch_channel raises NotFound - channel doesn't exist
+        import discord
+
+        mock_bot.fetch_channel = AsyncMock(
+            side_effect=discord.NotFound(MagicMock(), "Unknown Channel")
+        )
 
         mock_category = MagicMock()
         mock_category.guild = MagicMock()

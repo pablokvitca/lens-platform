@@ -103,7 +103,7 @@ def test_flatten_module_with_page_section():
     assert result.slug == "intro"
     assert len(result.sections) == 1
     assert result.sections[0]["type"] == "page"
-    assert result.sections[0]["title"] == "Welcome"
+    assert result.sections[0]["meta"]["title"] == "Welcome"
 
 
 def test_flatten_module_expands_learning_outcome():

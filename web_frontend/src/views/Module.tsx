@@ -46,6 +46,9 @@ import {
   trackChatMessageSent,
 } from "@/analytics";
 import { Skeleton, SkeletonText } from "@/components/Skeleton";
+import { getSectionSlug, findSectionBySlug } from "@/utils/sectionSlug";
+import { getCompletionButtonText } from "@/utils/completionButtonText";
+
 interface ModuleProps {
   courseId: string;
   moduleId: string;
@@ -99,6 +102,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
     async function load() {
       setLoadingModule(true);
       setLoadError(null);
+      wasCompleteOnLoad.current = false; // Reset when loading new module
       try {
         // Fetch module, course progress, and module progress in parallel
         const [moduleResult, courseResult, progressResult] = await Promise.all([
@@ -122,9 +126,10 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
           });
           setCompletedSections(completed);
 
-          // If module already complete, set flag
+          // If module already complete, set flag and mark as complete on load
           if (progressResult.status === "completed") {
             setApiConfirmedComplete(true);
+            wasCompleteOnLoad.current = true;
           }
         }
       } catch (e) {
@@ -198,6 +203,123 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const sectionRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
+  // Track if this is initial load vs user navigation (for pushState vs replaceState)
+  const isInitialLoad = useRef(true);
+
+  // Parse URL hash on mount, module load, and browser navigation
+  useEffect(() => {
+    if (!module) return;
+
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1); // Remove leading #
+      if (!hash) {
+        // No hash - go to first section
+        setCurrentSectionIndex(0);
+        return;
+      }
+
+      const sectionIndex = findSectionBySlug(module.sections, hash);
+      if (sectionIndex !== -1) {
+        setCurrentSectionIndex(sectionIndex);
+      } else {
+        // Invalid hash - strip it and go to first section
+        window.history.replaceState(null, "", window.location.pathname);
+        setCurrentSectionIndex(0);
+      }
+    };
+
+    // Handle initial load
+    handleHashChange();
+
+    // Handle browser back/forward
+    window.addEventListener("popstate", handleHashChange);
+
+    return () => {
+      window.removeEventListener("popstate", handleHashChange);
+    };
+  }, [module]);
+
+  // Update URL hash when section changes
+  useEffect(() => {
+    if (!module) return;
+
+    const currentSection = module.sections[currentSectionIndex];
+    if (!currentSection) return;
+
+    const slug = getSectionSlug(currentSection, currentSectionIndex);
+    const newHash = `#${slug}`;
+    const currentHash = window.location.hash;
+
+    // On initial load, check if URL hash points to a different section
+    // If so, wait for hash parsing effect to update state before touching URL
+    if (isInitialLoad.current) {
+      const hashSectionIndex = currentHash
+        ? findSectionBySlug(module.sections, currentHash.slice(1))
+        : -1;
+      if (hashSectionIndex !== -1 && hashSectionIndex !== currentSectionIndex) {
+        // URL hash resolves to a different section - state hasn't caught up yet
+        return;
+      }
+      // Hash matches current state (or no hash) - use replaceState, not pushState
+      if (currentHash !== newHash) {
+        window.history.replaceState(
+          null,
+          "",
+          `${window.location.pathname}${newHash}`,
+        );
+      }
+      isInitialLoad.current = false;
+      return;
+    }
+
+    // Normal user navigation - use pushState for back button support
+    if (currentHash !== newHash) {
+      window.history.pushState(
+        null,
+        "",
+        `${window.location.pathname}${newHash}`,
+      );
+    }
+  }, [module, currentSectionIndex]);
+
+  // Update document title to show current section
+  useEffect(() => {
+    if (!module) return;
+
+    const currentSection = module.sections[currentSectionIndex];
+    if (!currentSection) return;
+
+    // Get section title
+    let sectionTitle: string | null = null;
+    switch (currentSection.type) {
+      case "lens-article":
+      case "lens-video":
+        sectionTitle = currentSection.meta?.title ?? null;
+        break;
+      case "page":
+        sectionTitle = currentSection.meta?.title ?? null;
+        break;
+      case "article":
+      case "video":
+      case "chat":
+        sectionTitle = currentSection.meta?.title ?? null;
+        break;
+    }
+
+    if (sectionTitle) {
+      document.title = `${sectionTitle} | ${module.title}`;
+    } else {
+      document.title = module.title;
+    }
+
+    // Cleanup: restore module title when unmounting
+    return () => {
+      if (module) {
+        document.title = module.title;
+      }
+    };
+  }, [module, currentSectionIndex]);
+
   // Section completion tracking (database is source of truth)
   const [completedSections, setCompletedSections] = useState<Set<number>>(
     new Set(),
@@ -232,11 +354,6 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
     wasAuthenticated.current = isAuthenticated;
   }, [isAuthenticated, moduleId, updateCompletedFromLenses]);
 
-  // For stage navigation (viewing non-current section)
-  const [viewingStageIndex, setViewingStageIndex] = useState<number | null>(
-    null,
-  );
-
   // Module completion modal state
   const [moduleCompletionResult, setModuleCompletionResult] =
     useState<ModuleCompletionResult>(null);
@@ -251,6 +368,9 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
 
   // Analytics tracking ref
   const hasTrackedModuleStart = useRef(false);
+
+  // Track if module was already complete when page loaded (for suppressing modal on review)
+  const wasCompleteOnLoad = useRef(false);
 
   // View mode state (default to paginated)
   const [viewMode] = useState<ViewMode>("paginated");
@@ -603,9 +723,8 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
         // Paginated: just update the index (render handles the rest)
         setCurrentSectionIndex(index);
       }
-      setViewingStageIndex(index === currentSectionIndex ? null : index);
     },
-    [currentSectionIndex, viewMode],
+    [viewMode],
   );
 
   const handlePrevious = useCallback(() => {
@@ -614,7 +733,6 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       handleStageClick(prevIndex);
     } else {
       setCurrentSectionIndex(prevIndex);
-      setViewingStageIndex(null);
     }
   }, [currentSectionIndex, viewMode, handleStageClick]);
 
@@ -628,7 +746,6 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       handleStageClick(nextIndex);
     } else {
       setCurrentSectionIndex(nextIndex);
-      setViewingStageIndex(null);
     }
   }, [currentSectionIndex, module, viewMode, handleStageClick]);
 
@@ -672,7 +789,6 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
           handleStageClick(nextIndex);
         } else {
           setCurrentSectionIndex(nextIndex);
-          setViewingStageIndex(null);
         }
       }
     },
@@ -826,7 +942,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
           moduleTitle={module.title}
           stages={stages}
           completedStages={completedSections}
-          viewingIndex={viewingStageIndex ?? currentSectionIndex}
+          currentSectionIndex={currentSectionIndex}
           canGoPrevious={currentSectionIndex > 0}
           canGoNext={currentSectionIndex < module.sections.length - 1}
           onStageClick={handleStageClick}
@@ -1098,6 +1214,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                         : `${section.type || "Section"} ${sectionIndex + 1}`
                 }
                 moduleSlug={moduleId}
+                buttonText={getCompletionButtonText(section, sectionIndex)}
               />
             </div>
           );
@@ -1108,12 +1225,16 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
         moduleTitle={module.title}
         stages={stagesForDrawer}
         completedStages={completedSections}
-        viewingIndex={viewingStageIndex ?? currentSectionIndex}
+        currentSectionIndex={currentSectionIndex}
         onStageClick={handleStageClick}
       />
 
       <ModuleCompleteModal
-        isOpen={isModuleComplete && !completionModalDismissed}
+        isOpen={
+          isModuleComplete &&
+          !completionModalDismissed &&
+          !wasCompleteOnLoad.current
+        }
         moduleTitle={module.title}
         courseId={courseContext?.courseId}
         isInSignupsTable={isInSignupsTable}

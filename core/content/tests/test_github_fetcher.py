@@ -219,21 +219,36 @@ title: AI Safety Fundamentals
 
         def mock_get_side_effect(url, **kwargs):
             # Use MagicMock for response since httpx .json() is synchronous
+            import base64
+
             response = MagicMock()
+            response.status_code = 200
             if "api.github.com" in url:
-                response.status_code = 200
                 if "/commits/" in url:
                     # Commit SHA API call
                     response.json.return_value = {"sha": "abc123def456"}
+                elif ".md" in url:
+                    # Contents API for file fetch (returns base64-encoded content)
+                    content = ""
+                    if "modules/" in url:
+                        content = module_md
+                    elif "courses/" in url:
+                        content = course_md
+                    elif "articles/" in url:
+                        content = article_md
+                    elif "video_transcripts/" in url:
+                        content = transcript_md
+                    response.json.return_value = {
+                        "content": base64.b64encode(content.encode()).decode()
+                    }
                 else:
-                    # Directory listing
+                    # Directory listing (no .md in URL)
                     for dir_name, items in dir_responses.items():
                         if dir_name in url:
                             response.json.return_value = items
                             break
             else:
-                # File fetch
-                response.status_code = 200
+                # Raw file fetch (not used when ref is provided, but keep for completeness)
                 if "modules/" in url:
                     response.text = module_md
                 elif "courses/" in url:

@@ -11,7 +11,7 @@ import {
 type StageProgressBarProps = {
   stages: Stage[];
   completedStages: Set<number>; // Which stages are completed (can be non-contiguous)
-  viewingIndex: number; // What's currently being viewed
+  currentSectionIndex: number; // Current section index
   onStageClick: (index: number) => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -98,7 +98,7 @@ function getTooltipContent(
 export default function StageProgressBar({
   stages,
   completedStages,
-  viewingIndex,
+  currentSectionIndex,
   onStageClick,
   onPrevious,
   onNext,
@@ -116,9 +116,9 @@ export default function StageProgressBar({
   // - Light gray beyond
   const getBarColor = (index: number) => {
     if (index <= highestCompleted) return "bg-blue-400";
-    if (index === viewingIndex && completedStages.has(index - 1))
+    if (index === currentSectionIndex && completedStages.has(index - 1))
       return "bg-blue-400";
-    if (index <= viewingIndex) return "bg-gray-400";
+    if (index <= currentSectionIndex) return "bg-gray-400";
     return "bg-gray-200";
   };
 
@@ -161,7 +161,7 @@ export default function StageProgressBar({
       <div className="flex items-center">
         {stages.map((stage, index) => {
           const isCompleted = completedStages.has(index);
-          const isViewing = index === viewingIndex;
+          const isViewing = index === currentSectionIndex;
           const isOptional = "optional" in stage && stage.optional === true;
 
           const fillClasses = getCircleFillClasses(
