@@ -584,9 +584,9 @@ def light_cleanup(content: str, title: str | None = None) -> str:
 
     # === Fix internal links ===
     # LessWrong internal links: /lw/xxx → https://www.lesswrong.com/lw/xxx
-    result = re.sub(r'\]\(/lw/', r'](https://www.lesswrong.com/lw/', result)
+    result = re.sub(r"\]\(/lw/", r"](https://www.lesswrong.com/lw/", result)
     # Alignment Forum internal links
-    result = re.sub(r'\]\(/posts/', r'](https://www.alignmentforum.org/posts/', result)
+    result = re.sub(r"\]\(/posts/", r"](https://www.alignmentforum.org/posts/", result)
 
     # === HTML entities ===
     html_entities = [

@@ -107,49 +107,62 @@ Luc
 # Unit Tests - Template rendering + markdown conversion
 # =============================================================================
 
+
 class TestMarkdownToHtmlExact:
     """Test markdown to HTML conversion with exact output matching."""
 
     def test_simple_email_converts_to_exact_html(self):
-        body = render_message(SIMPLE_EMAIL_FIXTURE, {
-            "name": "Alice",
-            "meeting_time": "Wednesday at 4:00 PM (UTC+1)",
-            "discord_url": "https://discord.gg/abc123",
-        })
+        body = render_message(
+            SIMPLE_EMAIL_FIXTURE,
+            {
+                "name": "Alice",
+                "meeting_time": "Wednesday at 4:00 PM (UTC+1)",
+                "discord_url": "https://discord.gg/abc123",
+            },
+        )
         html = markdown_to_html(body)
 
         assert html == SIMPLE_EMAIL_EXPECTED_HTML
 
     def test_simple_email_converts_to_exact_plain_text(self):
-        body = render_message(SIMPLE_EMAIL_FIXTURE, {
-            "name": "Alice",
-            "meeting_time": "Wednesday at 4:00 PM (UTC+1)",
-            "discord_url": "https://discord.gg/abc123",
-        })
+        body = render_message(
+            SIMPLE_EMAIL_FIXTURE,
+            {
+                "name": "Alice",
+                "meeting_time": "Wednesday at 4:00 PM (UTC+1)",
+                "discord_url": "https://discord.gg/abc123",
+            },
+        )
         plain = markdown_to_plain_text(body)
 
         assert plain == SIMPLE_EMAIL_EXPECTED_PLAIN
 
     def test_multi_link_email_converts_to_exact_html(self):
-        body = render_message(MULTI_LINK_EMAIL_FIXTURE, {
-            "name": "Bob",
-            "meeting_time": "Thursday at 10:00 AM (UTC-5)",
-            "module_list": "- Module 1: Introduction\n- Module 2: Deep Dive",
-            "course_url": "https://example.com/course",
-            "discord_url": "https://discord.com/channels/123/456",
-        })
+        body = render_message(
+            MULTI_LINK_EMAIL_FIXTURE,
+            {
+                "name": "Bob",
+                "meeting_time": "Thursday at 10:00 AM (UTC-5)",
+                "module_list": "- Module 1: Introduction\n- Module 2: Deep Dive",
+                "course_url": "https://example.com/course",
+                "discord_url": "https://discord.com/channels/123/456",
+            },
+        )
         html = markdown_to_html(body)
 
         assert html == MULTI_LINK_EMAIL_EXPECTED_HTML
 
     def test_multi_link_email_converts_to_exact_plain_text(self):
-        body = render_message(MULTI_LINK_EMAIL_FIXTURE, {
-            "name": "Bob",
-            "meeting_time": "Thursday at 10:00 AM (UTC-5)",
-            "module_list": "- Module 1: Introduction\n- Module 2: Deep Dive",
-            "course_url": "https://example.com/course",
-            "discord_url": "https://discord.com/channels/123/456",
-        })
+        body = render_message(
+            MULTI_LINK_EMAIL_FIXTURE,
+            {
+                "name": "Bob",
+                "meeting_time": "Thursday at 10:00 AM (UTC-5)",
+                "module_list": "- Module 1: Introduction\n- Module 2: Deep Dive",
+                "course_url": "https://example.com/course",
+                "discord_url": "https://discord.com/channels/123/456",
+            },
+        )
         plain = markdown_to_plain_text(body)
 
         assert plain == MULTI_LINK_EMAIL_EXPECTED_PLAIN
@@ -158,6 +171,7 @@ class TestMarkdownToHtmlExact:
 # =============================================================================
 # Integration Tests - Full flow with real DB
 # =============================================================================
+
 
 class TestNotificationFlowIntegration:
     """
@@ -171,6 +185,7 @@ class TestNotificationFlowIntegration:
     def reset_db_engine(self):
         """Reset DB engine before each test to avoid event loop issues."""
         from core.database import reset_engine
+
         reset_engine()
         yield
         reset_engine()
@@ -281,7 +296,10 @@ class TestNotificationFlowIntegration:
                     break
 
             # Verify the Discord URL appears as a proper HTML link
-            assert '<a href="https://discord.com/channels/111222333/444555666">' in html_content
+            assert (
+                '<a href="https://discord.com/channels/111222333/444555666">'
+                in html_content
+            )
 
     @pytest.mark.asyncio
     async def test_send_notification_respects_email_disabled(self, test_user):

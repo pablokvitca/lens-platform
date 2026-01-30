@@ -48,24 +48,24 @@ def fix_markdown_spacing(content: str) -> tuple[str, list[str]]:
     # This avoids matching things like **  ** (just spaces)
 
     # **bold**letter → **bold** letter (bold followed by word char)
-    pattern = r'(\*\*[^*\n]*\w[^*\n]*\*\*)([a-zA-Z])'
+    pattern = r"(\*\*[^*\n]*\w[^*\n]*\*\*)([a-zA-Z])"
     matches = re.findall(pattern, result)
     if matches:
-        result = re.sub(pattern, r'\1 \2', result)
+        result = re.sub(pattern, r"\1 \2", result)
         changes.append(f"Added space after bold ({len(matches)}x)")
 
     # letter**bold** → letter **bold** (word char followed by bold)
-    pattern = r'([a-zA-Z])(\*\*[^*\n]*\w[^*\n]*\*\*)'
+    pattern = r"([a-zA-Z])(\*\*[^*\n]*\w[^*\n]*\*\*)"
     matches = re.findall(pattern, result)
     if matches:
-        result = re.sub(pattern, r'\1 \2', result)
+        result = re.sub(pattern, r"\1 \2", result)
         changes.append(f"Added space before bold ({len(matches)}x)")
 
     # punctuation**bold** → punctuation **bold**
-    pattern = r'([,.:;)\]])(\*\*[^*\n]*\w[^*\n]*\*\*)'
+    pattern = r"([,.:;)\]])(\*\*[^*\n]*\w[^*\n]*\*\*)"
     matches = re.findall(pattern, result)
     if matches:
-        result = re.sub(pattern, r'\1 \2', result)
+        result = re.sub(pattern, r"\1 \2", result)
         changes.append(f"Added space after punctuation before bold ({len(matches)}x)")
 
     # === Italic spacing (single asterisk) ===
@@ -76,32 +76,32 @@ def fix_markdown_spacing(content: str) -> tuple[str, list[str]]:
     # *italic*letter → *italic* letter
     # Match: asterisk, word char, optional more content, asterisk, letter
     # Use negative lookbehind to avoid matching ** (bold)
-    pattern = r'(?<!\*)(\*\w[^*\n]*\*)([a-zA-Z])'
+    pattern = r"(?<!\*)(\*\w[^*\n]*\*)([a-zA-Z])"
     matches = re.findall(pattern, result)
     if matches:
-        result = re.sub(pattern, r'\1 \2', result)
+        result = re.sub(pattern, r"\1 \2", result)
         changes.append(f"Added space after italic ({len(matches)}x)")
 
     # letter*italic* → letter *italic*
     # Content must start with word char
-    pattern = r'([a-zA-Z])(\*\w[^*\n]*\*)(?!\*)'
+    pattern = r"([a-zA-Z])(\*\w[^*\n]*\*)(?!\*)"
     matches = re.findall(pattern, result)
     if matches:
-        result = re.sub(pattern, r'\1 \2', result)
+        result = re.sub(pattern, r"\1 \2", result)
         changes.append(f"Added space before italic ({len(matches)}x)")
 
     # punctuation*italic* → punctuation *italic*
     # Add space after comma, period, colon, semicolon, closing paren/bracket when followed by italic
-    pattern = r'([,.:;)\]])(\*\w[^*\n]*\*)(?!\*)'
+    pattern = r"([,.:;)\]])(\*\w[^*\n]*\*)(?!\*)"
     matches = re.findall(pattern, result)
     if matches:
-        result = re.sub(pattern, r'\1 \2', result)
+        result = re.sub(pattern, r"\1 \2", result)
         changes.append(f"Added space after punctuation before italic ({len(matches)}x)")
 
     # === Fix double-spacing that might result from above ===
     if "  " in result:
         old_count = result.count("  ")
-        result = re.sub(r'  +', ' ', result)
+        result = re.sub(r"  +", " ", result)
         new_count = result.count("  ")
         if old_count != new_count:
             changes.append(f"Collapsed double spaces ({old_count - new_count}x)")
@@ -109,7 +109,9 @@ def fix_markdown_spacing(content: str) -> tuple[str, list[str]]:
     return result, changes
 
 
-def process_file(input_path: Path, output_path: Path | None = None) -> tuple[Path, list[str]]:
+def process_file(
+    input_path: Path, output_path: Path | None = None
+) -> tuple[Path, list[str]]:
     """
     Process a single file.
 
@@ -146,10 +148,13 @@ def main():
             sys.exit(1)
 
         # Process all .md files (excluding already-fixed ones)
-        md_files = [f for f in directory.glob("*.md")
-                    if not f.stem.endswith("_fixed")
-                    and not f.stem.endswith("_cleaned")
-                    and not f.stem.endswith("_llm_cleanup")]
+        md_files = [
+            f
+            for f in directory.glob("*.md")
+            if not f.stem.endswith("_fixed")
+            and not f.stem.endswith("_cleaned")
+            and not f.stem.endswith("_llm_cleanup")
+        ]
 
         if not md_files:
             print(f"No markdown files found in {directory}")

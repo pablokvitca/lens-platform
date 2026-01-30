@@ -32,6 +32,7 @@ from core.timezone import format_datetime_in_timezone
 # Test timezone (simulate a user in Amsterdam)
 TEST_TIMEZONE = "Europe/Amsterdam"
 
+
 # Create a sample meeting time (next Wednesday at 15:00 UTC)
 def get_sample_meeting_time() -> str:
     """Get a sample meeting datetime formatted in the test timezone."""
@@ -114,13 +115,13 @@ def send_test_email(to_email: str, message_type: str, contexts: dict) -> bool:
     # Add [TEST] prefix to subject
     subject = f"[TEST] {subject}"
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Sending: {message_type}")
     print(f"To: {to_email}")
     print(f"Subject: {subject}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(body[:500] + "..." if len(body) > 500 else body)
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     result = send_email(to_email, subject, body)
     print(f"Result: {'✓ Sent' if result else '✗ Failed'}")
@@ -144,7 +145,7 @@ def main():
     for msg_type in message_types:
         results[msg_type] = send_test_email(to_email, msg_type, contexts)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Summary:")
     for msg_type, success in results.items():
         status = "✓" if success else "✗"

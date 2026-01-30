@@ -65,7 +65,9 @@ async def main():
 
     if not database_url:
         print("Error: DATABASE_URL environment variable not set")
-        print("Usage: python scripts/fix_discord_usernames.py <database_url> [--dry-run]")
+        print(
+            "Usage: python scripts/fix_discord_usernames.py <database_url> [--dry-run]"
+        )
         sys.exit(1)
 
     # Convert to async URL if needed
@@ -176,7 +178,9 @@ async def main():
                     if not dry_run:
                         # Each update in its own transaction - commits immediately
                         async with engine.begin() as conn:
-                            await update_discord_username(conn, user_id, actual_username)
+                            await update_discord_username(
+                                conn, user_id, actual_username
+                            )
                         stats["updated"] += 1
                     else:
                         stats["updated"] += 1  # Count what would be updated
