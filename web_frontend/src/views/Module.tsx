@@ -250,17 +250,29 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
 
     const slug = getSectionSlug(currentSection, currentSectionIndex);
     const newHash = `#${slug}`;
+    const currentHash = window.location.hash;
 
-    // Only update if hash is different
-    if (window.location.hash !== newHash) {
-      if (isInitialLoad.current) {
-        // Initial load or hash navigation - use replaceState
-        window.history.replaceState(null, "", `${window.location.pathname}${newHash}`);
-        isInitialLoad.current = false;
-      } else {
-        // User clicked navigation - use pushState for back button support
-        window.history.pushState(null, "", `${window.location.pathname}${newHash}`);
+    // On initial load, check if URL hash points to a different section
+    // If so, wait for hash parsing effect to update state before touching URL
+    if (isInitialLoad.current) {
+      const hashSectionIndex = currentHash
+        ? findSectionBySlug(module.sections, currentHash.slice(1))
+        : -1;
+      if (hashSectionIndex !== -1 && hashSectionIndex !== currentSectionIndex) {
+        // URL hash resolves to a different section - state hasn't caught up yet
+        return;
       }
+      // Hash matches current state (or no hash) - use replaceState, not pushState
+      if (currentHash !== newHash) {
+        window.history.replaceState(null, "", `${window.location.pathname}${newHash}`);
+      }
+      isInitialLoad.current = false;
+      return;
+    }
+
+    // Normal user navigation - use pushState for back button support
+    if (currentHash !== newHash) {
+      window.history.pushState(null, "", `${window.location.pathname}${newHash}`);
     }
   }, [module, currentSectionIndex]);
 
