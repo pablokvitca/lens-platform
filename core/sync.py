@@ -1157,6 +1157,65 @@ async def sync_group_rsvps(group_id: int) -> dict:
     )
 
 
+async def sync_all_group_rsvps() -> dict:
+    """
+    Sync RSVPs for all groups that have recurring calendar events.
+
+    Call this periodically (e.g., every 6 hours) to keep RSVPs current.
+
+    Returns:
+        Dict with sync statistics:
+        {
+            "groups_synced": int,
+            "groups_skipped": int,
+            "groups_failed": int,
+            "total_rsvps_updated": int,
+        }
+    """
+    from .database import get_connection
+    from .tables import groups
+    from sqlalchemy import select
+
+    result = {
+        "groups_synced": 0,
+        "groups_skipped": 0,
+        "groups_failed": 0,
+        "total_rsvps_updated": 0,
+    }
+
+    async with get_connection() as conn:
+        # Get all groups with recurring calendar events
+        query_result = await conn.execute(
+            select(groups.c.group_id, groups.c.gcal_recurring_event_id).where(
+                groups.c.gcal_recurring_event_id.isnot(None)
+            )
+        )
+        group_rows = list(query_result.mappings())
+
+    for group_row in group_rows:
+        try:
+            sync_result = await sync_group_rsvps(group_row["group_id"])
+            if "error" in sync_result:
+                result["groups_failed"] += 1
+                logger.warning(
+                    f"Failed to sync RSVPs for group {group_row['group_id']}: "
+                    f"{sync_result.get('error')}"
+                )
+            else:
+                result["groups_synced"] += 1
+                result["total_rsvps_updated"] += sync_result.get("rsvps_updated", 0)
+        except Exception as e:
+            result["groups_failed"] += 1
+            logger.error(f"Error syncing RSVPs for group {group_row['group_id']}: {e}")
+            sentry_sdk.capture_exception(e)
+
+    logger.info(
+        f"RSVP sync complete: {result['groups_synced']} groups synced, "
+        f"{result['total_rsvps_updated']} RSVPs updated"
+    )
+    return result
+
+
 async def sync_group(group_id: int, allow_create: bool = False) -> dict[str, Any]:
     """
     Sync all external systems for a group.
