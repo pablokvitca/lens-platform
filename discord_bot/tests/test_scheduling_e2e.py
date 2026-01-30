@@ -35,6 +35,7 @@ from .helpers import (
 from core.queries.groups import add_user_to_group
 from core.tables import cohorts, users, signups, groups, groups_users
 from core.modules.course_loader import load_course
+from core.discord_outbound import set_bot
 
 
 # Load environment (.env first, then .env.local overrides)
@@ -74,6 +75,9 @@ async def bot():
         await asyncio.sleep(0.5)
     else:
         pytest.fail("Bot did not connect in time")
+
+    # Register bot with core's global singleton so sync functions can use it
+    set_bot(bot)
 
     yield bot
 
@@ -171,7 +175,7 @@ async def committed_db_conn():
     """
     Provide a DB connection that COMMITS data for E2E tests.
 
-    realize_groups uses get_connection() and get_transaction() internally which
+    realize_cohort uses get_connection() and get_transaction() internally which
     create separate connections, so test data must be committed to be visible.
     This fixture cleans up all created data after the test.
 
@@ -179,12 +183,16 @@ async def committed_db_conn():
         async def test_something(self, committed_db_conn):
             conn, user_ids, cohort_ids, commit = committed_db_conn
             # ... create data ...
-            await commit()  # Commit before calling realize_groups
+            await commit()  # Commit before calling realize_cohort
             # ... call cog method ...
     """
     load_dotenv(".env.local")
 
     from core.database import get_engine, close_engine
+
+    # Close any existing engine from previous tests to avoid event loop mismatch
+    # The singleton engine may have been created in a different test's event loop
+    await close_engine()
 
     engine = get_engine()
 
@@ -244,27 +252,8 @@ async def committed_db_conn():
 
 
 class TestRealizeGroupsE2E:
-    """E2E tests for /realize-groups command."""
+    """E2E tests for /realize-cohort command."""
 
-    @pytest.mark.skip(
-        reason="""
-        Event loop mismatch between test fixture and core functions.
-
-        This E2E test uses committed_db_conn fixture which relies on the singleton
-        database engine. When run in a test suite with other tests, the singleton
-        engine gets created in a different event loop, causing asyncpg failures.
-
-        The test passes when run in isolation:
-            pytest discord_bot/tests/test_scheduling_e2e.py -v
-
-        This is the same underlying issue as other skipped tests - core functions
-        use get_transaction()/get_connection() which access the singleton engine
-        rather than accepting a connection parameter.
-
-        The test validates Discord channel creation and database persistence for
-        the /realize-groups command. This functionality works in production.
-        """
-    )
     @pytest.mark.asyncio
     async def test_realize_groups_full_flow(
         self,
@@ -275,7 +264,7 @@ class TestRealizeGroupsE2E:
         cleanup_channels,
     ):
         """
-        Comprehensive E2E test for /realize-groups command.
+        Comprehensive E2E test for /realize-cohort command.
 
         Verifies:
         1. Discord category and channels are created
@@ -313,10 +302,10 @@ class TestRealizeGroupsE2E:
         # === EXECUTE ===
         cog = GroupsCog(bot)
         interaction = FakeInteraction(guild, test_channel)
-        await cog.realize_groups.callback(cog, interaction, cohort["cohort_id"])
+        await cog.realize_cohort.callback(cog, interaction, cohort["cohort_id"])
 
         # === GET CREATED CATEGORY FROM DATABASE ===
-        # Fetch the category ID that realize_groups saved to DB, then get the Discord category
+        # Fetch the category ID that realize_cohort saved to DB, then get the Discord category
         # This avoids issues with leftover categories from previous runs with the same name
         from core.database import get_connection as get_conn_for_category
 
@@ -330,7 +319,7 @@ class TestRealizeGroupsE2E:
             category_id = row[0] if row else None
 
         assert category_id is not None, (
-            "Category ID not saved to cohort after realize_groups"
+            "Category ID not saved to cohort after realize_cohort"
         )
         category = await guild.fetch_channel(int(category_id))
         assert category is not None, (
@@ -464,7 +453,7 @@ class TestRealizeGroupsE2E:
         )
 
         # === VERIFY: Idempotency (running again doesn't create duplicates) ===
-        await cog.realize_groups.callback(cog, interaction, cohort["cohort_id"])
+        await cog.realize_cohort.callback(cog, interaction, cohort["cohort_id"])
 
         # Check no duplicate categories
         matching_categories = [
