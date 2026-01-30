@@ -138,6 +138,8 @@ groups = Table(
     Column("expected_end_date", Date),
     Column("actual_end_date", Date),
     Column("discord_channel_archived_at", TIMESTAMP(timezone=True)),
+    Column("gcal_recurring_event_id", Text),
+    Column("calendar_invite_sent_at", TIMESTAMP(timezone=True)),
     Column("created_at", TIMESTAMP(timezone=True), server_default=func.now()),
     Column("updated_at", TIMESTAMP(timezone=True), server_default=func.now()),
     Index("idx_groups_cohort_id", "cohort_id"),
