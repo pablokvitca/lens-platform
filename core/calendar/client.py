@@ -272,3 +272,51 @@ def batch_patch_events(
 
     batch.execute()
     return results
+
+
+def batch_delete_events(event_ids: list[str]) -> dict[str, dict] | None:
+    """
+    Delete multiple calendar events in a single batch request.
+
+    Args:
+        event_ids: List of Google Calendar event IDs to delete
+
+    Returns:
+        Dict mapping event_id -> {"success": bool, "error": str | None},
+        or None if calendar not configured.
+    """
+    if not event_ids:
+        return {}
+
+    service = get_calendar_service()
+    if not service:
+        return None
+
+    calendar_id = get_calendar_email()
+    results: dict[str, dict] = {}
+
+    def callback(request_id: str, response, exception):
+        if exception:
+            _log_calendar_error(
+                exception,
+                operation="batch_delete_events",
+                context={"event_id": request_id},
+            )
+            results[request_id] = {"success": False, "error": str(exception)}
+        else:
+            results[request_id] = {"success": True, "error": None}
+
+    batch = service.new_batch_http_request()
+    for event_id in event_ids:
+        batch.add(
+            service.events().delete(
+                calendarId=calendar_id,
+                eventId=event_id,
+                sendUpdates="none",  # Don't notify - these are being replaced
+            ),
+            callback=callback,
+            request_id=event_id,
+        )
+
+    batch.execute()
+    return results
