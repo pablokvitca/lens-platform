@@ -913,159 +913,170 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
 
 async def sync_group_calendar(group_id: int) -> dict:
     """
-    Sync calendar events for all future meetings of a group.
+    Sync calendar for a group using recurring events.
 
-    Handles both creation and updates in one unified function:
-    1. Fetches all future meetings from DB
-    2. Batch CREATES events for meetings without calendar IDs
-    3. Batch GETS existing events to check attendees
-    4. Batch PATCHES events with attendee changes
+    Idempotent and self-healing:
+    - Creates recurring event if none exists
+    - Recreates if event was deleted in Google Calendar
+    - Patches attendees if changed
+    - Uses row locking to prevent duplicate event creation
 
-    Returns dict with counts.
+    Returns dict with sync results.
     """
-    from .database import get_connection, get_transaction
+    import asyncio
+    from .database import get_transaction
     from .tables import meetings, groups
-    from .calendar.client import (
-        batch_create_events,
-        batch_get_events,
-        batch_patch_events,
-    )
+    from .calendar.events import create_recurring_event
+    from .calendar.client import batch_get_events, batch_patch_events
     from datetime import datetime, timezone
     from sqlalchemy import select, update
 
-    async with get_connection() as conn:
-        now = datetime.now(timezone.utc)
+    result = {
+        "meetings": 0,
+        "created_recurring": False,
+        "recurring_event_id": None,
+        "patched": 0,
+        "failed": 0,
+    }
 
-        # Get all future meetings with group info
-        meetings_result = await conn.execute(
+    # Use transaction with row lock to prevent race conditions.
+    # CRITICAL: The SELECT FOR UPDATE lock is essential here - it prevents two concurrent
+    # sync operations from both seeing gcal_recurring_event_id=None and creating duplicate
+    # recurring events. The lock is held until the transaction commits.
+    async with get_transaction() as conn:
+        # Lock the group row to prevent concurrent event creation
+        group_result = await conn.execute(
             select(
-                meetings.c.meeting_id,
-                meetings.c.google_calendar_event_id,
-                meetings.c.scheduled_at,
+                groups.c.group_id,
                 groups.c.group_name,
+                groups.c.gcal_recurring_event_id,
+                groups.c.cohort_id,
             )
-            .join(groups, meetings.c.group_id == groups.c.group_id)
-            .where(meetings.c.group_id == group_id)
-            .where(meetings.c.scheduled_at > now)
+            .where(groups.c.group_id == group_id)
+            .with_for_update()
         )
-        meeting_rows = list(meetings_result.mappings())
+        group = group_result.mappings().first()
 
-        if not meeting_rows:
-            return {
-                "meetings": 0,
-                "created": 0,
-                "patched": 0,
-                "unchanged": 0,
-                "failed": 0,
-            }
+        if not group:
+            return {"error": "group_not_found", **result}
 
         # Get expected attendees
         expected_emails = await _get_group_member_emails(conn, group_id)
 
-    # Split meetings by whether they have calendar events
-    meetings_to_create = [m for m in meeting_rows if not m["google_calendar_event_id"]]
-    meetings_with_events = [m for m in meeting_rows if m["google_calendar_event_id"]]
+        if not expected_emails:
+            return {"error": "no_members", **result}
 
-    created = 0
-    patched = 0
-    failed = 0
+        # Get future meetings to determine first meeting and count
+        now = datetime.now(timezone.utc)
+        meetings_result = await conn.execute(
+            select(
+                meetings.c.meeting_id,
+                meetings.c.scheduled_at,
+                meetings.c.meeting_number,
+            )
+            .where(meetings.c.group_id == group_id)
+            .where(meetings.c.scheduled_at > now)
+            .order_by(meetings.c.scheduled_at)
+        )
+        meeting_rows = list(meetings_result.mappings())
 
-    # --- BATCH CREATE for meetings without calendar events ---
-    if meetings_to_create:
-        create_data = [
-            {
-                "meeting_id": m["meeting_id"],
-                "title": f"{m['group_name']} - Meeting",
-                "description": "Study group meeting",
-                "start": m["scheduled_at"],
-                "duration_minutes": 60,
-                "attendees": list(expected_emails),
-            }
-            for m in meetings_to_create
-        ]
+        if not meeting_rows:
+            return {"reason": "no_future_meetings", **result}
 
-        create_results = batch_create_events(create_data)
-        if create_results:
-            # Save new event IDs to database
-            async with get_transaction() as conn:
-                for meeting_id, result in create_results.items():
-                    if result["success"]:
-                        await conn.execute(
-                            update(meetings)
-                            .where(meetings.c.meeting_id == meeting_id)
-                            .values(google_calendar_event_id=result["event_id"])
-                        )
-                        created += 1
-                    else:
-                        failed += 1
-                        logger.error(
-                            f"Failed to create event for meeting {meeting_id}: {result['error']}"
-                        )
+        result["meetings"] = len(meeting_rows)
+        result["recurring_event_id"] = group["gcal_recurring_event_id"]
 
-    # --- BATCH GET + PATCH for existing events ---
-    if meetings_with_events:
-        event_ids = [m["google_calendar_event_id"] for m in meetings_with_events]
+        # --- Check if existing event still exists in Google Calendar ---
+        events = None  # Initialize for use in PATCH section below
+        if group["gcal_recurring_event_id"]:
+            events = await asyncio.to_thread(
+                batch_get_events, [group["gcal_recurring_event_id"]]
+            )
 
-        # Batch fetch current attendees
-        events = batch_get_events(event_ids)
-        if events is None:
-            return {
-                "meetings": len(meeting_rows),
-                "created": created,
-                "patched": 0,
-                "unchanged": 0,
-                "failed": failed,
-                "error": "calendar_unavailable",
-            }
+            if events is None:
+                # Calendar service not configured
+                return {"error": "calendar_unavailable", **result}
 
-        # Calculate which events need updates
-        updates_to_make = []
-        for event_id in event_ids:
-            if event_id not in events:
-                failed += 1
-                continue
+            # Note: batch_get_events returns {} if event not found (vs None if service unavailable)
+            if group["gcal_recurring_event_id"] not in events:
+                # Event was deleted in Google Calendar - clear and recreate
+                logger.warning(
+                    f"Recurring event {group['gcal_recurring_event_id']} not found, "
+                    f"clearing and recreating for group {group_id}"
+                )
+                await conn.execute(
+                    update(groups)
+                    .where(groups.c.group_id == group_id)
+                    .values(gcal_recurring_event_id=None, calendar_invite_sent_at=None)
+                )
+                # Fall through to creation logic below
+                group = {**group, "gcal_recurring_event_id": None}
 
-            event = events[event_id]
-            current_emails = {
-                a.get("email", "").lower()
-                for a in event.get("attendees", [])
-                if a.get("email")
-            }
+        # --- CREATE recurring event if none exists ---
+        if not group["gcal_recurring_event_id"]:
+            first_meeting = meeting_rows[0]["scheduled_at"]
+            num_meetings = len(meeting_rows)
 
-            to_add = expected_emails - current_emails
-            to_remove = current_emails - expected_emails
+            event_id = await create_recurring_event(
+                title=f"{group['group_name']} - Weekly Meeting",
+                description="AI Safety study group meeting",
+                first_meeting=first_meeting,
+                duration_minutes=60,
+                num_occurrences=num_meetings,
+                attendee_emails=list(expected_emails),
+            )
 
-            if to_add or to_remove:
-                new_attendees = [
-                    {"email": email} for email in (current_emails | to_add) - to_remove
-                ]
-                updates_to_make.append(
+            if event_id:
+                await conn.execute(
+                    update(groups)
+                    .where(groups.c.group_id == group_id)
+                    .values(
+                        gcal_recurring_event_id=event_id,
+                        calendar_invite_sent_at=datetime.now(timezone.utc),
+                    )
+                )
+                result["created_recurring"] = True
+                result["recurring_event_id"] = event_id
+            else:
+                result["failed"] = 1
+                result["error"] = "calendar_create_failed"
+
+            return result
+
+        # --- PATCH existing recurring event if attendees changed ---
+        event_id = group["gcal_recurring_event_id"]
+        event_data = events[event_id]
+
+        current_emails = {
+            a.get("email", "").lower()
+            for a in event_data.get("attendees", [])
+            if a.get("email")
+        }
+
+        to_add = expected_emails - current_emails
+        to_remove = current_emails - expected_emails
+
+        if to_add or to_remove:
+            new_attendees = [
+                {"email": email} for email in (current_emails | to_add) - to_remove
+            ]
+            patch_results = await asyncio.to_thread(
+                batch_patch_events,
+                [
                     {
                         "event_id": event_id,
                         "body": {"attendees": new_attendees},
                         "send_updates": "all" if to_add else "none",
                     }
-                )
+                ],
+            )
 
-        # Batch patch
-        if updates_to_make:
-            patch_results = batch_patch_events(updates_to_make)
-            if patch_results:
-                for event_id, result in patch_results.items():
-                    if result["success"]:
-                        patched += 1
-                    else:
-                        failed += 1
+            if patch_results and patch_results.get(event_id, {}).get("success"):
+                result["patched"] = 1
+            else:
+                result["failed"] = 1
 
-    unchanged = len(meeting_rows) - created - patched - failed
-
-    return {
-        "meetings": len(meeting_rows),
-        "created": created,
-        "patched": patched,
-        "unchanged": unchanged,
-        "failed": failed,
-    }
+        return result
 
 
 async def _get_group_member_emails(conn, group_id: int) -> set[str]:
