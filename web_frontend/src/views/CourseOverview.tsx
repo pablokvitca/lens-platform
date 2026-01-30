@@ -88,10 +88,10 @@ export default function CourseOverview({
     });
   };
 
-  // Compute completedStages and viewingIndex for ModuleOverview
-  const { completedStages, viewingIndex } = useMemo(() => {
+  // Compute completedStages and currentSectionIndex for ModuleOverview
+  const { completedStages, currentSectionIndex } = useMemo(() => {
     if (!selectedModule) {
-      return { completedStages: new Set<number>(), viewingIndex: 0 };
+      return { completedStages: new Set<number>(), currentSectionIndex: 0 };
     }
     const completed = new Set<number>();
 
@@ -106,7 +106,7 @@ export default function CourseOverview({
       // Viewing index: first non-completed stage, or last stage if all complete
       let viewIdx = selectedModule.stages.findIndex((s) => !s.completed);
       if (viewIdx === -1) viewIdx = selectedModule.stages.length - 1;
-      return { completedStages: completed, viewingIndex: viewIdx };
+      return { completedStages: completed, currentSectionIndex: viewIdx };
     }
 
     // Fallback to legacy logic (currentStageIndex-based)
@@ -123,7 +123,7 @@ export default function CourseOverview({
     }
     // For "not_started", completed stays empty
 
-    return { completedStages: completed, viewingIndex: currentIdx };
+    return { completedStages: completed, currentSectionIndex: currentIdx };
   }, [selectedModule]);
 
   // Handle module selection (closes sidebar on mobile)
@@ -314,7 +314,7 @@ export default function CourseOverview({
               stages={selectedModule.stages}
               status={selectedModule.status}
               completedStages={completedStages}
-              viewingIndex={viewingIndex}
+              currentSectionIndex={currentSectionIndex}
               onStageClick={handleStageClick}
               onStartModule={handleStartModule}
               completedLenses={selectedModule.completedLenses}

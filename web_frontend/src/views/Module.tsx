@@ -49,36 +49,7 @@ import {
 } from "@/analytics";
 import { Skeleton, SkeletonText } from "@/components/Skeleton";
 import { getSectionSlug, findSectionBySlug } from "@/utils/sectionSlug";
-
-// Helper to get total text length for a section (for smart button text)
-function getSectionTextLength(section: ModuleSection): number {
-  if (section.type === "text") {
-    return section.content.length;
-  }
-  if (section.type === "page") {
-    return (
-      section.segments
-        ?.filter((s): s is { type: "text"; content: string } => s.type === "text")
-        .reduce((acc, s) => acc + s.content.length, 0) ?? 0
-    );
-  }
-  // Video/article sections have embedded content - not considered "short"
-  return Infinity;
-}
-
-// Determine completion button text based on section type and length
-function getCompletionButtonText(
-  section: ModuleSection,
-  sectionIndex: number,
-): string {
-  const isTextOrPage = section.type === "text" || section.type === "page";
-  if (!isTextOrPage) return "Mark section complete";
-
-  const isShort = getSectionTextLength(section) < 1500;
-  if (!isShort) return "Mark section complete";
-
-  return sectionIndex === 0 ? "Get started" : "Continue";
-}
+import { getCompletionButtonText } from "@/utils/completionButtonText";
 
 interface ModuleProps {
   courseId: string;
@@ -246,19 +217,16 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       if (!hash) {
         // No hash - go to first section
         setCurrentSectionIndex(0);
-        setViewingStageIndex(null);
         return;
       }
 
       const sectionIndex = findSectionBySlug(module.sections, hash);
       if (sectionIndex !== -1) {
         setCurrentSectionIndex(sectionIndex);
-        setViewingStageIndex(null);
       } else {
         // Invalid hash - strip it and go to first section
         window.history.replaceState(null, "", window.location.pathname);
         setCurrentSectionIndex(0);
-        setViewingStageIndex(null);
       }
     };
 
@@ -376,11 +344,6 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
     }
     wasAuthenticated.current = isAuthenticated;
   }, [isAuthenticated, anonymousToken, moduleId, updateCompletedFromLenses]);
-
-  // For stage navigation (viewing non-current section)
-  const [viewingStageIndex, setViewingStageIndex] = useState<number | null>(
-    null,
-  );
 
   // Module completion modal state
   const [moduleCompletionResult, setModuleCompletionResult] =
@@ -751,9 +714,8 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
         // Paginated: just update the index (render handles the rest)
         setCurrentSectionIndex(index);
       }
-      setViewingStageIndex(index === currentSectionIndex ? null : index);
     },
-    [currentSectionIndex, viewMode],
+    [viewMode],
   );
 
   const handlePrevious = useCallback(() => {
@@ -762,7 +724,6 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       handleStageClick(prevIndex);
     } else {
       setCurrentSectionIndex(prevIndex);
-      setViewingStageIndex(null);
     }
   }, [currentSectionIndex, viewMode, handleStageClick]);
 
@@ -776,7 +737,6 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       handleStageClick(nextIndex);
     } else {
       setCurrentSectionIndex(nextIndex);
-      setViewingStageIndex(null);
     }
   }, [currentSectionIndex, module, viewMode, handleStageClick]);
 
@@ -820,7 +780,6 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
           handleStageClick(nextIndex);
         } else {
           setCurrentSectionIndex(nextIndex);
-          setViewingStageIndex(null);
         }
       }
     },
@@ -974,7 +933,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
           moduleTitle={module.title}
           stages={stages}
           completedStages={completedSections}
-          viewingIndex={viewingStageIndex ?? currentSectionIndex}
+          currentSectionIndex={currentSectionIndex}
           canGoPrevious={currentSectionIndex > 0}
           canGoNext={currentSectionIndex < module.sections.length - 1}
           onStageClick={handleStageClick}
@@ -1257,7 +1216,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
         moduleTitle={module.title}
         stages={stagesForDrawer}
         completedStages={completedSections}
-        viewingIndex={viewingStageIndex ?? currentSectionIndex}
+        currentSectionIndex={currentSectionIndex}
         onStageClick={handleStageClick}
       />
 

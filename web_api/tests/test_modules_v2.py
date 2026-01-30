@@ -25,7 +25,7 @@ def mock_flattened_cache():
                     {
                         "type": "page",
                         "contentId": "00000000-0000-0000-0000-000000000002",
-                        "title": "Welcome",
+                        "meta": {"title": "Welcome"},
                         "segments": [{"type": "text", "content": "Hello"}],
                     },
                     {
@@ -81,7 +81,7 @@ def test_get_module_returns_flattened_sections(mock_flattened_cache):
     page_section = data["sections"][0]
     assert page_section["type"] == "page"
     assert page_section["contentId"] == "00000000-0000-0000-0000-000000000002"
-    assert page_section["title"] == "Welcome"
+    assert page_section["meta"]["title"] == "Welcome"
     assert page_section["segments"] == [{"type": "text", "content": "Hello"}]
 
     # Second section is a video with learningOutcomeId

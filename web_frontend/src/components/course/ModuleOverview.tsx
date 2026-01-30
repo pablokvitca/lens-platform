@@ -16,7 +16,7 @@ type ModuleOverviewProps = {
   stages: StageInfo[];
   status: ModuleStatus;
   completedStages: Set<number>;
-  viewingIndex: number;
+  currentSectionIndex: number;
   onStageClick?: (index: number) => void;
   onStartModule?: () => void;
   showActions?: boolean;
@@ -30,7 +30,7 @@ export default function ModuleOverview({
   stages,
   status,
   completedStages,
-  viewingIndex,
+  currentSectionIndex,
   onStageClick,
   onStartModule,
   showActions = true,
@@ -93,10 +93,10 @@ export default function ModuleOverview({
           <div className="absolute left-[1.125rem] top-5 bottom-5 w-0.5 -translate-x-1/2 bg-gray-200" />
           {/* Blue line: up to highest completed, or to viewing if adjacent to completed */}
           {(() => {
-            const viewingIsAdjacent = completedStages.has(viewingIndex - 1);
+            const viewingIsAdjacent = completedStages.has(currentSectionIndex - 1);
             const blueEndIndex =
-              viewingIsAdjacent && viewingIndex > highestCompleted
-                ? viewingIndex
+              viewingIsAdjacent && currentSectionIndex > highestCompleted
+                ? currentSectionIndex
                 : highestCompleted;
 
             if (blueEndIndex < 0) return null;
@@ -111,8 +111,8 @@ export default function ModuleOverview({
             );
           })()}
           {/* Dark gray line from blue end to viewing (if viewing is beyond and not adjacent) */}
-          {viewingIndex > highestCompleted &&
-            !completedStages.has(viewingIndex - 1) && (
+          {currentSectionIndex > highestCompleted &&
+            !completedStages.has(currentSectionIndex - 1) && (
               <div
                 className="absolute left-[1.125rem] w-0.5 -translate-x-1/2 bg-gray-400 transition-all duration-300"
                 style={{
@@ -120,7 +120,7 @@ export default function ModuleOverview({
                     highestCompleted >= 0
                       ? `calc(${((highestCompleted + 0.5) / stages.length) * 100}%)`
                       : "1.25rem",
-                  height: `calc(${((viewingIndex - Math.max(highestCompleted, -0.5)) / stages.length) * 100}%)`,
+                  height: `calc(${((currentSectionIndex - Math.max(highestCompleted, -0.5)) / stages.length) * 100}%)`,
                 }}
               />
             )}
@@ -129,7 +129,7 @@ export default function ModuleOverview({
           <div className="space-y-2">
             {stages.map((stage, index) => {
               const isCompleted = completedStages.has(index);
-              const isViewing = index === viewingIndex;
+              const isViewing = index === currentSectionIndex;
               const isClickable = onStageClick && stage.type !== "chat";
 
               const fillClasses = getCircleFillClasses(

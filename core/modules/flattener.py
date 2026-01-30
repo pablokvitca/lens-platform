@@ -144,7 +144,7 @@ def _flatten_page(page: PageSection) -> dict:
     return {
         "type": "page",
         "contentId": str(page.content_id) if page.content_id else None,
-        "title": page.title,
+        "meta": {"title": page.title},
         "segments": segments,
     }
 

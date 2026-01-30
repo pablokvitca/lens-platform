@@ -364,10 +364,11 @@ async def fetch_all_content() -> ContentCache:
         )
 
         # Fetch and parse courses
+        # Use ref=commit_sha to bypass GitHub's 5-minute CDN cache
         courses: dict[str, ParsedCourse] = {}
         for path in course_files:
             if path.endswith(".md"):
-                content = await _fetch_file_with_client(client, path)
+                content = await _fetch_file_with_client(client, path, ref=commit_sha)
                 parsed = parse_course(content)
                 courses[parsed.slug] = parsed
 
@@ -375,14 +376,14 @@ async def fetch_all_content() -> ContentCache:
         articles: dict[str, str] = {}
         for path in article_files:
             if path.endswith(".md"):
-                content = await _fetch_file_with_client(client, path)
+                content = await _fetch_file_with_client(client, path, ref=commit_sha)
                 articles[path] = content
 
         # Fetch video transcripts (raw markdown for metadata extraction)
         video_transcripts: dict[str, str] = {}
         for path in transcript_files:
             if path.endswith(".md"):
-                content = await _fetch_file_with_client(client, path)
+                content = await _fetch_file_with_client(client, path, ref=commit_sha)
                 video_transcripts[path] = content
 
         # Fetch video timestamps (.timestamps.json files for transcript lookup)
@@ -391,7 +392,7 @@ async def fetch_all_content() -> ContentCache:
         for path in transcript_files:
             if path.endswith(".timestamps.json"):
                 try:
-                    content = await _fetch_file_with_client(client, path)
+                    content = await _fetch_file_with_client(client, path, ref=commit_sha)
                     timestamps_data = json.loads(content)
 
                     # Find corresponding .md file to get video_id from frontmatter
@@ -432,7 +433,7 @@ async def fetch_all_content() -> ContentCache:
         parsed_learning_outcomes: dict[str, ParsedLearningOutcome] = {}
         for path in learning_outcome_files:
             if path.endswith(".md"):
-                content = await _fetch_file_with_client(client, path)
+                content = await _fetch_file_with_client(client, path, ref=commit_sha)
                 try:
                     parsed = parse_learning_outcome(content)
                     stem = extract_filename_stem(path)
@@ -445,7 +446,7 @@ async def fetch_all_content() -> ContentCache:
         parsed_lenses: dict[str, ParsedLens] = {}
         for path in lens_files:
             if path.endswith(".md"):
-                content = await _fetch_file_with_client(client, path)
+                content = await _fetch_file_with_client(client, path, ref=commit_sha)
                 try:
                     parsed = parse_lens(content)
                     stem = extract_filename_stem(path)
@@ -457,7 +458,7 @@ async def fetch_all_content() -> ContentCache:
         raw_modules: dict[str, ParsedModule] = {}
         for path in module_files:
             if path.endswith(".md"):
-                content = await _fetch_file_with_client(client, path)
+                content = await _fetch_file_with_client(client, path, ref=commit_sha)
                 try:
                     parsed = parse_module(content)
                     raw_modules[parsed.slug] = parsed

@@ -31,7 +31,7 @@ export function getCompletionButtonText(
   const isTextOrPage = section.type === "text" || section.type === "page";
   if (!isTextOrPage) return "Mark section complete";
 
-  const isShort = getSectionTextLength(section) < 1500;
+  const isShort = getSectionTextLength(section) < 1750;
   if (!isShort) return "Mark section complete";
 
   return sectionIndex === 0 ? "Get started" : "Continue";
