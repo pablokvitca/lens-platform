@@ -101,6 +101,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
     async function load() {
       setLoadingModule(true);
       setLoadError(null);
+      wasCompleteOnLoad.current = false; // Reset when loading new module
       try {
         // Fetch module, course progress, and module progress in parallel
         const [moduleResult, courseResult, progressResult] = await Promise.all([
@@ -124,9 +125,10 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
           });
           setCompletedSections(completed);
 
-          // If module already complete, set flag
+          // If module already complete, set flag and mark as complete on load
           if (progressResult.status === "completed") {
             setApiConfirmedComplete(true);
+            wasCompleteOnLoad.current = true;
           }
         }
       } catch (e) {
@@ -262,6 +264,9 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
 
   // Analytics tracking ref
   const hasTrackedModuleStart = useRef(false);
+
+  // Track if module was already complete when page loaded (for suppressing modal on review)
+  const wasCompleteOnLoad = useRef(false);
 
   // View mode state (default to paginated)
   const [viewMode] = useState<ViewMode>("paginated");
@@ -1124,7 +1129,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
       />
 
       <ModuleCompleteModal
-        isOpen={isModuleComplete && !completionModalDismissed}
+        isOpen={isModuleComplete && !completionModalDismissed && !wasCompleteOnLoad.current}
         moduleTitle={module.title}
         courseId={courseContext?.courseId}
         isInSignupsTable={isInSignupsTable}
