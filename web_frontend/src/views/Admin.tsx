@@ -234,7 +234,7 @@ export default function Admin() {
     }
   };
 
-  // Realize all preview groups in cohort (Groups tab)
+  // Realize All Preview Groups in cohort (Groups tab)
   const handleRealizeCohort = async () => {
     if (!selectedCohortId) return;
 

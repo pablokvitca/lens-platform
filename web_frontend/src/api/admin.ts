@@ -175,7 +175,7 @@ export async function syncCohort(cohortId: number): Promise<SyncResult> {
 }
 
 /**
- * Realize all preview groups in a cohort.
+ * Realize All Preview Groups in a cohort.
  */
 export async function realizeCohort(cohortId: number): Promise<SyncResult> {
   const res = await fetch(`${API_URL}/api/admin/cohorts/${cohortId}/realize`, {
