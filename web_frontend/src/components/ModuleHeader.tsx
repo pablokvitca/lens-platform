@@ -9,7 +9,7 @@ interface ModuleHeaderProps {
   moduleTitle: string;
   stages: Stage[];
   completedStages: Set<number>;
-  viewingIndex: number;
+  currentSectionIndex: number;
   canGoPrevious: boolean;
   canGoNext: boolean;
   onStageClick: (index: number) => void;
@@ -21,7 +21,7 @@ export function ModuleHeader({
   moduleTitle,
   stages,
   completedStages,
-  viewingIndex,
+  currentSectionIndex,
   canGoPrevious,
   canGoNext,
   onStageClick,
@@ -35,7 +35,7 @@ export function ModuleHeader({
   const shouldHideHeader = scrollDirection === "down";
 
   // Current viewing position (1-indexed for display)
-  const displayIndex = viewingIndex + 1;
+  const displayIndex = currentSectionIndex + 1;
   const totalStages = stages.length;
 
   return (
@@ -100,7 +100,7 @@ export function ModuleHeader({
             <StageProgressBar
               stages={stages}
               completedStages={completedStages}
-              viewingIndex={viewingIndex}
+              currentSectionIndex={currentSectionIndex}
               onStageClick={onStageClick}
               onPrevious={onPrevious}
               onNext={onNext}

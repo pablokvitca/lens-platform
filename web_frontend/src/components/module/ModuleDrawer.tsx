@@ -13,7 +13,7 @@ type ModuleDrawerProps = {
   moduleTitle: string;
   stages: StageInfo[];
   completedStages: Set<number>;
-  viewingIndex: number;
+  currentSectionIndex: number;
   onStageClick: (index: number) => void;
 };
 
@@ -21,7 +21,7 @@ export default function ModuleDrawer({
   moduleTitle,
   stages,
   completedStages,
-  viewingIndex,
+  currentSectionIndex,
   onStageClick,
 }: ModuleDrawerProps) {
   // State is owned here - not in parent
@@ -110,7 +110,7 @@ export default function ModuleDrawer({
             stages={stages}
             status="in_progress"
             completedStages={completedStages}
-            viewingIndex={viewingIndex}
+            currentSectionIndex={currentSectionIndex}
             onStageClick={onStageClick}
             showActions={false}
           />

@@ -43,7 +43,7 @@ async def _ensure_cohort_category(cohort_id: int) -> dict:
         {"status": "existed"|"created"|"channel_missing"|"failed", "id": str|None, "error"?: str}
     """
     from .database import get_connection, get_transaction
-    from .discord_outbound import get_bot
+    from .discord_outbound import get_bot, get_or_fetch_channel
     from .tables import cohorts
     from .modules.course_loader import load_course
     from sqlalchemy import select, update
@@ -68,7 +68,7 @@ async def _ensure_cohort_category(cohort_id: int) -> dict:
 
     # Check if category already exists
     if cohort["discord_category_id"]:
-        category = _bot.get_channel(int(cohort["discord_category_id"]))
+        category = await get_or_fetch_channel(_bot, int(cohort["discord_category_id"]))
         if category:
             return {"status": "existed", "id": cohort["discord_category_id"]}
         else:
@@ -125,7 +125,7 @@ async def _ensure_group_channels(group_id: int, category) -> dict:
         }
     """
     from .database import get_connection, get_transaction
-    from .discord_outbound import get_bot
+    from .discord_outbound import get_bot, get_or_fetch_channel
     from .tables import groups
     from sqlalchemy import select, update
 
@@ -181,7 +181,9 @@ async def _ensure_group_channels(group_id: int, category) -> dict:
 
     # Check/create text channel
     if group["discord_text_channel_id"]:
-        text_channel = _bot.get_channel(int(group["discord_text_channel_id"]))
+        text_channel = await get_or_fetch_channel(
+            _bot, int(group["discord_text_channel_id"])
+        )
         if text_channel:
             result["text_channel"] = {
                 "status": "existed",
@@ -208,7 +210,9 @@ async def _ensure_group_channels(group_id: int, category) -> dict:
 
     # Check/create voice channel
     if group["discord_voice_channel_id"]:
-        voice_channel = _bot.get_channel(int(group["discord_voice_channel_id"]))
+        voice_channel = await get_or_fetch_channel(
+            _bot, int(group["discord_voice_channel_id"])
+        )
         if voice_channel:
             result["voice_channel"] = {
                 "status": "existed",
@@ -1679,7 +1683,7 @@ async def sync_group(group_id: int, allow_create: bool = False) -> dict[str, Any
         }
     """
     from .notifications.scheduler import schedule_sync_retry
-    from .discord_outbound import get_bot
+    from .discord_outbound import get_bot, get_or_fetch_channel
 
     _bot = get_bot()
     results: dict[str, Any] = {
@@ -1719,9 +1723,10 @@ async def sync_group(group_id: int, allow_create: bool = False) -> dict[str, Any
         results["infrastructure"]["category"] = category_result
 
         # Get category object for channel creation
+        # Use get_or_fetch_channel to handle newly created categories not yet in cache
         category = None
         if category_result.get("id") and _bot:
-            category = _bot.get_channel(int(category_result["id"]))
+            category = await get_or_fetch_channel(_bot, int(category_result["id"]))
 
         # 2. Ensure group channels (needs category)
         if category:
@@ -1748,10 +1753,11 @@ async def sync_group(group_id: int, allow_create: bool = False) -> dict[str, Any
         results["infrastructure"]["meetings"] = meetings_result
 
         # 4. Ensure Discord events (needs voice channel)
+        # Use get_or_fetch_channel to handle newly created channels not yet in cache
         voice_channel = None
         voice_id = results["infrastructure"]["voice_channel"].get("id")
         if voice_id and _bot:
-            voice_channel = _bot.get_channel(int(voice_id))
+            voice_channel = await get_or_fetch_channel(_bot, int(voice_id))
 
         events_result = await _ensure_meeting_discord_events(group_id, voice_channel)
         results["infrastructure"]["discord_events"] = events_result

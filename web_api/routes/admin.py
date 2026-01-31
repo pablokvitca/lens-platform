@@ -12,7 +12,7 @@ Endpoints:
 - POST /api/admin/groups/{group_id}/members/remove - Remove user from group
 - POST /api/admin/groups/create - Create a new group
 - POST /api/admin/cohorts/{cohort_id}/sync - Sync all groups in cohort
-- POST /api/admin/cohorts/{cohort_id}/realize - Realize all preview groups
+- POST /api/admin/cohorts/{cohort_id}/realize - Realize All Preview Groups
 - GET /api/admin/cohorts/{cohort_id}/groups - List groups in cohort
 """
 
@@ -242,7 +242,7 @@ async def realize_cohort_endpoint(
     cohort_id: int,
     admin: dict = Depends(require_admin),
 ) -> dict[str, Any]:
-    """Realize all preview groups in a cohort."""
+    """Realize All Preview Groups in a cohort."""
     async with get_connection() as conn:
         group_ids = await get_cohort_preview_group_ids(conn, cohort_id)
 

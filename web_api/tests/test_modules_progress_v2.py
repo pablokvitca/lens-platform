@@ -46,7 +46,7 @@ def mock_flattened_cache_for_progress():
                     {
                         "type": "page",
                         "contentId": "00000000-0000-0000-0000-000000000002",
-                        "title": "Welcome",
+                        "meta": {"title": "Welcome"},
                         "segments": [],
                     },
                     {
