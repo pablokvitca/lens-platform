@@ -297,11 +297,12 @@ def get_retry_delay(attempt: int, include_jitter: bool = True) -> float:
         include_jitter: Add random jitter to prevent thundering herd
 
     Returns:
-        Delay in seconds (1, 2, 4, 8, 16, 32, 60, 60, 60...)
+        Delay in seconds (1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 1800, 1800...)
     """
-    base_delay = min(2**attempt, 60)  # Cap at 60 seconds
+    base_delay = min(2**attempt, 1800)  # Cap at 30 minutes
     if include_jitter:
-        jitter = random.uniform(0, 1)
+        # Jitter scales with delay to spread out retries
+        jitter = random.uniform(0, min(base_delay * 0.1, 60))
         return base_delay + jitter
     return float(base_delay)
 
