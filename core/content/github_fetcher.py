@@ -497,12 +497,17 @@ async def fetch_all_content() -> ContentCache:
                 cache.flattened_modules[slug] = flattened
             except Exception as e:
                 logger.warning(f"Failed to flatten module {slug}: {e}")
-                # Create a minimal flattened module with just the title
+                # Truncate long error messages for better UX
+                error_msg = str(e)
+                if len(error_msg) > 1000:
+                    error_msg = error_msg[:1000] + "..."
+                # Create a minimal flattened module with the error message
                 cache.flattened_modules[slug] = FlattenedModule(
                     slug=module.slug,
                     title=module.title,
                     content_id=module.content_id,
                     sections=[],
+                    error=error_msg,
                 )
 
         return cache
