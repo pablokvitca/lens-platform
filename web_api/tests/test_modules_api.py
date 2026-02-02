@@ -153,3 +153,50 @@ def test_get_module_progress_includes_error_when_present(client):
     data = response.json()
     assert data["error"] == "'from' anchor not found: some text..."
     assert data["progress"]["total"] == 0
+
+
+def test_get_module_progress_omits_error_when_none(client):
+    """GET /api/modules/{slug}/progress should not include error field when module is OK."""
+    mock_module = FlattenedModule(
+        slug="working-module",
+        title="Working Module",
+        content_id=UUID("00000000-0000-0000-0000-000000000002"),
+        sections=[{"type": "page", "segments": []}],
+        error=None,
+    )
+
+    # Use anonymous token for authentication
+    anon_token = "00000000-0000-0000-0000-000000000099"
+    headers = {"X-Anonymous-Token": anon_token}
+
+    # Mock database connection as async context manager
+    mock_conn = MagicMock()
+    mock_conn.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_conn.__aexit__ = AsyncMock(return_value=None)
+
+    # Mock chat session response
+    mock_chat_session = {
+        "session_id": "test-session-id",
+        "messages": [],
+    }
+
+    with (
+        patch("web_api.routes.modules.load_flattened_module", return_value=mock_module),
+        patch("web_api.routes.modules.get_connection", return_value=mock_conn),
+        patch(
+            "web_api.routes.modules.get_module_progress",
+            new_callable=AsyncMock,
+            return_value={},
+        ),
+        patch(
+            "web_api.routes.modules.get_or_create_chat_session",
+            new_callable=AsyncMock,
+            return_value=mock_chat_session,
+        ),
+    ):
+        response = client.get("/api/modules/working-module/progress", headers=headers)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "error" not in data
+    assert data["progress"]["total"] == 1  # 1 section in mock module
