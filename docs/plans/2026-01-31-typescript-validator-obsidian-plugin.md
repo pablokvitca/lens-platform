@@ -165,11 +165,15 @@ git commit -m "feat: add valid module fixtures for shared testing"
 - Create: `core/modules/tests/fixtures/validator/invalid/module-missing-slug.md`
 - Create: `core/modules/tests/fixtures/validator/invalid/module-missing-title.md`
 - Create: `core/modules/tests/fixtures/validator/invalid/module-page-missing-id.md`
+- Create: `core/modules/tests/fixtures/validator/invalid/module-page-missing-title.md`
 - Create: `core/modules/tests/fixtures/validator/invalid/module-invalid-section-type.md`
+- Create: `core/modules/tests/fixtures/validator/invalid/module-invalid-segment-type.md`
 - Create: `core/modules/tests/fixtures/validator/invalid/module-text-missing-content.md`
 - Create: `core/modules/tests/fixtures/validator/invalid/module-chat-missing-instructions.md`
 - Create: `core/modules/tests/fixtures/validator/invalid/module-unknown-field.md`
 - Create: `core/modules/tests/fixtures/validator/invalid/module-old-video-section.md`
+- Create: `core/modules/tests/fixtures/validator/invalid/module-lo-section-with-title.md`
+- Create: `core/modules/tests/fixtures/validator/invalid/module-uncategorized-with-title.md`
 - Modify: `core/modules/tests/fixtures/validator/manifest.json`
 
 **Step 1: Create module-missing-frontmatter.md**
@@ -294,7 +298,64 @@ source:: [[../video_transcripts/foo]]
 ## Video-excerpt
 ```
 
-**Step 10: Update manifest.json with invalid entries**
+**Step 10: Create module-page-missing-title.md**
+
+```markdown
+---
+slug: test
+title: Test
+---
+
+# Page:
+id:: 11111111-1111-1111-1111-111111111111
+
+## Text
+content::
+Hello
+```
+
+**Step 11: Create module-invalid-segment-type.md**
+
+```markdown
+---
+slug: test
+title: Test
+---
+
+# Page: Test
+id:: 11111111-1111-1111-1111-111111111111
+
+## InvalidSegment
+content::
+Hello
+```
+
+**Step 12: Create module-lo-section-with-title.md**
+
+```markdown
+---
+slug: test
+title: Test
+---
+
+# Learning Outcome: Unexpected Title
+source:: [[../Learning Outcomes/Core Concepts]]
+```
+
+**Step 13: Create module-uncategorized-with-title.md**
+
+```markdown
+---
+slug: test
+title: Test
+---
+
+# Uncategorized: Unexpected Title
+## Lens:
+source:: [[../Lenses/Some Lens]]
+```
+
+**Step 14: Update manifest.json with invalid entries**
 
 Add to the "invalid" array:
 
@@ -354,12 +415,36 @@ Add to the "invalid" array:
       "type": "module",
       "description": "Old v1 Video section (disallowed in modules)",
       "expectedErrors": ["not allowed"]
+    },
+    {
+      "file": "invalid/module-page-missing-title.md",
+      "type": "module",
+      "description": "Page section without title after colon",
+      "expectedErrors": ["title", "missing"]
+    },
+    {
+      "file": "invalid/module-invalid-segment-type.md",
+      "type": "module",
+      "description": "Invalid segment type within Page",
+      "expectedErrors": ["invalid", "segment"]
+    },
+    {
+      "file": "invalid/module-lo-section-with-title.md",
+      "type": "module",
+      "description": "Learning Outcome section with unexpected title",
+      "expectedErrors": ["title", "unexpected"]
+    },
+    {
+      "file": "invalid/module-uncategorized-with-title.md",
+      "type": "module",
+      "description": "Uncategorized section with unexpected title",
+      "expectedErrors": ["title", "unexpected"]
     }
   ]
 }
 ```
 
-**Step 11: Commit**
+**Step 15: Commit**
 
 ```bash
 git add core/modules/tests/fixtures/validator/
@@ -643,6 +728,7 @@ git commit -m "feat: add Python fixture-based validator tests"
 - Create: `typescript-validator/tsconfig.json`
 - Create: `typescript-validator/vitest.config.ts`
 - Create: `typescript-validator/src/index.ts`
+- Create: `typescript-validator/.gitignore`
 
 **Step 1: Create package.json**
 
@@ -745,14 +831,22 @@ export function validateCourse(text: string): ValidationError[] {
 }
 ```
 
-**Step 5: Install dependencies**
+**Step 5: Create .gitignore**
+
+```gitignore
+node_modules/
+dist/
+*.log
+```
+
+**Step 6: Install dependencies**
 
 ```bash
 cd typescript-validator
 npm install
 ```
 
-**Step 6: Commit**
+**Step 7: Commit**
 
 ```bash
 git add typescript-validator/
@@ -1787,10 +1881,37 @@ function validateLensSegments(
     });
   }
 
+  // Valid segment types in Lens files
+  const VALID_LENS_SEGMENT_TYPES = new Set(['text', 'chat', 'video-excerpt', 'article-excerpt']);
+
+  // Allowed fields per segment type in Lens
+  const LENS_SEGMENT_FIELDS: Record<string, Set<string>> = {
+    'text': new Set(['content']),
+    'chat': new Set(['instructions', 'hidePreviousContentFromUser', 'hidePreviousContentFromTutor']),
+    'video-excerpt': new Set(['from', 'to']),
+    'article-excerpt': new Set(['from', 'to']),
+  };
+
+  // Required fields per segment type
+  const REQUIRED_SEGMENT_FIELDS: Record<string, string[]> = {
+    'text': ['content'],
+    'chat': ['instructions'],
+  };
+
   // Validate each segment
   for (const segment of segments) {
     const approxLine = sectionLine + segment.relativeLine;
     const context = `${sectionContext} > #### ${capitalize(segment.type)}`;
+
+    // Check for invalid segment type
+    if (!VALID_LENS_SEGMENT_TYPES.has(segment.type)) {
+      errors.push({
+        message: `Invalid segment type: ${segment.type}`,
+        line: approxLine,
+        context,
+      });
+      continue;
+    }
 
     // Check for mismatched excerpt types
     if (sectionType === 'video' && segment.type === 'article-excerpt') {
@@ -1805,6 +1926,33 @@ function validateLensSegments(
         line: approxLine,
         context,
       });
+    }
+
+    // Validate segment fields
+    const fields = parseFields(segment.content);
+    const allowedFields = LENS_SEGMENT_FIELDS[segment.type] || new Set();
+
+    // Check for unknown fields
+    for (const fieldName of Object.keys(fields)) {
+      if (!allowedFields.has(fieldName)) {
+        errors.push({
+          message: `Unknown field: ${fieldName}::`,
+          line: approxLine,
+          context,
+        });
+      }
+    }
+
+    // Check for required fields
+    const requiredFields = REQUIRED_SEGMENT_FIELDS[segment.type] || [];
+    for (const required of requiredFields) {
+      if (!fields[required]) {
+        errors.push({
+          message: `Missing required field: ${required}::`,
+          line: approxLine,
+          context,
+        });
+      }
     }
   }
 
@@ -1834,6 +1982,7 @@ git commit -m "feat: implement validateLens function"
 **Files:**
 - Create: `core/modules/tests/fixtures/validator/valid/course-basic.md`
 - Create: `core/modules/tests/fixtures/validator/invalid/course-missing-wiki-link.md`
+- Create: `core/modules/tests/fixtures/validator/invalid/course-malformed-header.md`
 - Modify: `core/modules/tests/fixtures/validator/manifest.json`
 - Modify: `typescript-validator/src/index.ts`
 
@@ -1866,7 +2015,20 @@ title: Test
 # Lesson: modules/intro
 ```
 
-**Step 3: Update manifest.json**
+**Step 3: Create course-malformed-header.md**
+
+```markdown
+---
+slug: test
+title: Test
+---
+
+# Lesson without colon
+# Meeting without number
+# Lesson:
+```
+
+**Step 4: Update manifest.json**
 
 Add to valid:
 ```json
@@ -1884,15 +2046,27 @@ Add to invalid:
   "type": "course",
   "description": "Lesson without wiki-link syntax",
   "expectedErrors": ["wiki-link"]
+},
+{
+  "file": "invalid/course-malformed-header.md",
+  "type": "course",
+  "description": "Malformed lesson/meeting headers",
+  "expectedErrors": ["malformed"]
 }
 ```
 
-**Step 4: Implement validateCourse**
+**Step 5: Implement validateCourse**
 
 ```typescript
 const LESSON_PATTERN = /^# Lesson:\s*(.+)$/;
 const MEETING_PATTERN = /^# Meeting:\s*(\d+)$/;
 const WIKI_LINK_IN_TEXT = /\[\[([^\]]+)\]\]/;
+
+// Patterns for detecting malformed headers
+const MALFORMED_LESSON_PATTERN = /^# Lesson\s*$/i;  // "# Lesson" without colon
+const MALFORMED_LESSON_EMPTY = /^# Lesson:\s*$/;     // "# Lesson:" with nothing after
+const MALFORMED_MEETING_PATTERN = /^# Meeting\s*$/i; // "# Meeting" without colon
+const MALFORMED_MEETING_NO_NUM = /^# Meeting:\s*[^\d]/; // "# Meeting:" without number
 
 export function validateCourse(text: string): ValidationError[] {
   const errors: ValidationError[] = [];
@@ -1918,6 +2092,26 @@ export function validateCourse(text: string): ValidationError[] {
     const line = lines[i].trim();
     const lineNum = i + 1;
 
+    // Check for malformed headers
+    if (MALFORMED_LESSON_PATTERN.test(line) || MALFORMED_LESSON_EMPTY.test(line)) {
+      errors.push({
+        message: 'Malformed Lesson header: must be "# Lesson: [[path/to/module]]"',
+        line: lineNum,
+        context: line,
+      });
+      continue;
+    }
+
+    if (MALFORMED_MEETING_PATTERN.test(line) || MALFORMED_MEETING_NO_NUM.test(line)) {
+      errors.push({
+        message: 'Malformed Meeting header: must be "# Meeting: <number>"',
+        line: lineNum,
+        context: line,
+      });
+      continue;
+    }
+
+    // Check valid lesson format
     const lessonMatch = line.match(LESSON_PATTERN);
 
     if (lessonMatch) {
@@ -1936,7 +2130,7 @@ export function validateCourse(text: string): ValidationError[] {
 }
 ```
 
-**Step 5: Run tests**
+**Step 6: Run tests**
 
 ```bash
 npm test
@@ -1944,7 +2138,7 @@ npm test
 
 Expected: All fixtures pass.
 
-**Step 6: Commit**
+**Step 7: Commit**
 
 ```bash
 git add core/modules/tests/fixtures/validator/ typescript-validator/src/index.ts
@@ -1953,7 +2147,11 @@ git commit -m "feat: add course validation"
 
 ---
 
-## Phase 3: Obsidian Plugin
+<!--
+## Phase 3: Obsidian Plugin (OUT OF SCOPE)
+
+> **Note:** Phase 3 is deferred. Focus is on the TypeScript validator package first.
+> The Obsidian plugin can be implemented later once the validator is stable.
 
 ### Task 13: Create Obsidian plugin structure
 
@@ -2334,6 +2532,9 @@ git add .github/workflows/test-validators.yml
 git commit -m "ci: add workflow for Python and TypeScript validator tests"
 ```
 
+END OF PHASE 3 (OUT OF SCOPE)
+-->
+
 ---
 
 ## Summary
@@ -2344,7 +2545,7 @@ This plan creates:
 2. **Python fixture tests** that validate against shared fixtures
 3. **TypeScript validator package** with full validation logic ported from Python
 4. **TypeScript fixture tests** that validate against the same shared fixtures
-5. **Obsidian plugin** that loads the validator from GitHub at runtime
-6. **CI workflow** ensuring both validators stay in sync
 
 The TypeScript validator can be updated independently, and the shared fixtures ensure both implementations agree on what's valid/invalid.
+
+**Out of scope (Phase 3):** Obsidian plugin and CI workflow - deferred until the TypeScript validator is stable.
