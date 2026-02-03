@@ -2,6 +2,9 @@
 import { describe, it, expect } from 'vitest';
 import { parseArgs, run } from './cli.js';
 import { join } from 'path';
+import { execSync } from 'child_process';
+import { mkdtempSync, rmSync, readFileSync } from 'fs';
+import { tmpdir } from 'os';
 
 describe('parseArgs', () => {
   it('extracts vault path from positional argument', () => {
@@ -41,4 +44,39 @@ describe('run', () => {
     expect(result.modules.length).toBeGreaterThan(0);
     expect(result.errors).toBeDefined();
   });
+});
+
+describe('CLI executable', () => {
+  it('outputs JSON to stdout', () => {
+    const vaultPath = join(import.meta.dirname, '../fixtures/valid/minimal-module/input');
+
+    const stdout = execSync(`npx tsx src/cli.ts "${vaultPath}"`, {
+      cwd: join(import.meta.dirname, '..'),
+      encoding: 'utf-8',
+      timeout: 30000,
+    });
+
+    const result = JSON.parse(stdout);
+    expect(result.modules).toBeDefined();
+  }, 35000);
+
+  it('writes JSON to file when --output specified', () => {
+    const vaultPath = join(import.meta.dirname, '../fixtures/valid/minimal-module/input');
+    const tempDir = mkdtempSync(join(tmpdir(), 'cli-test-'));
+    const outputPath = join(tempDir, 'output.json');
+
+    try {
+      execSync(`npx tsx src/cli.ts "${vaultPath}" --output "${outputPath}"`, {
+        cwd: join(import.meta.dirname, '..'),
+        encoding: 'utf-8',
+        timeout: 30000,
+      });
+
+      const content = readFileSync(outputPath, 'utf-8');
+      const result = JSON.parse(content);
+      expect(result.modules).toBeDefined();
+    } finally {
+      rmSync(tempDir, { recursive: true });
+    }
+  }, 35000);
 });

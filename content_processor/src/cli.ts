@@ -1,6 +1,7 @@
 // src/cli.ts
 import { readVaultFiles } from './fs/read-vault.js';
 import { processContent, ProcessResult } from './index.js';
+import { writeFile } from 'fs/promises';
 
 export interface CliOptions {
   vaultPath: string | null;
@@ -31,4 +32,34 @@ export async function run(options: CliOptions): Promise<ProcessResult> {
 
   const files = await readVaultFiles(options.vaultPath);
   return processContent(files);
+}
+
+async function main(): Promise<void> {
+  const options = parseArgs(process.argv);
+
+  if (!options.vaultPath) {
+    console.error('Usage: npx tsx src/cli.ts <vault-path> [--output <file>]');
+    process.exit(1);
+  }
+
+  try {
+    const result = await run(options);
+    const json = JSON.stringify(result, null, 2);
+
+    if (options.outputPath) {
+      await writeFile(options.outputPath, json, 'utf-8');
+      console.error(`Written to ${options.outputPath}`);
+    } else {
+      console.log(json);
+    }
+  } catch (error) {
+    console.error('Error:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+}
+
+// Run if executed directly (not imported as a module)
+const isMainModule = process.argv[1]?.includes('cli.ts') || process.argv[1]?.includes('cli.js');
+if (isMainModule) {
+  main();
 }
