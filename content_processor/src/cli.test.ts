@@ -80,3 +80,35 @@ describe('CLI executable', () => {
     }
   }, 35000);
 });
+
+describe('CLI exit codes', () => {
+  it('exits with 0 on success', () => {
+    const vaultPath = join(import.meta.dirname, '../fixtures/valid/minimal-module/input');
+
+    // execSync throws on non-zero exit
+    expect(() => {
+      execSync(`npx tsx src/cli.ts "${vaultPath}"`, {
+        cwd: join(import.meta.dirname, '..'),
+        stdio: 'pipe',
+      });
+    }).not.toThrow();
+  });
+
+  it('exits with 1 when no vault path provided', () => {
+    expect(() => {
+      execSync('npx tsx src/cli.ts', {
+        cwd: join(import.meta.dirname, '..'),
+        stdio: 'pipe',
+      });
+    }).toThrow();
+  });
+
+  it('exits with 1 when vault path does not exist', () => {
+    expect(() => {
+      execSync('npx tsx src/cli.ts /nonexistent/path', {
+        cwd: join(import.meta.dirname, '..'),
+        stdio: 'pipe',
+      });
+    }).toThrow();
+  });
+});
