@@ -147,7 +147,8 @@ export function parseModule(content: string, file: string): ModuleParseResult {
   const module: ParsedModule = {
     slug: frontmatter.slug as string,
     title: frontmatter.title as string,
-    contentId: (frontmatter.id as string) ?? null,
+    // Accept both 'contentId' and 'id' from frontmatter (prefer contentId)
+    contentId: (frontmatter.contentId as string) ?? (frontmatter.id as string) ?? null,
     sections: sectionsResult.sections,
   };
 

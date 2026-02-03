@@ -16,7 +16,7 @@ import { parseLens, type ParsedLensSegment, type ParsedLensSection } from '../pa
 import { parseWikilink, resolveWikilinkPath, findFileWithExtension } from '../parser/wikilink.js';
 import { parseFrontmatter } from '../parser/frontmatter.js';
 import { extractArticleExcerpt } from '../bundler/article.js';
-import { extractVideoExcerpt } from '../bundler/video.js';
+import { extractVideoExcerpt, type TimestampEntry } from '../bundler/video.js';
 
 export interface FlattenModuleResult {
   module: FlattenedModule | null;
@@ -547,20 +547,23 @@ function parseUncategorizedLensRefs(
     const lensMatch = line.match(LENS_HEADER_PATTERN);
     if (lensMatch) {
       // Save previous lens if we were in one
-      if (inLensSection && currentFields.source) {
-        // Finalize current field
+      if (inLensSection) {
+        // First, finalize current field if we were collecting one
+        // This must happen BEFORE checking currentFields.source
         if (currentField) {
           currentFields[currentField] = currentValue.join('\n').trim();
         }
 
-        const wikilink = parseWikilink(currentFields.source);
-        if (wikilink) {
-          const resolvedPath = resolveWikilinkPath(wikilink.path, parentPath);
-          lensRefs.push({
-            source: currentFields.source,
-            resolvedPath,
-            optional: currentFields.optional === 'true',
-          });
+        if (currentFields.source) {
+          const wikilink = parseWikilink(currentFields.source);
+          if (wikilink) {
+            const resolvedPath = resolveWikilinkPath(wikilink.path, parentPath);
+            lensRefs.push({
+              source: currentFields.source,
+              resolvedPath,
+              optional: currentFields.optional === 'true',
+            });
+          }
         }
       }
 
@@ -813,12 +816,30 @@ function convertSegment(
 
       const transcriptContent = files.get(videoPath)!;
 
+      // Look for corresponding .timestamps.json file
+      // e.g., video_transcripts/foo.md -> video_transcripts/foo.timestamps.json
+      const timestampsPath = videoPath.replace(/\.md$/, '.timestamps.json');
+      let timestamps: TimestampEntry[] | undefined;
+      // Debug: Log path resolution (uncomment to debug)
+      // console.log('DEBUG videoPath:', videoPath);
+      // console.log('DEBUG timestampsPath:', timestampsPath);
+      // console.log('DEBUG files has timestamps:', files.has(timestampsPath));
+      if (files.has(timestampsPath)) {
+        try {
+          timestamps = JSON.parse(files.get(timestampsPath)!) as TimestampEntry[];
+          // console.log('DEBUG loaded timestamps count:', timestamps.length);
+        } catch {
+          // JSON parse error - will fall back to inline timestamps
+        }
+      }
+
       // Extract the video excerpt
       const excerptResult = extractVideoExcerpt(
         transcriptContent,
         parsedSegment.fromTimeStr,
         parsedSegment.toTimeStr,
-        videoPath
+        videoPath,
+        timestamps
       );
 
       if (excerptResult.error) {

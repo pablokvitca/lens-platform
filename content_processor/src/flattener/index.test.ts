@@ -460,6 +460,55 @@ content:: Some content.
     expect(result.module?.sections[0].contentId).toBe('3dd47fce-a0fe-4e03-916d-a160fe697dd0');
   });
 
+  it('flattens Uncategorized section with multiline source fields', () => {
+    // Bug: when source:: has no inline value and the wikilink is on the next line,
+    // the lens refs aren't being collected properly because the field value isn't
+    // finalized before checking if source exists.
+    const files = new Map([
+      ['modules/test.md', `---
+slug: test
+title: Test
+---
+
+# Uncategorized:
+## Lens:
+source::
+![[../Lenses/lens1.md]]
+
+## Lens:
+source::
+![[../Lenses/lens2.md]]
+`],
+      ['Lenses/lens1.md', `---
+id: lens-1-id
+---
+
+### Text: Content 1
+
+#### Text
+content:: First lens content.
+`],
+      ['Lenses/lens2.md', `---
+id: lens-2-id
+---
+
+### Text: Content 2
+
+#### Text
+content:: Second lens content.
+`],
+    ]);
+
+    const result = flattenModule('modules/test.md', files);
+
+    // Should have 2 segments (one from each lens)
+    expect(result.errors).toHaveLength(0);
+    expect(result.module?.sections).toHaveLength(1);
+    expect(result.module?.sections[0].segments).toHaveLength(2);
+    expect((result.module?.sections[0].segments[0] as any).content).toBe('First lens content.');
+    expect((result.module?.sections[0].segments[1] as any).content).toBe('Second lens content.');
+  });
+
   it('detects circular reference and returns error', () => {
     // Create a cycle: Module -> LO-A -> Lens-B -> (references back to LO-A)
     // The lens has an article section that points back to the LO file

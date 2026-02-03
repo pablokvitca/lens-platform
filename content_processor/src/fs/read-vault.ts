@@ -33,7 +33,8 @@ async function readFilesRecursive(
         continue;
       }
       await readFilesRecursive(fullPath, relativePath, result, options);
-    } else if (entry.name.endsWith('.md')) {
+    } else if (entry.name.endsWith('.md') || entry.name.endsWith('.timestamps.json')) {
+      // Load both .md files and .timestamps.json files (for video transcript timing data)
       const content = await readFile(fullPath, 'utf-8');
       result.set(relativePath, content);
     }

@@ -9,16 +9,33 @@ export interface VideoExcerptResult {
 }
 
 /**
+ * Word-level timestamp entry from .timestamps.json files.
+ */
+export interface TimestampEntry {
+  text: string;
+  start: string;  // Format: "M:SS.ms" (e.g., "0:00.40", "5:23.10")
+}
+
+/**
  * Parse a timestamp string into seconds.
  *
  * Supports formats:
  * - MM:SS (e.g., "1:30" -> 90)
  * - H:MM:SS (e.g., "1:30:00" -> 5400)
+ * - M:SS.ms (e.g., "0:00.40" -> 0.4) - used in .timestamps.json files
  *
  * @param str - Timestamp string
  * @returns Number of seconds, or null if invalid format
  */
 export function parseTimestamp(str: string): number | null {
+  // Handle M:SS.ms format (timestamps.json format)
+  const msMatch = str.match(/^(\d+):(\d+(?:\.\d+)?)$/);
+  if (msMatch) {
+    const minutes = parseInt(msMatch[1], 10);
+    const seconds = parseFloat(msMatch[2]);
+    return minutes * 60 + seconds;
+  }
+
   // Match M:SS, MM:SS, H:MM:SS, HH:MM:SS patterns
   const parts = str.split(':');
 
@@ -64,19 +81,53 @@ function parseTranscriptLineTimestamp(line: string): number | null {
 }
 
 /**
+ * Extract words from timestamps data that fall within the requested time range.
+ *
+ * @param timestamps - Array of word-level timestamp entries
+ * @param fromSeconds - Start time in seconds
+ * @param toSeconds - End time in seconds
+ * @returns Words joined with spaces
+ */
+export function extractFromTimestamps(
+  timestamps: TimestampEntry[],
+  fromSeconds: number,
+  toSeconds: number
+): string {
+  const wordsInRange: string[] = [];
+
+  for (const entry of timestamps) {
+    const entryTime = parseTimestamp(entry.start);
+    if (entryTime === null) continue;
+
+    // Include word if its start time falls within the range
+    if (entryTime >= fromSeconds && entryTime <= toSeconds) {
+      wordsInRange.push(entry.text);
+    }
+  }
+
+  return wordsInRange.join(' ');
+}
+
+/**
  * Extract transcript content between two timestamps.
  *
- * @param transcript - The full transcript content
+ * If timestamps data (from .timestamps.json) is provided, uses word-level
+ * extraction. Otherwise, falls back to inline timestamp markers in the
+ * transcript markdown.
+ *
+ * @param transcript - The full transcript content (markdown)
  * @param fromTime - Start timestamp string (e.g., "1:30")
  * @param toTime - End timestamp string (e.g., "5:45")
  * @param file - Source file path for error reporting
+ * @param timestamps - Optional word-level timestamps from .timestamps.json
  * @returns Extracted transcript with from/to as seconds, or error
  */
 export function extractVideoExcerpt(
   transcript: string,
   fromTime: string,
   toTime: string,
-  file: string
+  file: string,
+  timestamps?: TimestampEntry[]
 ): VideoExcerptResult {
   // Parse the requested timestamps
   const fromSeconds = parseTimestamp(fromTime);
@@ -115,6 +166,17 @@ export function extractVideoExcerpt(
     };
   }
 
+  // If timestamps data is provided, use word-level extraction
+  if (timestamps && timestamps.length > 0) {
+    const extractedText = extractFromTimestamps(timestamps, fromSeconds, toSeconds);
+    return {
+      from: fromSeconds,
+      to: toSeconds,
+      transcript: extractedText,
+    };
+  }
+
+  // Fall back to inline timestamp markers in the markdown
   // Parse the transcript into lines with timestamps
   const lines = transcript.split('\n');
   const timestampedLines: Array<{ timestamp: number; line: string }> = [];
