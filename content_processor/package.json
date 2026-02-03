@@ -1,0 +1,23 @@
+{
+  "name": "@lens/content-processor",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate": "tsx src/cli.ts validate",
+    "process": "tsx src/cli.ts process"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "tsx": "^4.0.0",
+    "@types/node": "^22.0.0"
+  },
+  "dependencies": {
+    "yaml": "^2.5.0"
+  }
+}
