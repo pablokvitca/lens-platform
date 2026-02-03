@@ -30,67 +30,175 @@ class BreakoutSession:
     facilitator_id: int = 0
 
 
+# Keycap emoji for numbers 1-9
+KEYCAPS = {
+    1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣",
+    6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣",
+}
+
+# Max people per breakout room
+MAX_GROUP_SIZE = 5
+# Min people per breakout room (no solo groups)
+MIN_GROUP_SIZE = 2
+
+
+def distribute_evenly(n: int, num_groups: int) -> list[int]:
+    """Distribute n people into num_groups as evenly as possible.
+
+    Returns list sorted descending (largest groups first).
+    """
+    if num_groups <= 0 or n < num_groups:
+        return []
+    base = n // num_groups
+    remainder = n % num_groups
+    # remainder groups get base+1, rest get base
+    groups = [base + 1] * remainder + [base] * (num_groups - remainder)
+    return sorted(groups, reverse=True)
+
+
+def is_valid_distribution(groups: list[int]) -> bool:
+    """Check if distribution meets constraints."""
+    if len(groups) < 2:  # Need at least 2 groups for breakout
+        return False
+    if min(groups) < MIN_GROUP_SIZE:  # No tiny groups
+        return False
+    if max(groups) > MAX_GROUP_SIZE:  # No huge groups
+        return False
+    return True
+
+
+def format_distribution_label(groups: list[int]) -> str:
+    """Format as '5 rooms (3️⃣3️⃣3️⃣3️⃣2️⃣)' - room count + keycaps showing people per room."""
+    num_rooms = len(groups)
+    keycaps = "".join(KEYCAPS.get(g, str(g)) for g in sorted(groups, reverse=True))
+    return f"{num_rooms} rooms ({keycaps})"
+
+
 class BreakoutView(discord.ui.View):
     """GUI for breakout room configuration."""
 
-    def __init__(self, cog: "BreakoutCog"):
+    def __init__(
+        self,
+        cog: "BreakoutCog",
+        channel: discord.VoiceChannel,
+        facilitator_id: int,
+    ):
         super().__init__(timeout=60)
         self.cog = cog
+        self.channel = channel
+        self.facilitator_id = facilitator_id
         self.include_bots = False
         self.include_self = False
 
-    @discord.ui.button(
-        label="Include Bots: Off", style=discord.ButtonStyle.secondary, row=0
-    )
-    async def toggle_bots(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+        # Add toggle buttons (row 0)
+        self.bots_button = discord.ui.Button(
+            label="Include Bots: Off",
+            style=discord.ButtonStyle.secondary,
+            row=0,
+        )
+        self.bots_button.callback = self.toggle_bots
+        self.add_item(self.bots_button)
+
+        self.self_button = discord.ui.Button(
+            label="Include Me: Off",
+            style=discord.ButtonStyle.secondary,
+            row=0,
+        )
+        self.self_button.callback = self.toggle_self
+        self.add_item(self.self_button)
+
+        # Add distribution buttons (row 1+)
+        self._distribution_buttons: list[discord.ui.Button] = []
+        self._rebuild_distribution_buttons()
+
+    def _get_participant_count(self) -> int:
+        """Get current participant count based on toggle settings."""
+        return len([
+            m
+            for m in self.channel.members
+            if (self.include_self or m.id != self.facilitator_id)
+            and (self.include_bots or not m.bot)
+        ])
+
+    def _rebuild_distribution_buttons(self):
+        """Rebuild the distribution buttons based on current settings."""
+        # Remove old distribution buttons
+        for btn in self._distribution_buttons:
+            self.remove_item(btn)
+        self._distribution_buttons.clear()
+
+        n = self._get_participant_count()
+        if n < 4:
+            # Not enough people for 2+ groups of 2+
+            btn = discord.ui.Button(
+                label="Need 4+ people",
+                style=discord.ButtonStyle.secondary,
+                disabled=True,
+                row=1,
+            )
+            self._distribution_buttons.append(btn)
+            self.add_item(btn)
+            return
+
+        # Generate distributions by number of groups
+        seen_distributions: set[tuple] = set()
+        row = 1
+        for num_groups in range(n // MIN_GROUP_SIZE, 1, -1):  # Most rooms first
+            dist = distribute_evenly(n, num_groups)
+            if not dist or not is_valid_distribution(dist):
+                continue
+
+            # Skip duplicates (as tuple for hashability)
+            dist_tuple = tuple(dist)
+            if dist_tuple in seen_distributions:
+                continue
+            seen_distributions.add(dist_tuple)
+
+            label = format_distribution_label(dist)
+            btn = discord.ui.Button(
+                label=label,
+                style=discord.ButtonStyle.primary,
+                row=row,  # Each button on its own row
+            )
+            btn.callback = self._make_distribution_callback(num_groups)
+            self._distribution_buttons.append(btn)
+            self.add_item(btn)
+            row += 1
+
+            # Discord limit: max 5 rows (0-4), row 0 is toggles
+            if row > 4:
+                break
+
+    def _make_distribution_callback(self, num_groups: int):
+        """Create a callback for a distribution button."""
+        async def callback(interaction: discord.Interaction):
+            await self.cog.run_breakout(
+                interaction, num_groups, self.include_bots, self.include_self
+            )
+            self.stop()
+        return callback
+
+    async def toggle_bots(self, interaction: discord.Interaction):
         self.include_bots = not self.include_bots
-        button.label = f"Include Bots: {'On' if self.include_bots else 'Off'}"
-        button.style = (
+        self.bots_button.label = f"Include Bots: {'On' if self.include_bots else 'Off'}"
+        self.bots_button.style = (
             discord.ButtonStyle.success
             if self.include_bots
             else discord.ButtonStyle.secondary
         )
+        self._rebuild_distribution_buttons()
         await interaction.response.edit_message(view=self)
 
-    @discord.ui.button(
-        label="Include Me: Off", style=discord.ButtonStyle.secondary, row=0
-    )
-    async def toggle_self(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
+    async def toggle_self(self, interaction: discord.Interaction):
         self.include_self = not self.include_self
-        button.label = f"Include Me: {'On' if self.include_self else 'Off'}"
-        button.style = (
+        self.self_button.label = f"Include Me: {'On' if self.include_self else 'Off'}"
+        self.self_button.style = (
             discord.ButtonStyle.success
             if self.include_self
             else discord.ButtonStyle.secondary
         )
+        self._rebuild_distribution_buttons()
         await interaction.response.edit_message(view=self)
-
-    async def do_breakout(self, interaction: discord.Interaction, group_size: int):
-        """Execute breakout with the selected settings."""
-        await self.cog.run_breakout(
-            interaction, group_size, self.include_bots, self.include_self
-        )
-        self.stop()
-
-    @discord.ui.button(label="Groups of 2", style=discord.ButtonStyle.primary, row=1)
-    async def size_2(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.do_breakout(interaction, 2)
-
-    @discord.ui.button(label="Groups of 3", style=discord.ButtonStyle.primary, row=1)
-    async def size_3(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.do_breakout(interaction, 3)
-
-    @discord.ui.button(label="Groups of 4", style=discord.ButtonStyle.primary, row=1)
-    async def size_4(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.do_breakout(interaction, 4)
-
-    @discord.ui.button(label="Groups of 5", style=discord.ButtonStyle.primary, row=1)
-    async def size_5(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.do_breakout(interaction, 5)
 
 
 class CollectView(discord.ui.View):
@@ -106,7 +214,7 @@ class CollectView(discord.ui.View):
                 self.add_item(button)
 
     @discord.ui.button(
-        label="Collect Everyone", style=discord.ButtonStyle.danger, emoji="📢", row=4
+        label="Collect in 20s", style=discord.ButtonStyle.danger, emoji="📢", row=4
     )
     async def collect_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -164,7 +272,7 @@ class BreakoutCog(commands.Cog):
     async def run_breakout(
         self,
         interaction: discord.Interaction,
-        group_size: int,
+        num_groups: int,
         include_bots: bool = False,
         include_self: bool = False,
     ):
@@ -205,16 +313,16 @@ class BreakoutCog(commands.Cog):
         if not interaction.response.is_done():
             await interaction.response.defer()
 
-        # Shuffle and chunk users into groups
+        # Calculate group sizes and shuffle participants
         random.shuffle(participants)
-        groups = []
-        for i in range(0, len(participants), group_size):
-            groups.append(participants[i : i + group_size])
+        group_sizes = distribute_evenly(len(participants), num_groups)
 
-        # Merge last group if it has only 1 person (no solo breakouts)
-        if len(groups) > 1 and len(groups[-1]) == 1:
-            groups[-2].extend(groups[-1])
-            groups.pop()
+        # Split participants into groups according to calculated sizes
+        groups = []
+        idx = 0
+        for size in group_sizes:
+            groups.append(participants[idx : idx + size])
+            idx += size
 
         # Create breakout channels in the same category
         category = source_channel.category
@@ -285,6 +393,13 @@ class BreakoutCog(commands.Cog):
                 embed=embed, view=CollectView(self, room_buttons)
             )
 
+            # Send popup messages before moving (users can still see main room)
+            try:
+                await source_channel.send("👋 You're being moved to a breakout room!")
+                await source_channel.send("Switch your screen to see your group.")
+            except discord.HTTPException:
+                pass
+
             # PHASE 3: Lock users out of source channel, then move them
             locked_members = []
             for group, channel in user_assignments:
@@ -331,19 +446,19 @@ class BreakoutCog(commands.Cog):
         name="breakout", description="Split voice channel users into breakout rooms"
     )
     @app_commands.describe(
-        group_size="Target number of people per breakout room",
+        num_groups="Number of breakout rooms to create",
         include_bots="Include bots in breakout (for testing)",
         include_self="Include yourself in the breakout groups",
     )
     async def breakout(
         self,
         interaction: discord.Interaction,
-        group_size: int,
+        num_groups: int,
         include_bots: bool = False,
         include_self: bool = False,
     ):
         """Split users in the caller's voice channel into breakout rooms."""
-        await self.run_breakout(interaction, group_size, include_bots, include_self)
+        await self.run_breakout(interaction, num_groups, include_bots, include_self)
 
     @app_commands.command(
         name="breakout-gui", description="Show breakout room controls"
@@ -375,7 +490,7 @@ class BreakoutCog(commands.Cog):
             inline=False,
         )
 
-        view = BreakoutView(self)
+        view = BreakoutView(self, channel, member.id)
         await interaction.response.send_message(embed=embed, view=view)
 
     async def run_collect(self, interaction: discord.Interaction, countdown: bool = True):
