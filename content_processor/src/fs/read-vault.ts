@@ -20,6 +20,10 @@ async function readFilesRecursive(
     const fullPath = join(dir, entry.name);
 
     if (entry.isDirectory()) {
+      // Skip WIP directories
+      if (entry.name.toLowerCase().includes('wip')) {
+        continue;
+      }
       await readFilesRecursive(fullPath, relativePath, result);
     } else if (entry.name.endsWith('.md')) {
       const content = await readFile(fullPath, 'utf-8');
