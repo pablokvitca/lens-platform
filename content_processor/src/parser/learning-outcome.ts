@@ -107,14 +107,8 @@ export function parseLearningOutcome(content: string, file: string): LearningOut
       });
     } else if (section.type === 'test') {
       const source = section.fields.source;
+      // source:: is optional for test sections (tests not fully implemented yet)
       if (!source) {
-        errors.push({
-          file,
-          line: section.line,
-          message: 'Test section missing source:: field',
-          suggestion: "Add 'source:: [[../Tests/filename.md|Display]]' to the test section",
-          severity: 'error',
-        });
         continue;
       }
 

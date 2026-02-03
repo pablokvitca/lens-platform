@@ -61,4 +61,26 @@ No lenses here.
 
     expect(result.errors.some(e => e.message.includes('Lens'))).toBe(true);
   });
+
+  it('allows test section without source:: field (tests not implemented yet)', () => {
+    const content = `---
+id: 550e8400-e29b-41d4-a716-446655440001
+---
+
+## Lens: Main Content
+source:: [[../Lenses/lens1.md|Lens 1]]
+
+## Test: Knowledge Check
+`;
+
+    const result = parseLearningOutcome(content, 'Learning Outcomes/lo1.md');
+
+    // Should NOT produce an error for missing source:: in test section
+    expect(result.errors).toHaveLength(0);
+    // The LO should be parsed successfully
+    expect(result.learningOutcome?.id).toBe('550e8400-e29b-41d4-a716-446655440001');
+    expect(result.learningOutcome?.lenses).toHaveLength(1);
+    // Test should be undefined since no source was provided
+    expect(result.learningOutcome?.test).toBeUndefined();
+  });
 });

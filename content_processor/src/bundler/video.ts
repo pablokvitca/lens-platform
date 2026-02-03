@@ -127,8 +127,30 @@ export function extractVideoExcerpt(
   }
 
   // Find lines that fall within the requested range
+  // Handle plain prose transcripts (no timestamps at all)
+  if (timestampedLines.length === 0) {
+    // If starting from 0:00, include entire transcript
+    if (fromSeconds === 0) {
+      return {
+        from: fromSeconds,
+        to: toSeconds,
+        transcript: transcript.trim(),
+      };
+    }
+    // Can't extract from a non-zero timestamp in a plain prose transcript
+    return {
+      error: {
+        file,
+        message: `Start timestamp '${fromTime}' not found in transcript (transcript has no timestamp markers)`,
+        suggestion: 'This transcript has no timestamp markers. Use from:: 0:00 to include from the start, or add timestamps to the transcript.',
+        severity: 'error',
+      },
+    };
+  }
+
   // A line is included if its timestamp >= fromSeconds and < toSeconds
-  let foundFrom = false;
+  // Special case: fromSeconds === 0 means "start of video" - no need to find exact 0:00 marker
+  let foundFrom = fromSeconds === 0;
   let foundTo = false;
   const excerptLines: string[] = [];
 

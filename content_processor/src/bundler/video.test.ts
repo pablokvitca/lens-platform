@@ -84,4 +84,45 @@ describe('extractVideoExcerpt', () => {
     expect(result.error).toBeDefined();
     expect(result.error?.message).toContain('after');
   });
+
+  describe('from 0:00 (start of video)', () => {
+    it('treats 0:00 as start of video even when no 0:00 marker exists', () => {
+      // Transcript starts at 0:30, not 0:00
+      const transcript = `0:30 - First line of dialogue.
+1:00 - Second line continues.
+1:30 - Third line wraps up.
+2:00 - End of section.`;
+
+      const result = extractVideoExcerpt(transcript, '0:00', '1:30', 'video.md');
+
+      // Should NOT error - 0:00 means "from the start"
+      expect(result.error).toBeUndefined();
+      expect(result.from).toBe(0);
+      expect(result.to).toBe(90);
+      // Should include lines from start up to (but not including) 1:30
+      expect(result.transcript).toContain('First line');
+      expect(result.transcript).toContain('Second line');
+      expect(result.transcript).not.toContain('Third line');
+    });
+
+    it('handles plain prose transcript with no timestamps at all', () => {
+      // This is common for transcripts that are just paragraphs of text
+      const transcript = `This is the first paragraph of the transcript. It contains some interesting content about AI safety.
+
+This is the second paragraph. It continues discussing the topic.
+
+This is the third paragraph. It concludes the main points.`;
+
+      const result = extractVideoExcerpt(transcript, '0:00', '5:00', 'video.md');
+
+      // Should NOT error - include entire content since no timestamps exist
+      expect(result.error).toBeUndefined();
+      expect(result.from).toBe(0);
+      expect(result.to).toBe(300);
+      // Should include entire transcript
+      expect(result.transcript).toContain('first paragraph');
+      expect(result.transcript).toContain('second paragraph');
+      expect(result.transcript).toContain('third paragraph');
+    });
+  });
 });
