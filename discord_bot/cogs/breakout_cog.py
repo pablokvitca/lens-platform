@@ -5,11 +5,15 @@ Allows facilitators to split voice channel participants into temporary
 breakout rooms and collect them back.
 """
 
+import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
 from dataclasses import dataclass, field
 import random
+
+# How long to lock users out of the main room (seconds)
+LOCKOUT_DURATION = 15
 
 from test_bot_manager import test_bot_manager
 
@@ -110,6 +114,24 @@ class BreakoutCog(commands.Cog):
             await interaction.followup.send(content, ephemeral=ephemeral)
         else:
             await interaction.response.send_message(content, ephemeral=ephemeral)
+
+    async def _unlock_after_delay(
+        self,
+        channel: discord.VoiceChannel,
+        members: list[discord.Member],
+    ):
+        """Remove connect=False permission overwrites after a delay."""
+        await asyncio.sleep(LOCKOUT_DURATION)
+        for m in members:
+            try:
+                await channel.set_permissions(
+                    m,
+                    overwrite=None,
+                    reason="Breakout lockout period ended",
+                )
+            except discord.HTTPException:
+                # Member may have left, channel may be gone
+                pass
 
     async def run_breakout(
         self,
@@ -234,6 +256,7 @@ class BreakoutCog(commands.Cog):
             )
 
             # PHASE 3: Lock users out of source channel, then move them
+            locked_members = []
             for group, channel in user_assignments:
                 for m in group:
                     try:
@@ -243,11 +266,17 @@ class BreakoutCog(commands.Cog):
                             connect=False,
                             reason="Breakout session active - preventing accidental rejoin",
                         )
+                        locked_members.append(m)
                         # Then move to breakout channel
                         await m.move_to(channel)
                     except discord.HTTPException:
                         # Member may have left, skip
                         pass
+
+            # Schedule unlock after delay (don't await - runs in background)
+            asyncio.create_task(
+                self._unlock_after_delay(source_channel, locked_members)
+            )
 
             # Store session
             self._active_sessions[guild.id] = BreakoutSession(
@@ -372,8 +401,9 @@ class BreakoutCog(commands.Cog):
             except discord.HTTPException:
                 pass
 
-        # Restore connect permissions on source channel
-        # Use Discord's actual state as source of truth - remove all member-specific overwrites
+        # Restore connect permissions on source channel (safety cleanup)
+        # Normally permissions auto-unlock after LOCKOUT_DURATION, but if collect
+        # happens before that, we need to clean up any remaining overwrites
         if source_channel:
             for target, overwrite in list(source_channel.overwrites.items()):
                 # Only remove Member overwrites, not Role overwrites
@@ -407,6 +437,41 @@ class BreakoutCog(commands.Cog):
     async def collect(self, interaction: discord.Interaction):
         """Move all users from breakout channels back and clean up."""
         await self.run_collect(interaction)
+
+    @app_commands.command(
+        name="breakout-reset-permissions",
+        description="Remove user permission overrides from your voice channel",
+    )
+    async def reset_permissions(self, interaction: discord.Interaction):
+        """Reset permissions on a voice channel (cleanup after bot restart)."""
+        member = interaction.user
+        if not member.voice or not member.voice.channel:
+            await interaction.response.send_message(
+                "You must be in a voice channel.", ephemeral=True
+            )
+            return
+
+        channel = member.voice.channel
+        await interaction.response.defer(ephemeral=True)
+
+        # Remove all member-specific permission overwrites
+        removed_count = 0
+        for target, overwrite in list(channel.overwrites.items()):
+            if isinstance(target, discord.Member):
+                try:
+                    await channel.set_permissions(
+                        target,
+                        overwrite=None,
+                        reason=f"Permission reset by {member.display_name}",
+                    )
+                    removed_count += 1
+                except discord.HTTPException:
+                    pass
+
+        await interaction.followup.send(
+            f"Removed {removed_count} user permission override(s) from **{channel.name}**.",
+            ephemeral=True,
+        )
 
     @app_commands.command(
         name="test-joinvc", description="Have the bot join your voice channel"
