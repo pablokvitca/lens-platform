@@ -7,6 +7,7 @@ export interface CliOptions {
   vaultPath: string | null;
   outputPath: string | null;
   includeWip: boolean;
+  stdin: boolean;  // NEW
 }
 
 export function parseArgs(argv: string[]): CliOptions {
@@ -14,6 +15,7 @@ export function parseArgs(argv: string[]): CliOptions {
   let vaultPath: string | null = null;
   let outputPath: string | null = null;
   let includeWip = false;
+  let stdin = false;  // NEW
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--output' || args[i] === '-o') {
@@ -21,28 +23,48 @@ export function parseArgs(argv: string[]): CliOptions {
       i++; // skip next arg
     } else if (args[i] === '--include-wip') {
       includeWip = true;
+    } else if (args[i] === '--stdin') {  // NEW
+      stdin = true;
     } else if (!args[i].startsWith('-')) {
       vaultPath = args[i];
     }
   }
 
-  return { vaultPath, outputPath, includeWip };
+  return { vaultPath, outputPath, includeWip, stdin };
+}
+
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString('utf-8');
 }
 
 export async function run(options: CliOptions): Promise<ProcessResult> {
-  if (!options.vaultPath) {
-    throw new Error('Vault path is required');
+  let files: Map<string, string>;
+
+  if (options.stdin) {
+    // Read JSON from stdin: { "path": "content", ... }
+    const input = await readStdin();
+    const parsed = JSON.parse(input) as Record<string, string>;
+    files = new Map(Object.entries(parsed));
+  } else {
+    if (!options.vaultPath) {
+      throw new Error('Vault path is required (or use --stdin)');
+    }
+    files = await readVaultFiles(options.vaultPath, { includeWip: options.includeWip });
   }
 
-  const files = await readVaultFiles(options.vaultPath, { includeWip: options.includeWip });
   return processContent(files);
 }
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv);
 
-  if (!options.vaultPath) {
+  if (!options.vaultPath && !options.stdin) {
     console.error('Usage: npx tsx src/cli.ts <vault-path> [--output <file>] [--include-wip]');
+    console.error('       npx tsx src/cli.ts --stdin [--output <file>]');
     process.exit(1);
   }
 
