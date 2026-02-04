@@ -7,10 +7,15 @@ Layers tested:
 - Layer 4: Sync (sync_meeting_reminders) - real APScheduler (in-memory)
 """
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
+from dotenv import load_dotenv
+
+# Load env for integration tests
+load_dotenv(".env.local")
 
 
 # =============================================================================
@@ -804,12 +809,12 @@ class TestReminderConfig:
 
 
 # =============================================================================
-# Test _check_module_progress
+# Test _check_module_progress - Unit tests for edge cases
 # =============================================================================
 
 
-class TestCheckModuleProgress:
-    """Test the _check_module_progress function."""
+class TestCheckModuleProgressEdgeCases:
+    """Unit tests for edge cases that don't need database."""
 
     @pytest.mark.asyncio
     async def test_returns_false_when_no_meeting_id(self):
@@ -832,11 +837,10 @@ class TestCheckModuleProgress:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_returns_true_on_error(self):
+    async def test_returns_true_on_db_error(self):
         """Should return True (send nudge) on error - conservative behavior."""
         from core.notifications.scheduler import _check_module_progress
 
-        # Patch at the source module where get_connection is defined
         with patch(
             "core.database.get_connection",
             side_effect=Exception("DB error"),
@@ -847,120 +851,278 @@ class TestCheckModuleProgress:
             # On error, sends nudge anyway (conservative)
             assert result is True
 
+
+# =============================================================================
+# Test _check_module_progress - Integration tests with real DB
+# =============================================================================
+
+import pytest_asyncio
+from uuid import UUID
+from datetime import datetime
+from sqlalchemy import text
+
+
+@pytest_asyncio.fixture
+async def test_cohort_with_meeting():
+    """
+    Create test cohort, group, and meeting for progress check tests.
+
+    Course progression (from test_cache fixture):
+    - module-a (required) -> due by meeting 1
+    - module-b (required) -> due by meeting 1
+    - meeting 1
+    - module-c (optional) -> due by meeting 2
+    - meeting 2
+    - module-d (required) -> no meeting after
+
+    So for meeting 1: modules a, b are due (2 required modules)
+    """
+    from core.database import get_transaction
+
+    unique_id = str(uuid.uuid4())[:8]
+
+    async with get_transaction() as conn:
+        # Create cohort with test-course
+        result = await conn.execute(
+            text("""
+                INSERT INTO cohorts (cohort_name, course_slug, cohort_start_date, duration_days, number_of_group_meetings)
+                VALUES (:name, 'test-course', CURRENT_DATE, 30, 8)
+                RETURNING cohort_id
+            """),
+            {"name": f"test_cohort_{unique_id}"},
+        )
+        cohort_id = result.fetchone()[0]
+
+        # Create group
+        result = await conn.execute(
+            text("""
+                INSERT INTO groups (group_name, cohort_id, status)
+                VALUES (:name, :cohort_id, 'active')
+                RETURNING group_id
+            """),
+            {"name": f"test_group_{unique_id}", "cohort_id": cohort_id},
+        )
+        group_id = result.fetchone()[0]
+
+        # Create meeting (meeting 1)
+        result = await conn.execute(
+            text("""
+                INSERT INTO meetings (group_id, cohort_id, meeting_number, scheduled_at)
+                VALUES (:group_id, :cohort_id, 1, NOW() + INTERVAL '3 days')
+                RETURNING meeting_id
+            """),
+            {"group_id": group_id, "cohort_id": cohort_id},
+        )
+        meeting_id = result.fetchone()[0]
+
+    yield {"cohort_id": cohort_id, "group_id": group_id, "meeting_id": meeting_id}
+
+    # Cleanup
+    async with get_transaction() as conn:
+        await conn.execute(
+            text("DELETE FROM meetings WHERE meeting_id = :id"), {"id": meeting_id}
+        )
+        await conn.execute(
+            text("DELETE FROM groups WHERE group_id = :id"), {"id": group_id}
+        )
+        await conn.execute(
+            text("DELETE FROM cohorts WHERE cohort_id = :id"), {"id": cohort_id}
+        )
+
+
+@pytest_asyncio.fixture
+async def test_user_for_progress():
+    """Create a test user for progress tests. Cleans up after test."""
+    from core.database import get_transaction
+
+    unique_id = str(uuid.uuid4())[:8]
+
+    async with get_transaction() as conn:
+        result = await conn.execute(
+            text("""
+                INSERT INTO users (discord_id, discord_username)
+                VALUES (:discord_id, :username)
+                RETURNING user_id
+            """),
+            {"discord_id": f"progress_test_{unique_id}", "username": f"progress_user_{unique_id}"},
+        )
+        user_id = result.fetchone()[0]
+
+    yield user_id
+
+    async with get_transaction() as conn:
+        await conn.execute(
+            text("DELETE FROM users WHERE user_id = :user_id"), {"user_id": user_id}
+        )
+
+
+@pytest.fixture
+def test_content_cache():
+    """Set up test content cache with courses and modules."""
+    from core.content import ContentCache, set_cache, clear_cache
+    from core.modules.flattened_types import FlattenedModule
+    from core.modules.course_loader import ParsedCourse, ModuleRef, MeetingMarker
+
+    flattened_modules = {
+        "module-a": FlattenedModule(
+            slug="module-a",
+            title="Module A",
+            content_id=UUID("00000000-0000-0000-0000-000000000001"),
+            sections=[],
+        ),
+        "module-b": FlattenedModule(
+            slug="module-b",
+            title="Module B",
+            content_id=UUID("00000000-0000-0000-0000-000000000002"),
+            sections=[],
+        ),
+        "module-c": FlattenedModule(
+            slug="module-c",
+            title="Module C",
+            content_id=UUID("00000000-0000-0000-0000-000000000003"),
+            sections=[],
+        ),
+        "module-d": FlattenedModule(
+            slug="module-d",
+            title="Module D",
+            content_id=UUID("00000000-0000-0000-0000-000000000004"),
+            sections=[],
+        ),
+    }
+
+    courses = {
+        "test-course": ParsedCourse(
+            slug="test-course",
+            title="Test Course",
+            progression=[
+                ModuleRef(path="modules/module-a"),  # required, due by meeting 1
+                ModuleRef(path="modules/module-b"),  # required, due by meeting 1
+                MeetingMarker(number=1),
+                ModuleRef(path="modules/module-c", optional=True),  # optional
+                MeetingMarker(number=2),
+                ModuleRef(path="modules/module-d"),  # required, no meeting after
+            ],
+        ),
+    }
+
+    cache = ContentCache(
+        courses=courses,
+        flattened_modules=flattened_modules,
+        parsed_learning_outcomes={},
+        parsed_lenses={},
+        articles={},
+        video_transcripts={},
+        last_refreshed=datetime.now(),
+    )
+    set_cache(cache)
+
+    yield cache
+
+    clear_cache()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def cleanup_db_engine():
+    """Clean up database engine after each test."""
+    yield
+    from core.database import close_engine
+    await close_engine()
+
+
+class TestCheckModuleProgressIntegration:
+    """Integration tests using real database and cache."""
+
     @pytest.mark.asyncio
-    async def test_returns_false_when_all_users_above_threshold(self):
-        """Should return False (no nudge) when all users are above threshold."""
+    async def test_returns_true_when_user_has_no_progress(
+        self, test_cohort_with_meeting, test_user_for_progress, test_content_cache
+    ):
+        """User with 0% completion should trigger nudge."""
         from core.notifications.scheduler import _check_module_progress
-        from uuid import UUID
 
-        mock_module = MagicMock()
-        mock_module.content_id = UUID("12345678-1234-1234-1234-123456789012")
+        result = await _check_module_progress(
+            user_ids=[test_user_for_progress],
+            meeting_id=test_cohort_with_meeting["meeting_id"],
+            threshold=0.5,
+        )
 
-        mock_course = MagicMock()
+        # User has 0/2 modules completed (0%), below 50% threshold
+        assert result is True
 
-        # Mock the database query
-        mock_row = {
-            "meeting_number": 1,
-            "course_slug_override": None,
-            "course_slug": "test-course",
-        }
+    @pytest.mark.asyncio
+    async def test_returns_true_when_user_below_threshold(
+        self, test_cohort_with_meeting, test_user_for_progress, test_content_cache
+    ):
+        """User with 1/2 modules (50%) should trigger nudge at 50% threshold."""
+        from core.notifications.scheduler import _check_module_progress
+        from core.database import get_transaction
 
-        with (
-            patch("core.database.get_connection") as mock_conn_ctx,
-            patch(
-                "core.modules.course_loader.load_course", return_value=mock_course
-            ),
-            patch(
-                "core.modules.course_loader.get_required_modules",
-                return_value=[MagicMock(path="modules/mod1")],
-            ),
-            patch(
-                "core.modules.course_loader.get_due_by_meeting", return_value=1
-            ),
-            patch(
-                "core.modules.course_loader._extract_slug_from_path",
-                return_value="mod1",
-            ),
-            patch(
-                "core.modules.loader.load_flattened_module",
-                return_value=mock_module,
-            ),
-            patch(
-                "core.modules.progress.get_module_progress",
-                new_callable=AsyncMock,
-                return_value={
-                    mock_module.content_id: {"completed_at": "2026-01-01T00:00:00Z"}
+        # Mark module-a as complete (1/2 = 50%)
+        async with get_transaction() as conn:
+            await conn.execute(
+                text("""
+                    INSERT INTO user_content_progress
+                    (user_id, content_id, content_type, content_title, completed_at)
+                    VALUES (:user_id, :content_id, 'module', 'Module A', NOW())
+                """),
+                {
+                    "user_id": test_user_for_progress,
+                    "content_id": "00000000-0000-0000-0000-000000000001",
                 },
-            ),
-        ):
-            # Mock the async context manager
-            mock_conn = AsyncMock()
-            mock_result = MagicMock()
-            mock_result.mappings.return_value.first.return_value = mock_row
-            mock_conn.execute = AsyncMock(return_value=mock_result)
-            mock_conn_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-            mock_conn_ctx.return_value.__aexit__ = AsyncMock(return_value=None)
-
-            result = await _check_module_progress(
-                user_ids=[1], meeting_id=42, threshold=0.5
             )
 
-            # User completed 100% (1/1), above 50% threshold
-            assert result is False
+        # At exactly 50%, with threshold 0.5, user is NOT below threshold
+        # But let's use threshold 0.6 to ensure they're below
+        result = await _check_module_progress(
+            user_ids=[test_user_for_progress],
+            meeting_id=test_cohort_with_meeting["meeting_id"],
+            threshold=0.6,  # 60% threshold
+        )
+
+        # User has 1/2 modules (50%), below 60% threshold
+        assert result is True
 
     @pytest.mark.asyncio
-    async def test_returns_true_when_user_below_threshold(self):
-        """Should return True (send nudge) when a user is below threshold."""
+    async def test_returns_false_when_user_above_threshold(
+        self, test_cohort_with_meeting, test_user_for_progress, test_content_cache
+    ):
+        """User with 2/2 modules (100%) should not trigger nudge."""
         from core.notifications.scheduler import _check_module_progress
-        from uuid import UUID
+        from core.database import get_transaction
 
-        mock_module = MagicMock()
-        mock_module.content_id = UUID("12345678-1234-1234-1234-123456789012")
-
-        mock_course = MagicMock()
-
-        mock_row = {
-            "meeting_number": 1,
-            "course_slug_override": None,
-            "course_slug": "test-course",
-        }
-
-        with (
-            patch("core.database.get_connection") as mock_conn_ctx,
-            patch(
-                "core.modules.course_loader.load_course", return_value=mock_course
-            ),
-            patch(
-                "core.modules.course_loader.get_required_modules",
-                return_value=[MagicMock(path="modules/mod1")],
-            ),
-            patch(
-                "core.modules.course_loader.get_due_by_meeting", return_value=1
-            ),
-            patch(
-                "core.modules.course_loader._extract_slug_from_path",
-                return_value="mod1",
-            ),
-            patch(
-                "core.modules.loader.load_flattened_module",
-                return_value=mock_module,
-            ),
-            patch(
-                "core.modules.progress.get_module_progress",
-                new_callable=AsyncMock,
-                return_value={},  # No completion records = 0%
-            ),
-        ):
-            mock_conn = AsyncMock()
-            mock_result = MagicMock()
-            mock_result.mappings.return_value.first.return_value = mock_row
-            mock_conn.execute = AsyncMock(return_value=mock_result)
-            mock_conn_ctx.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
-            mock_conn_ctx.return_value.__aexit__ = AsyncMock(return_value=None)
-
-            result = await _check_module_progress(
-                user_ids=[1], meeting_id=42, threshold=0.5
+        # Mark both modules as complete
+        async with get_transaction() as conn:
+            await conn.execute(
+                text("""
+                    INSERT INTO user_content_progress
+                    (user_id, content_id, content_type, content_title, completed_at)
+                    VALUES
+                    (:user_id, '00000000-0000-0000-0000-000000000001', 'module', 'Module A', NOW()),
+                    (:user_id, '00000000-0000-0000-0000-000000000002', 'module', 'Module B', NOW())
+                """),
+                {"user_id": test_user_for_progress},
             )
 
-            # User completed 0%, below 50% threshold
-            assert result is True
+        result = await _check_module_progress(
+            user_ids=[test_user_for_progress],
+            meeting_id=test_cohort_with_meeting["meeting_id"],
+            threshold=0.5,
+        )
+
+        # User has 2/2 modules (100%), above 50% threshold
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_meeting_not_found(
+        self, test_cohort_with_meeting, test_content_cache
+    ):
+        """Should return False when meeting doesn't exist (but DB is available)."""
+        from core.notifications.scheduler import _check_module_progress
+
+        result = await _check_module_progress(
+            user_ids=[1],
+            meeting_id=999999,  # Non-existent meeting
+            threshold=0.5,
+        )
+
+        # Meeting not found, can't check progress
+        assert result is False
