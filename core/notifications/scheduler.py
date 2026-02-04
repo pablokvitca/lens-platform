@@ -2,14 +2,18 @@
 APScheduler-based job scheduler for notifications.
 
 Jobs are persisted to PostgreSQL so they survive restarts.
+
+This module implements lightweight jobs - storing only meeting_id and reminder_type,
+then fetching fresh context at execution time. This avoids stale data issues.
 """
 
 import fnmatch
 import logging
 import os
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
+from apscheduler.jobstores.base import JobLookupError
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -17,6 +21,35 @@ logger = logging.getLogger(__name__)
 
 
 _scheduler: AsyncIOScheduler | None = None
+
+
+# =============================================================================
+# Reminder configuration - SINGLE SOURCE OF TRUTH
+# =============================================================================
+
+REMINDER_CONFIG = {
+    "reminder_24h": {
+        "offset": timedelta(hours=-24),
+        "message_template": "meeting_reminder_24h",
+        "send_to_channel": True,
+    },
+    "reminder_1h": {
+        "offset": timedelta(hours=-1),
+        "message_template": "meeting_reminder_1h",
+        "send_to_channel": True,
+    },
+    "module_nudge_3d": {
+        "offset": timedelta(days=-3),
+        "message_template": "module_nudge",
+        "send_to_channel": False,
+        "condition": {"type": "module_progress", "threshold": 0.5},
+    },
+}
+
+
+# =============================================================================
+# Scheduler initialization and shutdown
+# =============================================================================
 
 
 def _get_database_url() -> str:
@@ -108,30 +141,31 @@ def shutdown_scheduler() -> None:
         print("Notification scheduler stopped")
 
 
+# =============================================================================
+# Job scheduling - lightweight jobs
+# =============================================================================
+
+
 def schedule_reminder(
-    job_id: str,
+    meeting_id: int,
+    reminder_type: str,
     run_at: datetime,
-    message_type: str,
-    user_ids: list[int],
-    context: dict,
-    channel_id: str | None = None,
-    condition: dict | None = None,
 ) -> None:
     """
-    Schedule a reminder notification for later.
+    Schedule a lightweight reminder job.
+
+    Only stores meeting_id and reminder_type - fresh context is fetched at execution time.
 
     Args:
-        job_id: Unique job identifier (e.g., "meeting_123_reminder_24h")
+        meeting_id: Meeting ID to send reminder for
+        reminder_type: One of "reminder_24h", "reminder_1h", "module_nudge_3d"
         run_at: When to send the notification
-        message_type: Message type from messages.yaml
-        user_ids: List of user IDs to notify
-        context: Template variables
-        channel_id: Optional Discord channel for channel messages
-        condition: Optional condition to check before sending (e.g., module progress)
     """
     if not _scheduler:
-        print("Warning: Scheduler not initialized, cannot schedule reminder")
+        logger.warning("Scheduler not initialized, cannot schedule reminder")
         return
+
+    job_id = f"meeting_{meeting_id}_{reminder_type}"
 
     _scheduler.add_job(
         _execute_reminder,
@@ -140,13 +174,11 @@ def schedule_reminder(
         id=job_id,
         replace_existing=True,
         kwargs={
-            "message_type": message_type,
-            "user_ids": user_ids,
-            "context": context,
-            "channel_id": channel_id,
-            "condition": condition,
+            "meeting_id": meeting_id,
+            "reminder_type": reminder_type,
         },
     )
+    logger.info(f"Scheduled {reminder_type} for meeting {meeting_id} at {run_at}")
 
 
 def cancel_reminders(pattern: str) -> int:
@@ -171,98 +203,167 @@ def cancel_reminders(pattern: str) -> int:
     return cancelled
 
 
-async def _execute_reminder(
-    message_type: str,
-    user_ids: list[int],
-    context: dict,
-    channel_id: str | None = None,
-    condition: dict | None = None,
-) -> None:
+# =============================================================================
+# Job execution - fetches fresh context
+# =============================================================================
+
+
+async def _execute_reminder(meeting_id: int, reminder_type: str) -> None:
     """
-    Execute a scheduled reminder.
+    Execute a reminder with fresh context from DB.
 
     This is the job function called by APScheduler.
+
+    Args:
+        meeting_id: Meeting ID to send reminder for
+        reminder_type: Type of reminder (determines message template)
     """
+    # Import here to avoid circular imports
+    from core.notifications.context import (
+        get_meeting_with_group,
+        get_active_member_ids,
+        build_reminder_context,
+    )
     from core.notifications.dispatcher import (
         send_notification,
         send_channel_notification,
     )
 
-    # Check condition if specified (e.g., module progress)
+    # Fetch fresh data
+    result = await get_meeting_with_group(meeting_id)
+    if not result:
+        logger.info(f"Meeting {meeting_id} not found, skipping reminder")
+        return
+
+    meeting, group = result
+
+    # Skip if meeting already passed
+    if meeting["scheduled_at"] < datetime.now(timezone.utc):
+        logger.info(f"Meeting {meeting_id} already passed, skipping reminder")
+        return
+
+    # Get current members
+    user_ids = await get_active_member_ids(group["group_id"])
+    if not user_ids:
+        logger.info(f"No active members for meeting {meeting_id}, skipping")
+        return
+
+    # Get config for this reminder type
+    config = REMINDER_CONFIG.get(reminder_type, {})
+
+    # Check condition if this reminder type has one
+    condition = config.get("condition")
     if condition:
-        should_send = await _check_condition(condition, user_ids)
+        should_send = await _check_condition(condition, user_ids, meeting_id)
         if not should_send:
-            print(f"Skipping reminder {message_type}: condition not met")
+            logger.info(
+                f"Condition not met for {reminder_type} on meeting {meeting_id}"
+            )
             return
 
-    # Send to channel if channel_id provided (for meeting reminders)
-    if channel_id:
-        await send_channel_notification(channel_id, message_type, context)
+    # Build fresh context
+    context = build_reminder_context(meeting, group)
 
-    # Send individual notifications to each user
+    # Get the template name
+    message_type = config.get("message_template", reminder_type)
+
+    # Send to channel if configured
+    if config.get("send_to_channel"):
+        channel_id = group["discord_text_channel_id"]
+        if channel_id:
+            await send_channel_notification(channel_id, message_type, context)
+
+    # Send to each member
     for user_id in user_ids:
         await send_notification(
             user_id=user_id,
             message_type=message_type,
             context=context,
-            channel_id=None,  # Don't send to channel again per-user
         )
 
 
-async def sync_meeting_reminders(meeting_id: int) -> None:
-    """
-    Sync reminder job's user_ids with current group membership from DB.
+# =============================================================================
+# Diff-based sync
+# =============================================================================
 
-    This is idempotent and self-healing - reads the source of truth (database)
-    and updates the APScheduler jobs to match.
 
-    Called when users join or leave a group.
+async def sync_meeting_reminders(meeting_id: int) -> dict:
     """
+    Diff-based sync: ensure correct jobs exist for a meeting.
+
+    Creates missing jobs, removes orphaned jobs.
+    Idempotent and self-healing.
+
+    Returns dict with created/deleted/unchanged counts, or error key on failure.
+    """
+    from core.notifications.context import get_meeting_with_group
+
+    # Early return if scheduler not available
     if not _scheduler:
-        return
+        return {"created": 0, "deleted": 0, "unchanged": 0}
 
-    from core.database import get_connection
-    from core.tables import meetings, groups_users
-    from core.enums import GroupUserStatus
-    from sqlalchemy import select
+    try:
+        result = await get_meeting_with_group(meeting_id)
+        now = datetime.now(timezone.utc)
 
-    # Get current active members for this meeting's group
-    async with get_connection() as conn:
-        # First get the group_id for this meeting
-        meeting_result = await conn.execute(
-            select(meetings.c.group_id).where(meetings.c.meeting_id == meeting_id)
-        )
-        meeting_row = meeting_result.mappings().first()
-        if not meeting_row:
-            return
+        # Determine expected jobs
+        expected: dict[str, datetime] = {}
+        if result:
+            meeting, group = result
+            meeting_time = meeting["scheduled_at"]
 
-        group_id = meeting_row["group_id"]
+            if meeting_time > now:
+                # Build expected jobs from REMINDER_CONFIG
+                expected = {
+                    reminder_type: meeting_time + config["offset"]
+                    for reminder_type, config in REMINDER_CONFIG.items()
+                }
+                # Filter out jobs scheduled in the past
+                expected = {k: v for k, v in expected.items() if v > now}
 
-        # Get all active members of the group
-        members_result = await conn.execute(
-            select(groups_users.c.user_id)
-            .where(groups_users.c.group_id == group_id)
-            .where(groups_users.c.status == GroupUserStatus.active)
-        )
-        user_ids = [row["user_id"] for row in members_result.mappings()]
+        # Get current jobs (filter in Python, fine for our scale)
+        current: set[str] = set()
+        prefix = f"meeting_{meeting_id}_"
+        for job in _scheduler.get_jobs():
+            if job.id.startswith(prefix):
+                reminder_type = job.id[len(prefix) :]
+                current.add(reminder_type)
 
-    # Update all reminder jobs for this meeting
-    job_suffixes = ["reminder_24h", "reminder_1h", "module_nudge_3d", "module_nudge_1d"]
+        # Diff
+        to_create = set(expected.keys()) - current
+        to_delete = current - set(expected.keys())
 
-    for suffix in job_suffixes:
-        job_id = f"meeting_{meeting_id}_{suffix}"
-        job = _scheduler.get_job(job_id)
-        if job:
-            if user_ids:
-                # Update with current members
-                new_kwargs = {**job.kwargs, "user_ids": user_ids}
-                _scheduler.modify_job(job_id, kwargs=new_kwargs)
-            else:
-                # No users left, remove the job
-                job.remove()
+        # Create missing
+        for reminder_type in to_create:
+            schedule_reminder(meeting_id, reminder_type, expected[reminder_type])
+
+        # Delete orphaned
+        for reminder_type in to_delete:
+            job_id = f"meeting_{meeting_id}_{reminder_type}"
+            try:
+                _scheduler.remove_job(job_id)
+            except JobLookupError:
+                pass  # Already gone
+
+        return {
+            "created": len(to_create),
+            "deleted": len(to_delete),
+            "unchanged": len(current & set(expected.keys())),
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to sync reminders for meeting {meeting_id}: {e}")
+        return {"error": str(e), "created": 0, "deleted": 0, "unchanged": 0}
 
 
-async def _check_condition(condition: dict, user_ids: list[int]) -> bool:
+# =============================================================================
+# Condition checking
+# =============================================================================
+
+
+async def _check_condition(
+    condition: dict, user_ids: list[int], meeting_id: int | None = None
+) -> bool:
     """
     Check if a reminder condition is met.
 
@@ -271,6 +372,7 @@ async def _check_condition(condition: dict, user_ids: list[int]) -> bool:
     Args:
         condition: Dict with condition type and parameters
         user_ids: Users to check
+        meeting_id: Optional meeting ID for context
 
     Returns:
         True if condition is met and reminder should send
@@ -278,14 +380,150 @@ async def _check_condition(condition: dict, user_ids: list[int]) -> bool:
     condition_type = condition.get("type")
 
     if condition_type == "module_progress":
-        # Check if user hasn't completed required modules
-        condition.get("meeting_id")
-        condition.get("threshold", 1.0)  # 1.0 = 100%
-        # TODO: Implement module progress check
-        # For now, always return True
-        return True
+        return await _check_module_progress(
+            user_ids=user_ids,
+            meeting_id=meeting_id,
+            threshold=condition.get("threshold", 1.0),
+        )
 
     return True
+
+
+async def _check_module_progress(
+    user_ids: list[int],
+    meeting_id: int | None,
+    threshold: float,
+) -> bool:
+    """
+    Check if any user is below the module completion threshold.
+
+    Returns True (send nudge) if at least one user hasn't completed
+    enough modules that are due by this meeting.
+
+    Args:
+        user_ids: Users to check
+        meeting_id: Meeting to check modules for
+        threshold: Completion percentage required (0.0-1.0)
+
+    Returns:
+        True if nudge should be sent (someone is behind)
+    """
+    if not meeting_id or not user_ids:
+        return False
+
+    try:
+        # Import here to avoid circular imports
+        from core.database import get_connection
+        from core.modules.course_loader import (
+            load_course,
+            get_required_modules,
+            get_due_by_meeting,
+            _extract_slug_from_path,
+        )
+        from core.modules.loader import load_flattened_module, ModuleNotFoundError
+        from core.modules.progress import get_module_progress
+        from core.tables import meetings, groups, cohorts
+        from sqlalchemy import select
+
+        async with get_connection() as conn:
+            # Get meeting info with group and cohort
+            query = (
+                select(
+                    meetings.c.meeting_number,
+                    groups.c.course_slug_override,
+                    cohorts.c.course_slug,
+                )
+                .select_from(
+                    meetings.join(groups, meetings.c.group_id == groups.c.group_id)
+                    .join(cohorts, groups.c.cohort_id == cohorts.c.cohort_id)
+                )
+                .where(meetings.c.meeting_id == meeting_id)
+            )
+            result = await conn.execute(query)
+            row = result.mappings().first()
+
+            if not row:
+                logger.warning(f"Meeting {meeting_id} not found for progress check")
+                return False
+
+            meeting_number = row["meeting_number"]
+            course_slug = row["course_slug_override"] or row["course_slug"]
+
+            # Load course and find modules due by this meeting
+            try:
+                course = load_course(course_slug)
+            except Exception as e:
+                logger.warning(f"Could not load course {course_slug}: {e}")
+                return False
+
+            # Find all required modules due by this meeting number
+            required_modules = get_required_modules(course)
+            modules_due_slugs = []
+            for m in required_modules:
+                slug = _extract_slug_from_path(m.path)
+                due_by = get_due_by_meeting(course, slug)
+                if due_by is not None and due_by <= meeting_number:
+                    modules_due_slugs.append(slug)
+
+            if not modules_due_slugs:
+                # No modules due yet, no need to nudge
+                return False
+
+            # Get content_ids for these modules
+            module_content_ids = []
+            for slug in modules_due_slugs:
+                try:
+                    module = load_flattened_module(slug)
+                    if module.content_id:
+                        module_content_ids.append(module.content_id)
+                except ModuleNotFoundError:
+                    logger.warning(f"Module {slug} not found in cache")
+                    continue
+
+            if not module_content_ids:
+                # No trackable modules, skip nudge
+                return False
+
+            # Check each user's progress
+            for user_id in user_ids:
+                progress = await get_module_progress(
+                    conn,
+                    user_id=user_id,
+                    anonymous_token=None,
+                    lens_ids=module_content_ids,
+                )
+
+                # Count completed modules
+                completed = sum(
+                    1 for content_id in module_content_ids
+                    if content_id in progress and progress[content_id].get("completed_at")
+                )
+
+                completion_rate = completed / len(module_content_ids)
+
+                if completion_rate < threshold:
+                    # This user is behind, send the nudge
+                    logger.info(
+                        f"User {user_id} at {completion_rate:.0%} completion "
+                        f"(threshold {threshold:.0%}), sending nudge"
+                    )
+                    return True
+
+            # All users are on track
+            logger.info(
+                f"All users above {threshold:.0%} threshold for meeting {meeting_id}"
+            )
+            return False
+
+    except Exception as e:
+        logger.error(f"Error checking module progress: {e}")
+        # On error, send the nudge anyway (conservative)
+        return True
+
+
+# =============================================================================
+# Sync retries
+# =============================================================================
 
 
 def get_retry_delay(attempt: int, include_jitter: bool = True) -> float:
@@ -327,7 +565,7 @@ def schedule_sync_retry(
         return
 
     delay = get_retry_delay(attempt)
-    run_at = datetime.now() + timedelta(seconds=delay)
+    run_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
 
     job_id = f"sync_retry_{sync_type}_{group_id}"
 
@@ -349,6 +587,9 @@ def schedule_sync_retry(
     )
 
 
+MAX_SYNC_RETRY_ATTEMPTS = 12  # ~6 hours with exponential backoff (caps at 30min)
+
+
 async def _execute_sync_retry(
     sync_type: str,
     group_id: int,
@@ -358,7 +599,7 @@ async def _execute_sync_retry(
     """
     Execute a sync retry. Called by APScheduler.
 
-    If sync fails again, schedules another retry.
+    If sync fails again, schedules another retry (up to MAX_SYNC_RETRY_ATTEMPTS).
     """
     import sentry_sdk
     from core.sync import (
@@ -367,6 +608,16 @@ async def _execute_sync_retry(
         sync_group_reminders,
         sync_group_rsvps,
     )
+
+    # Check if we've exceeded max retries
+    if attempt > MAX_SYNC_RETRY_ATTEMPTS:
+        logger.error(
+            f"Sync {sync_type} for group {group_id} exceeded max retries ({MAX_SYNC_RETRY_ATTEMPTS}), giving up"
+        )
+        sentry_sdk.capture_message(
+            f"Sync permanently failed after {MAX_SYNC_RETRY_ATTEMPTS} attempts: {sync_type} group {group_id}"
+        )
+        return
 
     sync_functions = {
         "discord": sync_group_discord_permissions,
