@@ -3,6 +3,171 @@ import { describe, it, expect } from 'vitest';
 import { parseModule, parsePageTextSegments } from './module.js';
 
 describe('parseModule', () => {
+  describe('empty/whitespace required fields validation', () => {
+    it('rejects empty slug', () => {
+      const content = `---
+slug: ""
+title: Valid Title
+---
+`;
+      const result = parseModule(content, 'modules/test.md');
+
+      expect(result.module).toBeNull();
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain('slug');
+      expect(result.errors[0].message).toContain('empty');
+    });
+
+    it('rejects whitespace-only slug', () => {
+      const content = `---
+slug: "   "
+title: Valid Title
+---
+`;
+      const result = parseModule(content, 'modules/test.md');
+
+      expect(result.module).toBeNull();
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain('slug');
+      expect(result.errors[0].message).toContain('empty');
+    });
+
+    it('rejects empty title', () => {
+      const content = `---
+slug: valid-slug
+title: ""
+---
+`;
+      const result = parseModule(content, 'modules/test.md');
+
+      expect(result.module).toBeNull();
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain('title');
+      expect(result.errors[0].message).toContain('empty');
+    });
+
+    it('rejects whitespace-only title', () => {
+      const content = `---
+slug: valid-slug
+title: "   "
+---
+`;
+      const result = parseModule(content, 'modules/test.md');
+
+      expect(result.module).toBeNull();
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain('title');
+      expect(result.errors[0].message).toContain('empty');
+    });
+
+    it('rejects both empty slug and title', () => {
+      const content = `---
+slug: ""
+title: ""
+---
+`;
+      const result = parseModule(content, 'modules/test.md');
+
+      expect(result.module).toBeNull();
+      expect(result.errors).toHaveLength(2);
+    });
+
+    it('accepts valid non-empty slug and title', () => {
+      const content = `---
+slug: valid-slug
+title: Valid Title
+---
+`;
+      const result = parseModule(content, 'modules/test.md');
+
+      expect(result.module).not.toBeNull();
+      expect(result.module?.slug).toBe('valid-slug');
+      expect(result.module?.title).toBe('Valid Title');
+      expect(result.errors).toHaveLength(0);
+    });
+  });
+
+  describe('slug format validation', () => {
+    it('rejects slug with special characters', () => {
+      const content = `---
+slug: "!!!invalid@@@"
+title: Valid Title
+---
+`;
+      const result = parseModule(content, 'modules/test.md');
+
+      expect(result.module).toBeNull();
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain('slug');
+      expect(result.errors[0].severity).toBe('error');
+    });
+
+    it('rejects slug with spaces', () => {
+      const content = `---
+slug: "my slug"
+title: Valid Title
+---
+`;
+      const result = parseModule(content, 'modules/test.md');
+
+      expect(result.module).toBeNull();
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain('slug');
+    });
+
+    it('rejects slug starting with hyphen', () => {
+      const content = `---
+slug: "-invalid"
+title: Valid Title
+---
+`;
+      const result = parseModule(content, 'modules/test.md');
+
+      expect(result.module).toBeNull();
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain('hyphen');
+    });
+
+    it('rejects slug ending with hyphen', () => {
+      const content = `---
+slug: "invalid-"
+title: Valid Title
+---
+`;
+      const result = parseModule(content, 'modules/test.md');
+
+      expect(result.module).toBeNull();
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain('hyphen');
+    });
+
+    it('rejects uppercase slug', () => {
+      const content = `---
+slug: UPPERCASE
+title: Valid Title
+---
+`;
+      const result = parseModule(content, 'modules/test.md');
+
+      expect(result.module).toBeNull();
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0].message).toContain('uppercase');
+    });
+
+    it('accepts valid slug with lowercase, numbers, and hyphens', () => {
+      const content = `---
+slug: intro-101
+title: Valid Title
+---
+`;
+      const result = parseModule(content, 'modules/test.md');
+
+      expect(result.module).not.toBeNull();
+      expect(result.module?.slug).toBe('intro-101');
+      expect(result.errors).toHaveLength(0);
+    });
+  });
+
   it('parses complete module', () => {
     const content = `---
 slug: intro

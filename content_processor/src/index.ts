@@ -89,8 +89,9 @@ import { flattenModule } from './flattener/index.js';
 import { parseCourse } from './parser/course.js';
 import { parseLearningOutcome } from './parser/learning-outcome.js';
 import { parseLens, type ParsedLens } from './parser/lens.js';
-import { parseWikilink, resolveWikilinkPath, findFileWithExtension } from './parser/wikilink.js';
+import { parseWikilink, resolveWikilinkPath, findFileWithExtension, findSimilarFiles, formatSuggestion } from './parser/wikilink.js';
 import { validateUuids, type UuidEntry } from './validator/uuid.js';
+import { detectDuplicateSlugs, type SlugEntry } from './validator/duplicates.js';
 import { extractArticleExcerpt } from './bundler/article.js';
 import { extractVideoExcerpt, type TimestampEntry } from './bundler/video.js';
 
@@ -116,11 +117,16 @@ function validateLensExcerpts(
     const actualPath = findFileWithExtension(resolvedPath, files);
 
     if (!actualPath) {
+      // Find similar files to suggest
+      const expectedDir = section.type.includes('article') ? 'articles' : 'video_transcripts';
+      const similarFiles = findSimilarFiles(resolvedPath, files, expectedDir);
+      const suggestion = formatSuggestion(similarFiles, lensPath) ?? 'Check that the file exists and the path is correct';
+
       errors.push({
         file: lensPath,
         line: section.line,
         message: `Source file not found: ${resolvedPath}`,
-        suggestion: 'Check that the file exists and the path is correct',
+        suggestion,
         severity: 'error',
       });
       continue;
@@ -183,6 +189,7 @@ export function processContent(files: Map<string, string>): ProcessResult {
   const courses: Course[] = [];
   const errors: ContentError[] = [];
   const uuidEntries: UuidEntry[] = [];
+  const slugEntries: SlugEntry[] = [];
 
   // Identify file types by path
   for (const [path, content] of files.entries()) {
@@ -191,6 +198,12 @@ export function processContent(files: Map<string, string>): ProcessResult {
 
       if (result.module) {
         modules.push(result.module);
+
+        // Collect slug for duplicate detection
+        slugEntries.push({
+          slug: result.module.slug,
+          file: path,
+        });
 
         // Collect module contentId for UUID validation
         if (result.module.contentId) {
@@ -215,6 +228,25 @@ export function processContent(files: Map<string, string>): ProcessResult {
       // Fully validate Learning Outcome (structure, fields, wikilink syntax)
       const result = parseLearningOutcome(content, path);
       errors.push(...result.errors);
+
+      // Check that referenced lens files exist
+      if (result.learningOutcome) {
+        for (const lensRef of result.learningOutcome.lenses) {
+          const lensPath = findFileWithExtension(lensRef.resolvedPath, files);
+          if (!lensPath) {
+            // Find similar files to suggest
+            const similarFiles = findSimilarFiles(lensRef.resolvedPath, files, 'Lenses');
+            const suggestion = formatSuggestion(similarFiles, path) ?? 'Check the file path in the wiki-link';
+
+            errors.push({
+              file: path,
+              message: `Referenced lens file not found: ${lensRef.resolvedPath}`,
+              suggestion,
+              severity: 'error',
+            });
+          }
+        }
+      }
 
       // Collect id for UUID validation
       if (result.learningOutcome?.id) {
@@ -249,6 +281,10 @@ export function processContent(files: Map<string, string>): ProcessResult {
   // Validate all collected UUIDs
   const uuidValidation = validateUuids(uuidEntries);
   errors.push(...uuidValidation.errors);
+
+  // Validate for duplicate slugs
+  const duplicateSlugErrors = detectDuplicateSlugs(slugEntries);
+  errors.push(...duplicateSlugErrors);
 
   return { modules, courses, errors };
 }

@@ -97,7 +97,7 @@ source:: [[../Lenses/lens1.md]]
         ['Lenses/lens1.md', `---
 id: 550e8400-e29b-41d4-a716-446655440001
 ---
-### Text: Intro
+### Page: Intro
 
 #### Text
 content:: Hello
@@ -117,7 +117,7 @@ content:: Hello
         ['Lenses/lens1.md', `---
 id: this-is-not-a-uuid
 ---
-### Text: Intro
+### Page: Intro
 
 #### Text
 content:: Hello
@@ -181,7 +181,7 @@ source:: [[../Lenses/lens1.md]]
         ['Lenses/lens1.md', `---
 id: 550e8400-e29b-41d4-a716-446655440002
 ---
-### Text: Intro
+### Page: Intro
 
 #### Text
 content:: Hello
@@ -201,7 +201,7 @@ content:: Hello
         ['Lenses/lens1.md', `---
 id: 550e8400-e29b-41d4-a716-446655440001
 ---
-### Text: Intro
+### Page: Intro
 
 #### Text
 content:: Hello
@@ -209,7 +209,7 @@ content:: Hello
         ['Lenses/lens2.md', `---
 id: 550e8400-e29b-41d4-a716-446655440001
 ---
-### Text: Intro
+### Page: Intro
 
 #### Text
 content:: World
@@ -237,7 +237,7 @@ contentId: 550e8400-e29b-41d4-a716-446655440000
         ['Lenses/lens1.md', `---
 id: 550e8400-e29b-41d4-a716-446655440000
 ---
-### Text: Intro
+### Page: Intro
 
 #### Text
 content:: Hello

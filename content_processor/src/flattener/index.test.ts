@@ -271,7 +271,7 @@ source:: [[../Lenses/lens3.md|Lens 3]]
 id: 550e8400-e29b-41d4-a716-446655440010
 ---
 
-### Text: Content 1
+### Page: Content 1
 
 #### Text
 content:: Required content.
@@ -280,7 +280,7 @@ content:: Required content.
 id: 550e8400-e29b-41d4-a716-446655440011
 ---
 
-### Text: Content 2
+### Page: Content 2
 
 #### Text
 content:: Optional content A.
@@ -289,7 +289,7 @@ content:: Optional content A.
 id: 550e8400-e29b-41d4-a716-446655440012
 ---
 
-### Text: Content 3
+### Page: Content 3
 
 #### Text
 content:: Optional content B.
@@ -385,7 +385,7 @@ source:: [[../Lenses/lens1.md|Lens 1]]
 id: lens-1-id
 ---
 
-### Text: Content
+### Page: Content
 
 #### Text
 content:: This is lens content.
@@ -509,7 +509,7 @@ source:: [[../Lenses/lens1.md|Lens]]
 id: 3dd47fce-a0fe-4e03-916d-a160fe697dd0
 ---
 
-### Text: Content
+### Page: Content
 
 #### Text
 content:: Some content.
@@ -544,7 +544,7 @@ source::
 id: lens-1-id
 ---
 
-### Text: Content 1
+### Page: Content 1
 
 #### Text
 content:: First lens content.
@@ -553,7 +553,7 @@ content:: First lens content.
 id: lens-2-id
 ---
 
-### Text: Content 2
+### Page: Content 2
 
 #### Text
 content:: Second lens content.
@@ -601,7 +601,7 @@ source:: [[../Lenses/lens3.md|Lens 3]]
 id: 550e8400-e29b-41d4-a716-446655440010
 ---
 
-### Text: Content 1
+### Page: Content 1
 
 #### Text
 content:: Required content A.
@@ -610,7 +610,7 @@ content:: Required content A.
 id: 550e8400-e29b-41d4-a716-446655440011
 ---
 
-### Text: Content 2
+### Page: Content 2
 
 #### Text
 content:: Optional content.
@@ -619,7 +619,7 @@ content:: Optional content.
 id: 550e8400-e29b-41d4-a716-446655440012
 ---
 
-### Text: Content 3
+### Page: Content 3
 
 #### Text
 content:: Required content B.
@@ -637,6 +637,53 @@ content:: Required content B.
     expect(result.module?.sections[1].optional).toBe(true);
     // Third lens: NOT optional
     expect(result.module?.sections[2].optional).toBe(false);
+  });
+
+  it('flattens Lens with ### Page: section to type page', () => {
+    // A Lens using ### Page: (instead of ### Article: or ### Video:)
+    // should produce a section with type 'page' and properly populated segments
+    const files = new Map([
+      ['modules/test.md', `---
+slug: test
+title: Test
+---
+
+# Learning Outcome: Topic
+source:: [[../Learning Outcomes/lo1.md|LO1]]
+`],
+      ['Learning Outcomes/lo1.md', `---
+id: lo-id
+---
+
+## Lens:
+source:: [[../Lenses/page-lens.md|Page Lens]]
+`],
+      ['Lenses/page-lens.md', `---
+id: page-lens-id
+---
+
+### Page: External Resource
+#### Text
+content::
+We refer you to an external interactive resource.
+
+#### Chat: Discussion
+instructions:: Discuss what you learned from the external resource.
+`],
+    ]);
+
+    const result = flattenModule('modules/test.md', files);
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.module?.sections).toHaveLength(1);
+    // Key assertion: section type should be 'page'
+    expect(result.module?.sections[0].type).toBe('page');
+    // Title from ### Page: header
+    expect(result.module?.sections[0].meta.title).toBe('External Resource');
+    // Should have 2 segments: text and chat
+    expect(result.module?.sections[0].segments).toHaveLength(2);
+    expect(result.module?.sections[0].segments[0].type).toBe('text');
+    expect(result.module?.sections[0].segments[1].type).toBe('chat');
   });
 
   it('detects circular reference and returns error', () => {

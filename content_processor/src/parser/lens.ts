@@ -228,10 +228,37 @@ function convertSegment(
     }
 
     case 'chat': {
+      const hasInstructionsField = 'instructions' in raw.fields;
+      const instructions = raw.fields.instructions;
+
+      if (!hasInstructionsField) {
+        // Field completely missing - error
+        errors.push({
+          file,
+          line: raw.line,
+          message: 'Chat segment missing instructions:: field',
+          suggestion: "Add 'instructions:: Your instructions here' to the chat segment",
+          severity: 'error',
+        });
+        return { segment: null, errors };
+      }
+
+      if (!instructions || instructions.trim() === '') {
+        // Field present but empty - warning
+        errors.push({
+          file,
+          line: raw.line,
+          message: 'Chat segment has empty instructions:: field',
+          suggestion: 'Add instructions text after instructions::',
+          severity: 'warning',
+        });
+        // Still create the segment with empty instructions
+      }
+
       const segment: ParsedChatSegment = {
         type: 'chat',
         title: raw.title,
-        instructions: raw.fields.instructions,
+        instructions: instructions || '',
         hidePreviousContentFromUser: raw.fields.hidePreviousContentFromUser === 'true' ? true : undefined,
         hidePreviousContentFromTutor: raw.fields.hidePreviousContentFromTutor === 'true' ? true : undefined,
         optional: raw.fields.optional === 'true' ? true : undefined,

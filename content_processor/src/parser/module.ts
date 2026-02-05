@@ -2,6 +2,7 @@
 import type { ContentError, TextSegment } from '../index.js';
 import { parseFrontmatter } from './frontmatter.js';
 import { parseSections, MODULE_SECTION_TYPES, type ParsedSection } from './sections.js';
+import { validateSlugFormat } from '../validator/field-values.js';
 
 /**
  * Parse ## Text subsections from within a Page section body.
@@ -105,7 +106,8 @@ export function parseModule(content: string, file: string): ModuleParseResult {
   const { frontmatter, body, bodyStartLine } = frontmatterResult;
 
   // Validate required frontmatter fields
-  if (!frontmatter.slug) {
+  const slug = frontmatter.slug;
+  if (slug === undefined || slug === null) {
     errors.push({
       file,
       line: 2,
@@ -113,14 +115,37 @@ export function parseModule(content: string, file: string): ModuleParseResult {
       suggestion: "Add 'slug: your-module-slug' to frontmatter",
       severity: 'error',
     });
+  } else if (typeof slug === 'string' && slug.trim() === '') {
+    errors.push({
+      file,
+      line: 2,
+      message: 'Field slug cannot be empty or whitespace-only',
+      suggestion: 'Provide a non-empty value for slug',
+      severity: 'error',
+    });
+  } else if (typeof slug === 'string') {
+    // Validate slug format (after empty check)
+    const slugFormatError = validateSlugFormat(slug, file, 2);
+    if (slugFormatError) {
+      errors.push(slugFormatError);
+    }
   }
 
-  if (!frontmatter.title) {
+  const title = frontmatter.title;
+  if (title === undefined || title === null) {
     errors.push({
       file,
       line: 2,
       message: 'Missing required field: title',
       suggestion: "Add 'title: Your Module Title' to frontmatter",
+      severity: 'error',
+    });
+  } else if (typeof title === 'string' && title.trim() === '') {
+    errors.push({
+      file,
+      line: 2,
+      message: 'Field title cannot be empty or whitespace-only',
+      suggestion: 'Provide a non-empty value for title',
       severity: 'error',
     });
   }

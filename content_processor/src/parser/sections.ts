@@ -18,13 +18,13 @@ export interface SectionsResult {
 // Valid section types per file type (exported for use by other parsers)
 export const MODULE_SECTION_TYPES = new Set(['learning outcome', 'page', 'uncategorized']);
 export const LO_SECTION_TYPES = new Set(['lens', 'test']);
-// Lens sections: input headers are `### Article:`, `### Video:`, `### Text:`
-// Output types are `lens-article`, `lens-video`, `text` (v2 format)
-export const LENS_SECTION_TYPES = new Set(['text', 'article', 'video']);
+// Lens sections: input headers are `### Article:`, `### Video:`, `### Page:`
+// Output types are `lens-article`, `lens-video`, `page` (v2 format)
+export const LENS_SECTION_TYPES = new Set(['page', 'article', 'video']);
 
 // Map input section names to output types for Lens files
 export const LENS_OUTPUT_TYPE: Record<string, string> = {
-  'text': 'text',
+  'page': 'page',
   'article': 'lens-article',
   'video': 'lens-video',
 };
@@ -37,6 +37,14 @@ function makeSectionPattern(level: number): RegExp {
   return new RegExp(`^${hashes}\\s+([^:]+):\\s*(.*)$`, 'i');
 }
 
+// Pattern to detect any header at the specified level (for unrecognized header detection)
+// Matches: ^#{level} <anything>
+function makeAnyHeaderPattern(level: number): RegExp {
+  const hashes = '#'.repeat(level);
+  // Match any header at this level that has content after the hashes
+  return new RegExp(`^${hashes}\\s+(.+)$`, 'i');
+}
+
 export function parseSections(
   content: string,
   headerLevel: 1 | 2 | 3 | 4,
@@ -44,6 +52,7 @@ export function parseSections(
   file: string = ''
 ): SectionsResult {
   const SECTION_HEADER_PATTERN = makeSectionPattern(headerLevel);
+  const ANY_HEADER_PATTERN = makeAnyHeaderPattern(headerLevel);
   const lines = content.split('\n');
   const sections: ParsedSection[] = [];
   const errors: ContentError[] = [];
@@ -89,8 +98,23 @@ export function parseSections(
         line: lineNum,
       };
       currentBody = [];
-    } else if (currentSection) {
-      currentBody.push(line);
+    } else {
+      // Check for unrecognized headers at this level
+      const anyHeaderMatch = line.match(ANY_HEADER_PATTERN);
+      if (anyHeaderMatch) {
+        const headerContent = anyHeaderMatch[1].trim();
+        errors.push({
+          file,
+          line: lineNum,
+          message: `Unrecognized header: "${line.trim()}"`,
+          suggestion: `Valid section format: ${'#'.repeat(headerLevel)} Type: Title (valid types: ${[...validTypes].join(', ')})`,
+          severity: 'error',
+        });
+      }
+
+      if (currentSection) {
+        currentBody.push(line);
+      }
     }
   }
 
