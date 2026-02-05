@@ -1,0 +1,29 @@
+{
+  "modules": [
+    {
+      "slug": "intro",
+      "title": "Introduction to AI Safety",
+      "contentId": null,
+      "sections": [
+        {
+          "type": "page",
+          "meta": {
+            "title": "What is AI Safety?"
+          },
+          "segments": [
+            {
+              "type": "text",
+              "content": "This is the core content about AI Safety."
+            }
+          ],
+          "optional": false,
+          "learningOutcomeId": "550e8400-e29b-41d4-a716-446655440001",
+          "contentId": "550e8400-e29b-41d4-a716-446655440002",
+          "videoId": null
+        }
+      ]
+    }
+  ],
+  "courses": [],
+  "errors": []
+}

@@ -1,0 +1,13 @@
+{
+  "modules": [],
+  "courses": [],
+  "errors": [
+    {
+      "file": "modules/no-slug.md",
+      "line": 2,
+      "message": "Missing required field: slug",
+      "suggestion": "Add 'slug: your-module-slug' to frontmatter",
+      "severity": "error"
+    }
+  ]
+}

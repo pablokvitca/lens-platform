@@ -13,7 +13,13 @@ import {
   type UserSearchResult,
   type UserDetails,
   type GroupSummary,
+  type GroupSyncResult,
+  type CohortSyncResult,
 } from "../api/admin";
+import {
+  GroupOperationDetails,
+  CohortOperationDetails,
+} from "../components/OperationDetails";
 import { API_URL } from "../config";
 
 type TabType = "users" | "groups";
@@ -56,6 +62,17 @@ export default function Admin() {
   const [groupRealizing, setGroupRealizing] = useState<Record<number, boolean>>(
     {},
   );
+
+  // Operation results for detailed display
+  const [lastGroupResult, setLastGroupResult] = useState<{
+    groupId: number;
+    result: GroupSyncResult;
+    operationType: "sync" | "realize";
+  } | null>(null);
+  const [lastCohortResult, setLastCohortResult] = useState<{
+    result: CohortSyncResult;
+    operationType: "sync" | "realize";
+  } | null>(null);
 
   // Debounced search
   const performSearch = useCallback(async (query: string) => {
@@ -150,9 +167,15 @@ export default function Admin() {
     setIsSyncing(true);
     setSyncMessage(null);
     setError(null);
+    setLastGroupResult(null);
     try {
-      await syncGroup(selectedUser.group_id);
+      const result = await syncGroup(selectedUser.group_id);
       setSyncMessage("Group synced successfully");
+      setLastGroupResult({
+        groupId: selectedUser.group_id,
+        result,
+        operationType: "sync",
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
     } finally {
@@ -224,9 +247,12 @@ export default function Admin() {
     setCohortSyncing(true);
     setSyncMessage(null);
     setError(null);
+    setLastCohortResult(null);
+    setLastGroupResult(null);
     try {
       const result = await syncCohort(selectedCohortId);
       setSyncMessage(`Synced ${result.synced} groups successfully`);
+      setLastCohortResult({ result, operationType: "sync" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Cohort sync failed");
     } finally {
@@ -241,9 +267,12 @@ export default function Admin() {
     setCohortRealizing(true);
     setSyncMessage(null);
     setError(null);
+    setLastCohortResult(null);
+    setLastGroupResult(null);
     try {
       const result = await realizeCohort(selectedCohortId);
       setSyncMessage(`Realized ${result.realized} groups successfully`);
+      setLastCohortResult({ result, operationType: "realize" });
       // Refresh groups list
       const groupsList = await getCohortGroups(selectedCohortId);
       setGroups(groupsList);
@@ -259,9 +288,12 @@ export default function Admin() {
     setGroupSyncing((prev) => ({ ...prev, [groupId]: true }));
     setSyncMessage(null);
     setError(null);
+    setLastGroupResult(null);
+    setLastCohortResult(null);
     try {
-      await syncGroup(groupId);
+      const result = await syncGroup(groupId);
       setSyncMessage("Group synced successfully");
+      setLastGroupResult({ groupId, result, operationType: "sync" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Group sync failed");
     } finally {
@@ -276,9 +308,12 @@ export default function Admin() {
     setGroupRealizing((prev) => ({ ...prev, [groupId]: true }));
     setSyncMessage(null);
     setError(null);
+    setLastGroupResult(null);
+    setLastCohortResult(null);
     try {
-      await realizeGroup(groupId);
+      const result = await realizeGroup(groupId);
       setSyncMessage("Group realized successfully");
+      setLastGroupResult({ groupId, result, operationType: "realize" });
       // Refresh groups list
       const groupsList = await getCohortGroups(selectedCohortId);
       setGroups(groupsList);
@@ -326,10 +361,19 @@ export default function Admin() {
         </div>
       )}
 
-      {/* Success message */}
+      {/* Success message with operation details */}
       {syncMessage && (
         <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-700 rounded">
           {syncMessage}
+          {lastGroupResult && (
+            <GroupOperationDetails result={lastGroupResult.result} />
+          )}
+          {lastCohortResult && (
+            <CohortOperationDetails
+              result={lastCohortResult.result}
+              operationType={lastCohortResult.operationType}
+            />
+          )}
         </div>
       )}
 

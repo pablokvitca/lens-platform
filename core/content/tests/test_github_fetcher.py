@@ -46,7 +46,7 @@ class TestConfig:
 
     def test_content_repo_is_correct(self):
         """Should have correct repo configured."""
-        assert CONTENT_REPO == "lucbrinkman/lens-educational-content"
+        assert CONTENT_REPO == "Lens-Academy/lens-edu-relay"
 
 
 class TestFetchFile:
@@ -77,7 +77,7 @@ class TestFetchFile:
                 # Verify URL contains correct path
                 call_url = mock_client.get.call_args[0][0]
                 assert "modules/test.md" in call_url
-                assert "lucbrinkman/lens-educational-content" in call_url
+                assert "Lens-Academy/lens-edu-relay" in call_url
                 assert "main" in call_url
 
     @pytest.mark.asyncio
@@ -703,7 +703,7 @@ class TestIncrementalRefresh:
         self, last_commit_sha: str | None = "oldsha123"
     ) -> ContentCache:
         """Create a test cache with some initial content using new field names."""
-        from core.modules.markdown_parser import ParsedCourse
+        from core.modules.flattened_types import ParsedCourse
 
         cache = ContentCache(
             flattened_modules={
@@ -734,6 +734,13 @@ class TestIncrementalRefresh:
             parsed_lenses={},
             last_refreshed=datetime.now(),
             last_commit_sha=last_commit_sha,
+            # Include raw_files to avoid fallback to full refresh
+            raw_files={
+                "modules/intro.md": "# Introduction\nContent",
+                "courses/fundamentals.md": "# AI Safety Fundamentals\nContent",
+                "articles/safety.md": "# Safety Article\nContent",
+                "video_transcripts/vid1.md": "# Video 1\nTranscript",
+            },
         )
         set_cache(cache)
         return cache
@@ -1056,7 +1063,7 @@ class TestApplyFileChange:
 
     def _create_test_cache(self) -> ContentCache:
         """Create a test cache with some initial content using new field names."""
-        from core.modules.markdown_parser import ParsedCourse
+        from core.modules.flattened_types import ParsedCourse
 
         cache = ContentCache(
             flattened_modules={

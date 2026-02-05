@@ -67,12 +67,16 @@ def serialize_flattened_module(module: FlattenedModule) -> dict:
     """Serialize a flattened module to JSON for the API response.
 
     Sections are already dicts (page, video, article) so we pass them through.
+    Error field is only included when present (not None).
     """
-    return {
+    result = {
         "slug": module.slug,
         "title": module.title,
         "sections": module.sections,  # Already dicts from flattener
     }
+    if module.error is not None:
+        result["error"] = module.error
+    return result
 
 
 # --- Module Definition Endpoints ---
@@ -197,7 +201,8 @@ async def get_module_progress_endpoint(
     else:
         status = "in_progress"
 
-    return {
+    # Build response
+    response = {
         "module": {
             "id": str(module.content_id) if module.content_id else None,
             "slug": module.slug,
@@ -211,6 +216,12 @@ async def get_module_progress_endpoint(
             "hasMessages": len(chat_session.get("messages", [])) > 0,
         },
     }
+
+    # Include error if module has one
+    if module.error:
+        response["error"] = module.error
+
+    return response
 
 
 @router.post("/modules/{module_slug}/progress", response_model=ProgressUpdateResponse)

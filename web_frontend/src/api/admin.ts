@@ -44,6 +44,94 @@ export interface SyncResult {
   [key: string]: unknown;
 }
 
+// Detailed sync result types (matches backend sync_group() return structure)
+
+export interface InfrastructureStatus {
+  status:
+    | "existed"
+    | "created"
+    | "skipped"
+    | "failed"
+    | "channel_missing"
+    | "role_missing";
+  id?: string | null;
+  error?: string;
+}
+
+export interface InfrastructureResult {
+  category: InfrastructureStatus;
+  text_channel: InfrastructureStatus;
+  voice_channel: InfrastructureStatus;
+  welcome_message_sent?: boolean;
+  meetings: {
+    created: number;
+    existed: number;
+    error?: string;
+  };
+  discord_events: {
+    created: number;
+    existed: number;
+    skipped: number;
+    failed: number;
+  };
+}
+
+export interface DiscordResult {
+  granted: number;
+  revoked: number;
+  unchanged: number;
+  failed: number;
+  role_status?: string;
+  cohort_channel_status?: string;
+  error?: string;
+}
+
+export interface CalendarResult {
+  meetings: number;
+  created_recurring: boolean;
+  recurring_event_id?: string | null;
+  patched: number;
+  failed: number;
+  error?: string;
+  reason?: string;
+}
+
+export interface RemindersResult {
+  meetings: number;
+}
+
+export interface RsvpsResult {
+  synced?: number;
+  rsvps_updated?: number;
+  error?: string;
+}
+
+export interface NotificationsResult {
+  sent: number;
+  skipped: number;
+  channel_announcements: number;
+}
+
+export interface GroupSyncResult {
+  infrastructure?: InfrastructureResult;
+  discord?: DiscordResult;
+  calendar?: CalendarResult;
+  reminders?: RemindersResult;
+  rsvps?: RsvpsResult;
+  notifications?: NotificationsResult;
+  needs_infrastructure?: boolean;
+  error?: string;
+}
+
+export interface CohortSyncResult {
+  synced?: number;
+  realized?: number;
+  results: Array<{
+    group_id: number;
+    result: GroupSyncResult;
+  }>;
+}
+
 // API functions
 
 /**
@@ -98,7 +186,7 @@ export async function getUserDetails(
  * Sync a group's Discord permissions, calendar, and reminders.
  * Does NOT create infrastructure - use realizeGroup for that.
  */
-export async function syncGroup(groupId: number): Promise<SyncResult> {
+export async function syncGroup(groupId: number): Promise<GroupSyncResult> {
   const res = await fetch(`${API_URL}/api/admin/groups/${groupId}/sync`, {
     method: "POST",
     credentials: "include",
@@ -118,7 +206,7 @@ export async function syncGroup(groupId: number): Promise<SyncResult> {
  * Realize a group - create Discord infrastructure and sync.
  * Creates category, channels, calendar events, then syncs permissions.
  */
-export async function realizeGroup(groupId: number): Promise<SyncResult> {
+export async function realizeGroup(groupId: number): Promise<GroupSyncResult> {
   const res = await fetch(`${API_URL}/api/admin/groups/${groupId}/realize`, {
     method: "POST",
     credentials: "include",
@@ -158,7 +246,7 @@ export async function getCohortGroups(
 /**
  * Sync all groups in a cohort.
  */
-export async function syncCohort(cohortId: number): Promise<SyncResult> {
+export async function syncCohort(cohortId: number): Promise<CohortSyncResult> {
   const res = await fetch(`${API_URL}/api/admin/cohorts/${cohortId}/sync`, {
     method: "POST",
     credentials: "include",
@@ -177,7 +265,9 @@ export async function syncCohort(cohortId: number): Promise<SyncResult> {
 /**
  * Realize All Preview Groups in a cohort.
  */
-export async function realizeCohort(cohortId: number): Promise<SyncResult> {
+export async function realizeCohort(
+  cohortId: number,
+): Promise<CohortSyncResult> {
   const res = await fetch(`${API_URL}/api/admin/cohorts/${cohortId}/realize`, {
     method: "POST",
     credentials: "include",

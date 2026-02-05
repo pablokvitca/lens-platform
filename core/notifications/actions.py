@@ -5,16 +5,19 @@ These functions are called by business logic (cogs, routes) to send notification
 They handle building context and scheduling reminders.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from core.enums import NotificationReferenceType
 from core.notifications.dispatcher import send_notification
-from core.notifications.scheduler import schedule_reminder, cancel_reminders
+from core.notifications.scheduler import (
+    schedule_reminder,
+    cancel_reminders,
+    REMINDER_CONFIG,
+)
 from core.notifications.urls import (
     build_profile_url,
     build_discord_channel_url,
     build_discord_invite_url,
-    build_course_url,
 )
 
 
@@ -143,81 +146,25 @@ async def notify_member_left(
 def schedule_meeting_reminders(
     meeting_id: int,
     meeting_time: datetime,
-    user_ids: list[int],
-    group_name: str,
-    discord_channel_id: str,
-    module_url: str | None = None,
 ) -> None:
     """
     Schedule all reminders for a meeting.
 
-    Schedules:
-    - 24h before: meeting reminder
-    - 1h before: meeting reminder
-    - 3d before: module nudge (if <50% done)
-    - 1d before: module nudge (if <100% done)
+    Only needs meeting_id and meeting_time - everything else is fetched
+    fresh at execution time. This avoids stale data issues.
+
+    Reminder types and timing are defined in REMINDER_CONFIG (scheduler.py).
+
+    Args:
+        meeting_id: Database meeting ID
+        meeting_time: When the meeting is scheduled
     """
-    context = {
-        "group_name": group_name,
-        # ISO timestamp for per-user timezone formatting
-        "meeting_time_utc": meeting_time.isoformat(),
-        "meeting_date_utc": meeting_time.isoformat(),
-        # UTC fallback for channel messages (no user context)
-        "meeting_time": meeting_time.strftime("%A at %H:%M UTC"),
-        "meeting_date": meeting_time.strftime("%A, %B %d"),
-        "module_url": module_url or build_course_url(),
-        "discord_channel_url": build_discord_channel_url(channel_id=discord_channel_id),
-        "module_list": "- Check your course dashboard for assigned modules",
-        "modules_remaining": "some",
-    }
-
-    # 24h reminder
-    schedule_reminder(
-        job_id=f"meeting_{meeting_id}_reminder_24h",
-        run_at=meeting_time - timedelta(hours=24),
-        message_type="meeting_reminder_24h",
-        user_ids=user_ids,
-        context=context,
-        channel_id=discord_channel_id,
-    )
-
-    # 1h reminder
-    schedule_reminder(
-        job_id=f"meeting_{meeting_id}_reminder_1h",
-        run_at=meeting_time - timedelta(hours=1),
-        message_type="meeting_reminder_1h",
-        user_ids=user_ids,
-        context=context,
-        channel_id=discord_channel_id,
-    )
-
-    # 3d module nudge (conditional: <50% complete)
-    schedule_reminder(
-        job_id=f"meeting_{meeting_id}_module_nudge_3d",
-        run_at=meeting_time - timedelta(days=3),
-        message_type="module_nudge",
-        user_ids=user_ids,
-        context=context,
-        condition={
-            "type": "module_progress",
-            "meeting_id": meeting_id,
-            "threshold": 0.5,
-        },
-    )
-
-    # 1d module nudge (conditional: <100% complete)
-    schedule_reminder(
-        job_id=f"meeting_{meeting_id}_module_nudge_1d",
-        run_at=meeting_time - timedelta(days=1),
-        message_type="module_nudge",
-        user_ids=user_ids,
-        context=context,
-        condition={
-            "type": "module_progress",
-            "meeting_id": meeting_id,
-            "threshold": 1.0,
-        },
-    )
+    for reminder_type, config in REMINDER_CONFIG.items():
+        schedule_reminder(
+            meeting_id=meeting_id,
+            reminder_type=reminder_type,
+            run_at=meeting_time + config["offset"],
+        )
 
 
 def cancel_meeting_reminders(meeting_id: int) -> int:
@@ -235,20 +182,18 @@ def cancel_meeting_reminders(meeting_id: int) -> int:
 def reschedule_meeting_reminders(
     meeting_id: int,
     new_meeting_time: datetime,
-    user_ids: list[int],
-    group_name: str,
-    discord_channel_id: str,
 ) -> None:
     """
     Reschedule all reminders for a meeting.
 
     Cancels existing reminders and schedules new ones.
+
+    Args:
+        meeting_id: Database meeting ID
+        new_meeting_time: New scheduled time for the meeting
     """
     cancel_meeting_reminders(meeting_id)
     schedule_meeting_reminders(
         meeting_id=meeting_id,
         meeting_time=new_meeting_time,
-        user_ids=user_ids,
-        group_name=group_name,
-        discord_channel_id=discord_channel_id,
     )

@@ -16,6 +16,7 @@ Run with: python main.py [--no-bot] [--port PORT]
 """
 
 import asyncio
+import logging
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -37,16 +38,53 @@ load_dotenv(project_root / ".env.local")  # Local overrides (gitignored)
 load_dotenv()  # Fallback to .env
 
 # Initialize Sentry for error tracking
+# Detect environment: Railway sets RAILWAY_ENVIRONMENT_NAME automatically
 sentry_dsn = os.getenv("SENTRY_DSN")
+sentry_environment = (
+    os.getenv("RAILWAY_ENVIRONMENT_NAME")  # Railway auto-sets this (e.g., "production")
+    or os.getenv("ENVIRONMENT")  # Manual override
+    or "development"  # Local dev default
+)
 if sentry_dsn:
     sentry_sdk.init(
         dsn=sentry_dsn,
-        environment=os.getenv("ENVIRONMENT", "development"),
+        environment=sentry_environment,
         traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
     )
-    print("✓ Sentry error tracking initialized")
+    print(f"✓ Sentry error tracking initialized (environment: {sentry_environment})")
 else:
     print("Note: SENTRY_DSN not set, error tracking disabled")
+
+logger = logging.getLogger(__name__)
+
+
+def fatal_startup_error(
+    message: str, hint: str, exception: Exception | None = None
+) -> None:
+    """
+    Log fatal startup error to stderr and Sentry, then exit.
+
+    This ensures startup failures are visible in Railway logs and
+    captured in Sentry before the process dies.
+    """
+    full_message = f"✗ {message}\n  └─ {hint}"
+
+    # Log to stderr (Railway captures this)
+    logger.error(full_message)
+    # Also print for local dev visibility
+    print(full_message)
+
+    # Report to Sentry before dying
+    if exception:
+        sentry_sdk.capture_exception(exception)
+    else:
+        sentry_sdk.capture_message(full_message, level="fatal")
+
+    # Flush Sentry events before exit (wait up to 5 seconds)
+    sentry_sdk.flush(timeout=5)
+
+    sys.exit(1)
+
 
 # Parse --dev flag early so DEV_MODE is set before importing auth routes
 # (auth.py computes DISCORD_REDIRECT_URI based on DEV_MODE at import time)
@@ -160,22 +198,27 @@ async def lifespan(app: FastAPI):
     try:
         await initialize_cache()
     except ContentBranchNotConfiguredError as e:
-        print(f"✗ Content cache: {e}")
-        print("  └─ Set EDUCATIONAL_CONTENT_BRANCH=staging (or main for production)")
-        sys.exit(1)
+        fatal_startup_error(
+            f"Content cache: {e}",
+            "Set EDUCATIONAL_CONTENT_BRANCH=staging (or main for production)",
+            e,
+        )
     except Exception as e:
-        print(f"✗ Content cache failed: {e}")
-        print("  └─ Check GITHUB_TOKEN and network connectivity")
-        sys.exit(1)
+        fatal_startup_error(
+            f"Content cache failed: {e}",
+            "Check GITHUB_TOKEN and network connectivity",
+            e,
+        )
 
     # Check database connection (runs in uvicorn's event loop - no issues)
     if not skip_db:
         print("Checking database connection...")
         db_ok, db_msg = await check_connection()
         if not db_ok:
-            print(f"✗ Database: {db_msg}")
-            print("  └─ Server cannot start without database. Use --no-db to skip.")
-            sys.exit(1)
+            fatal_startup_error(
+                f"Database: {db_msg}",
+                "Server cannot start without database. Use --no-db to skip.",
+            )
         print(f"✓ Database: {db_msg}")
     else:
         print("Running in --no-db mode (database operations will fail)")

@@ -16,6 +16,7 @@ Video and article sections from lenses include:
 """
 
 from dataclasses import dataclass, field
+from typing import Union
 from uuid import UUID
 
 
@@ -27,3 +28,32 @@ class FlattenedModule:
     title: str
     content_id: UUID | None
     sections: list[dict] = field(default_factory=list)
+    error: str | None = None
+
+
+@dataclass
+class ModuleRef:
+    """Reference to a module in a course progression."""
+
+    path: str  # Wiki-link path like "modules/introduction"
+    optional: bool = False
+
+
+@dataclass
+class MeetingMarker:
+    """A meeting marker in the course progression."""
+
+    number: int
+
+
+# Type alias for progression items
+ProgressionItem = Union[ModuleRef, MeetingMarker]
+
+
+@dataclass
+class ParsedCourse:
+    """A parsed course definition."""
+
+    slug: str
+    title: str
+    progression: list[ProgressionItem] = field(default_factory=list)

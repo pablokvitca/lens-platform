@@ -1,0 +1,21 @@
+{
+  "modules": [
+    {
+      "slug": "broken",
+      "title": "Broken Reference",
+      "contentId": null,
+      "sections": [],
+      "error": "Referenced file not found: Learning Outcomes/nonexistent.md"
+    }
+  ],
+  "courses": [],
+  "errors": [
+    {
+      "file": "modules/broken.md",
+      "line": 6,
+      "message": "Referenced file not found: Learning Outcomes/nonexistent.md",
+      "suggestion": "Check the file path in the wiki-link",
+      "severity": "error"
+    }
+  ]
+}
