@@ -3,6 +3,63 @@ import { describe, it, expect } from 'vitest';
 import { listFixtures, loadFixture } from './fixture-loader.js';
 import { processContent } from '../src/index.js';
 
+describe('field typo detection', () => {
+  it('warns about likely typos in lens segment fields', () => {
+    // 'contnet' is a likely typo for 'content'
+    const files = new Map([
+      ['modules/test.md', `---
+slug: test
+title: Test
+---
+
+# Uncategorized:
+## Lens:
+source:: [[../Lenses/lens1.md|Lens 1]]
+`],
+      ['Lenses/lens1.md', `---
+id: 550e8400-e29b-41d4-a716-446655440001
+---
+
+### Text: Content
+
+#### Text
+contnet:: This has a typo in the field name.
+`],
+    ]);
+
+    const result = processContent(files);
+
+    // Should have a warning about the typo
+    const typoWarning = result.errors.find(
+      e => e.severity === 'warning' && e.message.includes('contnet')
+    );
+    expect(typoWarning).toBeDefined();
+    expect(typoWarning?.suggestion).toContain('content');
+  });
+
+  it('warns about typos in learning outcome fields', () => {
+    // 'souce' is a likely typo for 'source'
+    const files = new Map([
+      ['Learning Outcomes/lo1.md', `---
+id: 550e8400-e29b-41d4-a716-446655440001
+---
+
+## Lens:
+souce:: [[../Lenses/lens1.md|Lens 1]]
+`],
+    ]);
+
+    const result = processContent(files);
+
+    // Should have a warning about the typo
+    const typoWarning = result.errors.find(
+      e => e.severity === 'warning' && e.message.includes('souce')
+    );
+    expect(typoWarning).toBeDefined();
+    expect(typoWarning?.suggestion).toContain('source');
+  });
+});
+
 describe('fixture processing', () => {
   it('processes all valid fixtures without errors', async () => {
     const fixtures = await listFixtures();

@@ -4,6 +4,7 @@ import { parseFrontmatter } from './frontmatter.js';
 import { parseSections, LENS_SECTION_TYPES, LENS_OUTPUT_TYPE } from './sections.js';
 import { validateSegmentFields } from '../validator/segment-fields.js';
 import { validateFieldValues } from '../validator/field-values.js';
+import { detectFieldTypos } from '../validator/field-typos.js';
 
 // Segment types for parsed lens content (before bundling/flattening)
 export interface ParsedTextSegment {
@@ -419,6 +420,10 @@ export function parseLens(content: string, file: string): LensParseResult {
       // Validate field values (e.g., boolean fields should have 'true' or 'false')
       const valueWarnings = validateFieldValues(rawSeg.fields, file, rawSeg.line);
       errors.push(...valueWarnings);
+
+      // Detect likely typos in field names
+      const typoWarnings = detectFieldTypos(rawSeg.fields, file, rawSeg.line);
+      errors.push(...typoWarnings);
 
       const { segment, errors: conversionErrors } = convertSegment(rawSeg, outputType, file);
       errors.push(...conversionErrors);

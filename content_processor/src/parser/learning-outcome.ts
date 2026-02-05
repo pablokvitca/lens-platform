@@ -3,6 +3,7 @@ import type { ContentError } from '../index.js';
 import { parseFrontmatter } from './frontmatter.js';
 import { parseSections, LO_SECTION_TYPES } from './sections.js';
 import { parseWikilink, resolveWikilinkPath } from './wikilink.js';
+import { detectFieldTypos } from '../validator/field-typos.js';
 
 export interface ParsedLensRef {
   source: string;       // Raw wikilink
@@ -71,6 +72,10 @@ export function parseLearningOutcome(content: string, file: string): LearningOut
   let testRef: ParsedTestRef | undefined;
 
   for (const section of sectionsResult.sections) {
+    // Detect likely typos in field names
+    const typoWarnings = detectFieldTypos(section.fields, file, section.line);
+    errors.push(...typoWarnings);
+
     if (section.type === 'lens') {
       const source = section.fields.source;
       if (!source) {
