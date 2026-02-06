@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class ValidationBroadcaster:
     """Manages SSE subscribers, broadcasts validation state, and polls GitHub."""
 
-    def __init__(self, poll_interval: int = 30):
+    def __init__(self, poll_interval: int = 10):
         self._subscribers: set[asyncio.Queue] = set()
         self._poll_task: asyncio.Task | None = None
         self._poll_interval = poll_interval

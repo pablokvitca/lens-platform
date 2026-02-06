@@ -32,18 +32,13 @@ export const LENS_OUTPUT_TYPE: Record<string, string> = {
 // Header pattern is parameterized by level (1-4)
 function makeSectionPattern(level: number): RegExp {
   const hashes = '#'.repeat(level);
-  // Match: ^#{level} <type>: <title>$
-  // Captures: group 1 = type, group 2 = title
-  return new RegExp(`^${hashes}\\s+([^:]+):\\s*(.*)$`, 'i');
+  // Match: ^#{level} <type>  OR  ^#{level} <type>: <optional title>
+  // Captures: group 1 = type, group 2 = title (may be undefined)
+  return new RegExp(`^${hashes}\\s+([^:]+?)(?::\\s*(.*))?$`, 'i');
 }
 
-// Pattern to detect any header at the specified level (for unrecognized header detection)
-// Matches: ^#{level} <anything>
-function makeAnyHeaderPattern(level: number): RegExp {
-  const hashes = '#'.repeat(level);
-  // Match any header at this level that has content after the hashes
-  return new RegExp(`^${hashes}\\s+(.+)$`, 'i');
-}
+// Note: unrecognized headers are now caught by makeSectionPattern matching all
+// ### headers, with unknown types reported as "Unknown section type" errors.
 
 export function parseSections(
   content: string,
@@ -52,7 +47,6 @@ export function parseSections(
   file: string = ''
 ): SectionsResult {
   const SECTION_HEADER_PATTERN = makeSectionPattern(headerLevel);
-  const ANY_HEADER_PATTERN = makeAnyHeaderPattern(headerLevel);
   const lines = content.split('\n');
   const sections: ParsedSection[] = [];
   const errors: ContentError[] = [];
@@ -77,14 +71,15 @@ export function parseSections(
 
       const rawType = headerMatch[1].trim();
       const normalizedType = rawType.toLowerCase();
-      const title = headerMatch[2].trim();
+      const title = (headerMatch[2] ?? '').trim();
 
       if (!validTypes.has(normalizedType)) {
+        const capitalized = [...validTypes].map(t => t.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '));
         errors.push({
           file,
           line: lineNum,
           message: `Unknown section type: ${rawType}`,
-          suggestion: `Valid types: ${[...validTypes].join(', ')}`,
+          suggestion: `Valid types: ${capitalized.join(', ')}`,
           severity: 'error',
         });
       }
@@ -99,19 +94,6 @@ export function parseSections(
       };
       currentBody = [];
     } else {
-      // Check for unrecognized headers at this level
-      const anyHeaderMatch = line.match(ANY_HEADER_PATTERN);
-      if (anyHeaderMatch) {
-        const headerContent = anyHeaderMatch[1].trim();
-        errors.push({
-          file,
-          line: lineNum,
-          message: `Unrecognized header: "${line.trim()}"`,
-          suggestion: `Valid section format: ${'#'.repeat(headerLevel)} Type: Title (valid types: ${[...validTypes].join(', ')})`,
-          severity: 'error',
-        });
-      }
-
       if (currentSection) {
         currentBody.push(line);
       }

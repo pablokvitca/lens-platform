@@ -576,8 +576,8 @@ TRACKED_DIRECTORIES = (
     "courses/",
     "articles/",
     "video_transcripts/",
-    "learning_outcomes/",
-    "lenses/",
+    "Learning Outcomes/",
+    "Lenses/",
 )
 
 

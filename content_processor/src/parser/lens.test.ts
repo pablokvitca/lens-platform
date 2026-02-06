@@ -848,26 +848,25 @@ instructions:: Case insensitive chat segment.
   });
 
   describe('invalid H3 section types', () => {
-    it('returns error for ### Text (no colon) - unrecognized header', () => {
+    it('returns error for ### Text (unknown section type)', () => {
       const content = `---
 id: test-id
 ---
 
 ### Text
 #### Text
-content:: This header is missing a colon.
+content:: Text is not a valid H3 section type.
 `;
 
       const result = parseLens(content, 'Lenses/test.md');
 
-      // Should catch this unrecognized header
       expect(result.errors.some(e =>
         e.severity === 'error' &&
-        e.message.includes('Unrecognized header')
+        e.message.includes('Unknown section type')
       )).toBe(true);
     });
 
-    it('returns error for any unrecognized H3 header format', () => {
+    it('returns error for any unknown H3 section type', () => {
       const content = `---
 id: test-id
 ---
@@ -881,7 +880,7 @@ content:: Whatever.
 
       expect(result.errors.some(e =>
         e.severity === 'error' &&
-        e.message.includes('Unrecognized header')
+        e.message.includes('Unknown section type')
       )).toBe(true);
     });
 
