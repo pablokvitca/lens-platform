@@ -26,6 +26,16 @@ pytest                # Run tests
 
 Fix any errors before pushing. CI will run these same checks.
 
+## Python Virtual Environment
+
+A shared venv lives at the repo root (`../.venv/` relative to any workspace). Use it for running Python tools:
+
+```bash
+../.venv/bin/python main.py    # Run server
+../.venv/bin/alembic            # Run alembic
+../.venv/bin/pytest             # Run tests
+```
+
 ## Commands
 
 Run the server: `python main.py`. This is a unified backend (FastAPI + Discord Bot) that also serves the frontend.
@@ -48,10 +58,11 @@ pytest web_api/tests/         # Web API tests
 
 ## Dev Server Management
 
-Ports are auto-assigned based on workspace number:
+Ports are auto-assigned based on workspace number (offset by 100 to avoid collisions when servers auto-increment):
 - No suffix → API :8000, Frontend :3000
-- `ws1` → API :8001, Frontend :3001
-- `ws2` → API :8002, Frontend :3002
+- `ws1` → API :8100, Frontend :3100
+- `ws2` → API :8200, Frontend :3200
+- `ws3` → API :8300, Frontend :3300
 - etc.
 
 The frontend and backend ports must be exactly 5000 apart, or they won't be able to connect to each other.
@@ -128,7 +139,7 @@ ai-safety-course-platform/
 1. **Edit SQLAlchemy schema** in `core/tables.py`
 2. **Auto-generate migration** with Alembic:
    ```bash
-   alembic revision --autogenerate -m "description of change"
+   ../.venv/bin/alembic revision --autogenerate -m "description of change"
    ```
 3. **Manually review and fix** the generated migration file in `alembic/versions/`
    - Alembic autogenerate is imperfect - always verify the SQL is correct

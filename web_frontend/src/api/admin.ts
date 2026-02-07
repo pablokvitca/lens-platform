@@ -5,6 +5,7 @@
  */
 
 import { API_URL } from "../config";
+import { fetchWithRefresh } from "./fetchWithRefresh";
 
 // Interfaces for API responses
 
@@ -141,7 +142,7 @@ export async function searchUsers(
   query: string,
   limit: number = 20,
 ): Promise<UserSearchResult[]> {
-  const res = await fetch(`${API_URL}/api/admin/users/search`, {
+  const res = await fetchWithRefresh(`${API_URL}/api/admin/users/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -165,7 +166,7 @@ export async function searchUsers(
 export async function getUserDetails(
   userId: number,
 ): Promise<UserDetails | null> {
-  const res = await fetch(`${API_URL}/api/admin/users/${userId}`, {
+  const res = await fetchWithRefresh(`${API_URL}/api/admin/users/${userId}`, {
     credentials: "include",
   });
 
@@ -187,10 +188,13 @@ export async function getUserDetails(
  * Does NOT create infrastructure - use realizeGroup for that.
  */
 export async function syncGroup(groupId: number): Promise<GroupSyncResult> {
-  const res = await fetch(`${API_URL}/api/admin/groups/${groupId}/sync`, {
-    method: "POST",
-    credentials: "include",
-  });
+  const res = await fetchWithRefresh(
+    `${API_URL}/api/admin/groups/${groupId}/sync`,
+    {
+      method: "POST",
+      credentials: "include",
+    },
+  );
 
   if (!res.ok) {
     if (res.status === 403) {
@@ -207,10 +211,13 @@ export async function syncGroup(groupId: number): Promise<GroupSyncResult> {
  * Creates category, channels, calendar events, then syncs permissions.
  */
 export async function realizeGroup(groupId: number): Promise<GroupSyncResult> {
-  const res = await fetch(`${API_URL}/api/admin/groups/${groupId}/realize`, {
-    method: "POST",
-    credentials: "include",
-  });
+  const res = await fetchWithRefresh(
+    `${API_URL}/api/admin/groups/${groupId}/realize`,
+    {
+      method: "POST",
+      credentials: "include",
+    },
+  );
 
   if (!res.ok) {
     if (res.status === 403) {
@@ -228,9 +235,12 @@ export async function realizeGroup(groupId: number): Promise<GroupSyncResult> {
 export async function getCohortGroups(
   cohortId: number,
 ): Promise<GroupSummary[]> {
-  const res = await fetch(`${API_URL}/api/admin/cohorts/${cohortId}/groups`, {
-    credentials: "include",
-  });
+  const res = await fetchWithRefresh(
+    `${API_URL}/api/admin/cohorts/${cohortId}/groups`,
+    {
+      credentials: "include",
+    },
+  );
 
   if (!res.ok) {
     if (res.status === 403) {
@@ -247,10 +257,13 @@ export async function getCohortGroups(
  * Sync all groups in a cohort.
  */
 export async function syncCohort(cohortId: number): Promise<CohortSyncResult> {
-  const res = await fetch(`${API_URL}/api/admin/cohorts/${cohortId}/sync`, {
-    method: "POST",
-    credentials: "include",
-  });
+  const res = await fetchWithRefresh(
+    `${API_URL}/api/admin/cohorts/${cohortId}/sync`,
+    {
+      method: "POST",
+      credentials: "include",
+    },
+  );
 
   if (!res.ok) {
     if (res.status === 403) {
@@ -268,10 +281,13 @@ export async function syncCohort(cohortId: number): Promise<CohortSyncResult> {
 export async function realizeCohort(
   cohortId: number,
 ): Promise<CohortSyncResult> {
-  const res = await fetch(`${API_URL}/api/admin/cohorts/${cohortId}/realize`, {
-    method: "POST",
-    credentials: "include",
-  });
+  const res = await fetchWithRefresh(
+    `${API_URL}/api/admin/cohorts/${cohortId}/realize`,
+    {
+      method: "POST",
+      credentials: "include",
+    },
+  );
 
   if (!res.ok) {
     if (res.status === 403) {
@@ -290,7 +306,7 @@ export async function addMemberToGroup(
   groupId: number,
   userId: number,
 ): Promise<{ status: string; group_user_id: number }> {
-  const res = await fetch(
+  const res = await fetchWithRefresh(
     `${API_URL}/api/admin/groups/${groupId}/members/add`,
     {
       method: "POST",
@@ -317,7 +333,7 @@ export async function removeMemberFromGroup(
   groupId: number,
   userId: number,
 ): Promise<{ status: string }> {
-  const res = await fetch(
+  const res = await fetchWithRefresh(
     `${API_URL}/api/admin/groups/${groupId}/members/remove`,
     {
       method: "POST",
@@ -349,7 +365,7 @@ export async function createGroup(
   groupName: string,
   meetingTime: string,
 ): Promise<{ group_id: number; group_name: string; status: string }> {
-  const res = await fetch(`${API_URL}/api/admin/groups/create`, {
+  const res = await fetchWithRefresh(`${API_URL}/api/admin/groups/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",

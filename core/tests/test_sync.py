@@ -82,12 +82,17 @@ class TestSyncGroupDiscordPermissions:
             {"discord_id": "222"},
         ]
 
+        # Query 5: get facilitators from DB (empty — no facilitators)
+        mock_facilitators_result = MagicMock()
+        mock_facilitators_result.mappings.return_value = []
+
         mock_conn.execute = AsyncMock(
             side_effect=[
                 mock_role_query_result,
                 mock_group_result,
                 mock_cohort_result,
                 mock_members_result,
+                mock_facilitators_result,
             ]
         )
 
@@ -108,6 +113,7 @@ class TestSyncGroupDiscordPermissions:
         mock_voice_channel = MagicMock(spec=discord.VoiceChannel)
         mock_voice_channel.id = 987654321
         mock_voice_channel.set_permissions = AsyncMock()
+        mock_voice_channel.overwrites = {}  # No existing member overwrites
 
         mock_cohort_channel = MagicMock(spec=discord.TextChannel)
         mock_cohort_channel.id = 888999000
@@ -320,6 +326,419 @@ class TestSyncGroupDiscordPermissions:
         assert result["revoked"] == 0
         assert result["unchanged"] == 0
         assert result["failed"] == 0
+
+    @pytest.mark.asyncio
+    async def test_grants_facilitator_connect_on_voice_channel(self):
+        """DB has facilitator 111, voice channel has no member overwrites
+        → should grant connect=True and return facilitator_granted=1."""
+        from core.sync import sync_group_discord_permissions
+        import discord
+
+        mock_conn = AsyncMock()
+
+        # Query 1: _ensure_group_role - get group/cohort info
+        mock_role_query_result = MagicMock()
+        mock_role_query_result.mappings.return_value.first.return_value = {
+            "group_id": 1,
+            "group_name": "Test Group",
+            "discord_role_id": "777888999",
+            "cohort_id": 1,
+            "cohort_name": "Jan 2026",
+        }
+
+        # Query 2: get group channel info
+        mock_group_result = MagicMock()
+        mock_group_result.mappings.return_value.first.return_value = {
+            "cohort_id": 1,
+            "discord_text_channel_id": "123456789",
+            "discord_voice_channel_id": "987654321",
+        }
+
+        # Query 3: _ensure_cohort_channel - get cohort info
+        mock_cohort_result = MagicMock()
+        mock_cohort_result.mappings.return_value.first.return_value = {
+            "cohort_id": 1,
+            "cohort_name": "Jan 2026",
+            "discord_category_id": "555666777",
+            "discord_cohort_channel_id": "888999000",
+        }
+
+        # Query 4: get expected members from DB
+        mock_members_result = MagicMock()
+        mock_members_result.mappings.return_value = [
+            {"discord_id": "111"},
+        ]
+
+        # Query 5: get facilitators from DB — member 111 is a facilitator
+        mock_facilitators_result = MagicMock()
+        mock_facilitators_result.mappings.return_value = [
+            {"discord_id": "111"},
+        ]
+
+        mock_conn.execute = AsyncMock(
+            side_effect=[
+                mock_role_query_result,
+                mock_group_result,
+                mock_cohort_result,
+                mock_members_result,
+                mock_facilitators_result,
+            ]
+        )
+
+        # Mock Discord role
+        mock_role = MagicMock(spec=discord.Role)
+        mock_role.id = 777888999
+        mock_role.name = "Cohort Jan 2026 - Group Test Group"
+        mock_role.members = []
+
+        # Mock channels
+        mock_text_channel = MagicMock(spec=discord.TextChannel)
+        mock_text_channel.id = 123456789
+        mock_text_channel.set_permissions = AsyncMock()
+
+        mock_voice_channel = MagicMock(spec=discord.VoiceChannel)
+        mock_voice_channel.id = 987654321
+        mock_voice_channel.set_permissions = AsyncMock()
+        mock_voice_channel.overwrites = {}  # No existing member overwrites
+
+        mock_cohort_channel = MagicMock(spec=discord.TextChannel)
+        mock_cohort_channel.id = 888999000
+        mock_cohort_channel.name = "general-jan-2026"
+        mock_cohort_channel.set_permissions = AsyncMock()
+
+        # Mock guild
+        mock_guild = MagicMock(spec=discord.Guild)
+        mock_guild.roles = [mock_role]
+        mock_guild.me = MagicMock()
+        mock_guild.me.guild_permissions = MagicMock()
+        mock_guild.me.guild_permissions.manage_roles = True
+        mock_guild.get_role.return_value = mock_role
+        mock_role.guild = mock_guild
+
+        mock_bot = MagicMock()
+        mock_bot.guilds = [mock_guild]
+        mock_bot.get_channel.side_effect = lambda id: {
+            123456789: mock_text_channel,
+            987654321: mock_voice_channel,
+            888999000: mock_cohort_channel,
+            555666777: MagicMock(),
+        }.get(id)
+
+        # Mock member 111
+        mock_member_111 = MagicMock(spec=discord.Member)
+        mock_member_111.id = 111
+        mock_member_111.add_roles = AsyncMock()
+        mock_member_111.remove_roles = AsyncMock()
+
+        async def mock_fetch(guild, discord_id):
+            if discord_id == 111:
+                return mock_member_111
+            return None
+
+        with patch("core.discord_outbound.bot._bot", mock_bot):
+            with patch("core.database.get_connection") as mock_get_conn:
+                mock_get_conn.return_value.__aenter__.return_value = mock_conn
+                with patch(
+                    "core.discord_outbound.get_or_fetch_member",
+                    side_effect=mock_fetch,
+                ):
+                    with patch(
+                        "core.discord_outbound.get_role_member_ids",
+                        return_value=set(),
+                    ):
+                        with patch(
+                            "core.sync._set_group_role_permissions",
+                            new_callable=AsyncMock,
+                        ) as mock_set_perms:
+                            mock_set_perms.return_value = {
+                                "text": True,
+                                "voice": True,
+                                "cohort": True,
+                            }
+                            result = await sync_group_discord_permissions(group_id=1)
+
+        # Should have granted connect=True on voice channel for facilitator 111
+        mock_voice_channel.set_permissions.assert_any_call(
+            mock_member_111, connect=True, reason="Facilitator voice access"
+        )
+        assert result["facilitator_granted"] == 1
+        assert result["facilitator_revoked"] == 0
+
+    @pytest.mark.asyncio
+    async def test_revokes_demoted_facilitator_connect(self):
+        """DB has no facilitators, voice channel has stale connect=True overwrite
+        for member 111 (who is still a group member) → should revoke."""
+        from core.sync import sync_group_discord_permissions
+        import discord
+
+        mock_conn = AsyncMock()
+
+        # Query 1: _ensure_group_role
+        mock_role_query_result = MagicMock()
+        mock_role_query_result.mappings.return_value.first.return_value = {
+            "group_id": 1,
+            "group_name": "Test Group",
+            "discord_role_id": "777888999",
+            "cohort_id": 1,
+            "cohort_name": "Jan 2026",
+        }
+
+        # Query 2: get group channel info
+        mock_group_result = MagicMock()
+        mock_group_result.mappings.return_value.first.return_value = {
+            "cohort_id": 1,
+            "discord_text_channel_id": "123456789",
+            "discord_voice_channel_id": "987654321",
+        }
+
+        # Query 3: _ensure_cohort_channel
+        mock_cohort_result = MagicMock()
+        mock_cohort_result.mappings.return_value.first.return_value = {
+            "cohort_id": 1,
+            "cohort_name": "Jan 2026",
+            "discord_category_id": "555666777",
+            "discord_cohort_channel_id": "888999000",
+        }
+
+        # Query 4: get expected members from DB — member 111 is still in the group
+        mock_members_result = MagicMock()
+        mock_members_result.mappings.return_value = [
+            {"discord_id": "111"},
+        ]
+
+        # Query 5: get facilitators from DB — none (111 was demoted)
+        mock_facilitators_result = MagicMock()
+        mock_facilitators_result.mappings.return_value = []
+
+        mock_conn.execute = AsyncMock(
+            side_effect=[
+                mock_role_query_result,
+                mock_group_result,
+                mock_cohort_result,
+                mock_members_result,
+                mock_facilitators_result,
+            ]
+        )
+
+        # Mock Discord role
+        mock_role = MagicMock(spec=discord.Role)
+        mock_role.id = 777888999
+        mock_role.name = "Cohort Jan 2026 - Group Test Group"
+        mock_role.members = []
+
+        # Mock member 111 (has stale overwrite on voice channel)
+        mock_member_111 = MagicMock(spec=discord.Member)
+        mock_member_111.id = 111
+        mock_member_111.add_roles = AsyncMock()
+        mock_member_111.remove_roles = AsyncMock()
+
+        # Mock channels
+        mock_text_channel = MagicMock(spec=discord.TextChannel)
+        mock_text_channel.id = 123456789
+        mock_text_channel.set_permissions = AsyncMock()
+
+        # Build a PermissionOverwrite with connect=True for member 111
+        stale_overwrite = discord.PermissionOverwrite(connect=True)
+
+        mock_voice_channel = MagicMock(spec=discord.VoiceChannel)
+        mock_voice_channel.id = 987654321
+        mock_voice_channel.set_permissions = AsyncMock()
+        mock_voice_channel.overwrites = {mock_member_111: stale_overwrite}
+
+        mock_cohort_channel = MagicMock(spec=discord.TextChannel)
+        mock_cohort_channel.id = 888999000
+        mock_cohort_channel.name = "general-jan-2026"
+        mock_cohort_channel.set_permissions = AsyncMock()
+
+        # Mock guild
+        mock_guild = MagicMock(spec=discord.Guild)
+        mock_guild.roles = [mock_role]
+        mock_guild.me = MagicMock()
+        mock_guild.me.guild_permissions = MagicMock()
+        mock_guild.me.guild_permissions.manage_roles = True
+        mock_guild.get_role.return_value = mock_role
+        mock_role.guild = mock_guild
+
+        mock_bot = MagicMock()
+        mock_bot.guilds = [mock_guild]
+        mock_bot.get_channel.side_effect = lambda id: {
+            123456789: mock_text_channel,
+            987654321: mock_voice_channel,
+            888999000: mock_cohort_channel,
+            555666777: MagicMock(),
+        }.get(id)
+
+        async def mock_fetch(guild, discord_id):
+            if discord_id == 111:
+                return mock_member_111
+            return None
+
+        with patch("core.discord_outbound.bot._bot", mock_bot):
+            with patch("core.database.get_connection") as mock_get_conn:
+                mock_get_conn.return_value.__aenter__.return_value = mock_conn
+                with patch(
+                    "core.discord_outbound.get_or_fetch_member",
+                    side_effect=mock_fetch,
+                ):
+                    with patch(
+                        "core.discord_outbound.get_role_member_ids",
+                        return_value={"111"},
+                    ):
+                        with patch(
+                            "core.sync._set_group_role_permissions",
+                            new_callable=AsyncMock,
+                        ) as mock_set_perms:
+                            mock_set_perms.return_value = {
+                                "text": True,
+                                "voice": True,
+                                "cohort": True,
+                            }
+                            result = await sync_group_discord_permissions(group_id=1)
+
+        # Should have revoked the stale overwrite
+        mock_voice_channel.set_permissions.assert_any_call(
+            mock_member_111, overwrite=None, reason="Facilitator voice access removed"
+        )
+        assert result["facilitator_granted"] == 0
+        assert result["facilitator_revoked"] == 1
+
+    @pytest.mark.asyncio
+    async def test_facilitator_sync_is_idempotent(self):
+        """DB has facilitator 111, voice channel already has connect=True overwrite
+        for member 111 → should NOT call set_permissions and return zeros."""
+        from core.sync import sync_group_discord_permissions
+        import discord
+
+        mock_conn = AsyncMock()
+
+        # Query 1: _ensure_group_role
+        mock_role_query_result = MagicMock()
+        mock_role_query_result.mappings.return_value.first.return_value = {
+            "group_id": 1,
+            "group_name": "Test Group",
+            "discord_role_id": "777888999",
+            "cohort_id": 1,
+            "cohort_name": "Jan 2026",
+        }
+
+        # Query 2: get group channel info
+        mock_group_result = MagicMock()
+        mock_group_result.mappings.return_value.first.return_value = {
+            "cohort_id": 1,
+            "discord_text_channel_id": "123456789",
+            "discord_voice_channel_id": "987654321",
+        }
+
+        # Query 3: _ensure_cohort_channel
+        mock_cohort_result = MagicMock()
+        mock_cohort_result.mappings.return_value.first.return_value = {
+            "cohort_id": 1,
+            "cohort_name": "Jan 2026",
+            "discord_category_id": "555666777",
+            "discord_cohort_channel_id": "888999000",
+        }
+
+        # Query 4: get expected members from DB
+        mock_members_result = MagicMock()
+        mock_members_result.mappings.return_value = [
+            {"discord_id": "111"},
+        ]
+
+        # Query 5: get facilitators from DB — member 111 is a facilitator
+        mock_facilitators_result = MagicMock()
+        mock_facilitators_result.mappings.return_value = [
+            {"discord_id": "111"},
+        ]
+
+        mock_conn.execute = AsyncMock(
+            side_effect=[
+                mock_role_query_result,
+                mock_group_result,
+                mock_cohort_result,
+                mock_members_result,
+                mock_facilitators_result,
+            ]
+        )
+
+        # Mock Discord role
+        mock_role = MagicMock(spec=discord.Role)
+        mock_role.id = 777888999
+        mock_role.name = "Cohort Jan 2026 - Group Test Group"
+        mock_role.members = []
+
+        # Mock member 111 — already has the overwrite
+        mock_member_111 = MagicMock(spec=discord.Member)
+        mock_member_111.id = 111
+        mock_member_111.add_roles = AsyncMock()
+        mock_member_111.remove_roles = AsyncMock()
+
+        # Mock channels
+        mock_text_channel = MagicMock(spec=discord.TextChannel)
+        mock_text_channel.id = 123456789
+        mock_text_channel.set_permissions = AsyncMock()
+
+        # Voice channel already has connect=True for member 111
+        existing_overwrite = discord.PermissionOverwrite(connect=True)
+
+        mock_voice_channel = MagicMock(spec=discord.VoiceChannel)
+        mock_voice_channel.id = 987654321
+        mock_voice_channel.set_permissions = AsyncMock()
+        mock_voice_channel.overwrites = {mock_member_111: existing_overwrite}
+
+        mock_cohort_channel = MagicMock(spec=discord.TextChannel)
+        mock_cohort_channel.id = 888999000
+        mock_cohort_channel.name = "general-jan-2026"
+        mock_cohort_channel.set_permissions = AsyncMock()
+
+        # Mock guild
+        mock_guild = MagicMock(spec=discord.Guild)
+        mock_guild.roles = [mock_role]
+        mock_guild.me = MagicMock()
+        mock_guild.me.guild_permissions = MagicMock()
+        mock_guild.me.guild_permissions.manage_roles = True
+        mock_guild.get_role.return_value = mock_role
+        mock_role.guild = mock_guild
+
+        mock_bot = MagicMock()
+        mock_bot.guilds = [mock_guild]
+        mock_bot.get_channel.side_effect = lambda id: {
+            123456789: mock_text_channel,
+            987654321: mock_voice_channel,
+            888999000: mock_cohort_channel,
+            555666777: MagicMock(),
+        }.get(id)
+
+        async def mock_fetch(guild, discord_id):
+            if discord_id == 111:
+                return mock_member_111
+            return None
+
+        with patch("core.discord_outbound.bot._bot", mock_bot):
+            with patch("core.database.get_connection") as mock_get_conn:
+                mock_get_conn.return_value.__aenter__.return_value = mock_conn
+                with patch(
+                    "core.discord_outbound.get_or_fetch_member",
+                    side_effect=mock_fetch,
+                ):
+                    with patch(
+                        "core.discord_outbound.get_role_member_ids",
+                        return_value={"111"},
+                    ):
+                        with patch(
+                            "core.sync._set_group_role_permissions",
+                            new_callable=AsyncMock,
+                        ) as mock_set_perms:
+                            mock_set_perms.return_value = {
+                                "text": True,
+                                "voice": True,
+                                "cohort": True,
+                            }
+                            result = await sync_group_discord_permissions(group_id=1)
+
+        # Should NOT have called set_permissions on voice channel at all
+        mock_voice_channel.set_permissions.assert_not_called()
+        assert result["facilitator_granted"] == 0
+        assert result["facilitator_revoked"] == 0
 
 
 class TestSyncGroupCalendar:

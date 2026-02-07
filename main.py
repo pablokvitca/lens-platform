@@ -93,12 +93,14 @@ if __name__ == "__main__":
     import re
 
     # Extract workspace number from directory name (e.g., "platform-ws2" → 2)
-    # Used to auto-assign ports: ws1 gets 8001/3001, ws2 gets 8002/3002, etc.
+    # Used to auto-assign ports: ws1 gets 8100/3100, ws2 gets 8200/3200, etc.
+    # Offset by 100 so each workspace has a port range that won't collide if
+    # a server auto-increments to the next available port.
     # No workspace suffix → 8000/3000 (default)
-    _workspace_match = re.search(r"-ws(\d+)$", Path.cwd().name)
+    _workspace_match = re.search(r"(?:^|-)ws(\d+)$", Path.cwd().name)
     _ws_num = int(_workspace_match.group(1)) if _workspace_match else 0
-    _default_api_port = 8000 + _ws_num
-    _default_frontend_port = 3000 + _ws_num
+    _default_api_port = 8000 + _ws_num * 100
+    _default_frontend_port = 3000 + _ws_num * 100
 
     _early_parser = argparse.ArgumentParser(add_help=False)
     _early_parser.add_argument("--dev", action="store_true")
@@ -220,6 +222,15 @@ async def lifespan(app: FastAPI):
                 "Server cannot start without database. Use --no-db to skip.",
             )
         print(f"✓ Database: {db_msg}")
+
+        # Clean up expired refresh tokens (runs once per deploy)
+        from core.database import get_transaction
+        from core.queries.refresh_tokens import cleanup_expired_tokens
+
+        async with get_transaction() as conn:
+            deleted = await cleanup_expired_tokens(conn)
+            if deleted:
+                print(f"  Cleaned up {deleted} expired refresh tokens")
     else:
         print("Running in --no-db mode (database operations will fail)")
 
