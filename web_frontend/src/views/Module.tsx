@@ -1241,6 +1241,32 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                 buttonText={getCompletionButtonText(section, sectionIndex)}
                 isShort={getSectionTextLength(section) < 1750}
               />
+              {/* Last section completed: show course navigation */}
+              {sectionIndex === module.sections.length - 1 &&
+                completedSections.has(sectionIndex) &&
+                courseId && (
+                  <div className="flex justify-center pb-12">
+                    <a
+                      href={`/course/${courseId}`}
+                      className="flex items-center gap-2 px-5 py-2.5 text-stone-600 hover:text-stone-900 border border-stone-300 hover:border-stone-400 rounded-lg transition-colors font-medium"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 19l-7-7 7-7"
+                        />
+                      </svg>
+                      Back to Course Overview
+                    </a>
+                  </div>
+                )}
             </div>
           );
         })}
