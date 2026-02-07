@@ -1168,7 +1168,7 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
         get_role_member_ids,
     )
     from .tables import groups, groups_users, users
-    from .enums import GroupUserStatus
+    from .enums import GroupUserStatus, GroupUserRole
     from sqlalchemy import select
 
     _bot = get_bot()
@@ -1283,6 +1283,87 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
     # Step 5: Get current role members from Discord (who CURRENTLY has the role)
     current_discord_ids = get_role_member_ids(role)
 
+    # Step 5b: Sync facilitator connect overwrites on voice channel
+    facilitator_granted, facilitator_revoked = 0, 0
+    if voice_channel:
+        import discord
+
+        # Query DB for desired facilitator discord_ids
+        async with get_connection() as conn:
+            facilitator_result = await conn.execute(
+                select(users.c.discord_id)
+                .join(groups_users, users.c.user_id == groups_users.c.user_id)
+                .where(groups_users.c.group_id == group_id)
+                .where(groups_users.c.status == GroupUserStatus.active)
+                .where(groups_users.c.role == GroupUserRole.facilitator)
+                .where(users.c.discord_id.isnot(None))
+            )
+            desired_facilitator_ids = {
+                row["discord_id"] for row in facilitator_result.mappings()
+            }
+
+        # Read current member overwrites with connect=True from voice channel
+        current_connect_ids: set[str] = set()
+        for target, overwrite in voice_channel.overwrites.items():
+            if isinstance(target, discord.Member):
+                pair = overwrite.pair()
+                # pair() returns (allow, deny) PermissionOverwrite
+                if pair[0].connect:  # connect is in the allow set
+                    current_connect_ids.add(str(target.id))
+
+        # Compute diff
+        to_grant_connect = desired_facilitator_ids - current_connect_ids
+        # Only revoke overwrites for members who are in the group
+        to_revoke_connect = (
+            current_connect_ids & expected_discord_ids
+        ) - desired_facilitator_ids
+
+        guild = role.guild
+
+        # Grant connect=True to new facilitators
+        for discord_id in to_grant_connect:
+            member = await get_or_fetch_member(guild, int(discord_id))
+            if not member:
+                logger.info(
+                    f"Member {discord_id} not in guild, skipping facilitator connect grant"
+                )
+                continue
+            try:
+                await voice_channel.set_permissions(
+                    member, connect=True, reason="Facilitator voice access"
+                )
+                facilitator_granted += 1
+            except Exception as e:
+                logger.error(
+                    f"Failed to grant facilitator connect to {discord_id}: {e}"
+                )
+                sentry_sdk.capture_exception(e)
+            await asyncio.sleep(0.1)  # Rate limit protection
+
+        # Revoke connect overwrite from demoted facilitators
+        for discord_id in to_revoke_connect:
+            member = await get_or_fetch_member(guild, int(discord_id))
+            if not member:
+                continue
+            try:
+                await voice_channel.set_permissions(
+                    member,
+                    overwrite=None,
+                    reason="Facilitator voice access removed",
+                )
+                facilitator_revoked += 1
+            except Exception as e:
+                logger.error(
+                    f"Failed to revoke facilitator connect from {discord_id}: {e}"
+                )
+                sentry_sdk.capture_exception(e)
+            await asyncio.sleep(0.1)  # Rate limit protection
+
+        logger.info(
+            f"Facilitator voice sync for group {group_id}: "
+            f"granted={facilitator_granted}, revoked={facilitator_revoked}"
+        )
+
     # Step 6: Calculate diff and add/remove role assignments
     to_grant = expected_discord_ids - current_discord_ids
     to_revoke = current_discord_ids - expected_discord_ids
@@ -1339,6 +1420,8 @@ async def sync_group_discord_permissions(group_id: int) -> dict:
         "revoked_discord_ids": revoked_discord_ids,
         "role_status": role_status,
         "cohort_channel_status": cohort_channel_status,
+        "facilitator_granted": facilitator_granted,
+        "facilitator_revoked": facilitator_revoked,
     }
 
 

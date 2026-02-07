@@ -515,32 +515,9 @@ class BreakoutCog(commands.Cog):
 
             await asyncio.sleep(5)
 
-        # Move everyone back and delete breakout channels
-        collected_count = 0
-        for channel in breakout_channels:
-            if source_channel:
-                for m in channel.members:
-                    try:
-                        await m.move_to(source_channel)
-                        collected_count += 1
-                    except discord.HTTPException:
-                        pass
-            try:
-                await channel.delete(reason="Breakout session ended")
-            except discord.HTTPException:
-                pass
-
-        # Cancel pending rename and restore source channel name
-        if session.rename_task and not session.rename_task.done():
-            session.rename_task.cancel()
-        if source_channel and session.original_channel_name:
-            try:
-                await source_channel.edit(name=session.original_channel_name)
-            except discord.HTTPException as e:
-                print(f"Failed to restore channel name: {e}")
-
-        # Restore connect on locked group roles
+        # Restore permissions and channel name BEFORE moving people back
         if source_channel:
+            # Restore connect on locked group roles
             guild = source_channel.guild
             for role_id in session.locked_role_ids:
                 role = guild.get_role(role_id)
@@ -556,15 +533,33 @@ class BreakoutCog(commands.Cog):
                     except discord.HTTPException:
                         pass
 
-            # Remove facilitator's member-level overwrite
-            facilitator = guild.get_member(session.facilitator_id)
-            if facilitator:
-                try:
-                    await source_channel.set_permissions(
-                        facilitator, overwrite=None, reason="Breakout session ended"
-                    )
-                except discord.HTTPException:
-                    pass
+            # Restore channel name (non-blocking, may be delayed by rate limit)
+            if session.rename_task and not session.rename_task.done():
+                session.rename_task.cancel()
+            if session.original_channel_name:
+
+                async def _restore_name():
+                    try:
+                        await source_channel.edit(name=session.original_channel_name)
+                    except discord.HTTPException as e:
+                        print(f"Failed to restore channel name: {e}")
+
+                asyncio.create_task(_restore_name())
+
+        # Move everyone back and delete breakout channels
+        collected_count = 0
+        for channel in breakout_channels:
+            if source_channel:
+                for m in channel.members:
+                    try:
+                        await m.move_to(source_channel)
+                        collected_count += 1
+                    except discord.HTTPException:
+                        pass
+            try:
+                await channel.delete(reason="Breakout session ended")
+            except discord.HTTPException:
+                pass
 
         # Clean up session
         del self._active_sessions[session.source_channel_id]
@@ -759,16 +754,6 @@ class BreakoutCog(commands.Cog):
                 except discord.HTTPException:
                     pass
 
-            # Allow facilitator to stay in the source channel
-            try:
-                await source_channel.set_permissions(
-                    member,
-                    connect=True,
-                    reason="Facilitator access during breakout",
-                )
-            except discord.HTTPException:
-                pass
-
             # Move participants to breakout channels
             for group, channel in user_assignments:
                 for m in group:
@@ -787,7 +772,10 @@ class BreakoutCog(commands.Cog):
             )
             self._active_sessions[source_channel.id] = session
 
-            # Rename source channel in the background (can be rate-limited)
+            # Rename source channel in the background.
+            # NOTE: Discord rate-limits channel name edits to ~2 per 10 minutes
+            # per channel (separate from normal API limits). The restore rename
+            # on collect may be silently delayed if the breakout is short.
             async def _rename_source():
                 try:
                     await source_channel.edit(
