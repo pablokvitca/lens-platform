@@ -44,25 +44,14 @@ def get_allowed_origins() -> list[str]:
 
     Includes localhost variants for dev and the production frontend URL.
     """
+    # Base ports + workspace ports (offset by 100: ws1=8100, ws2=8200, etc.)
+    workspace_api_ports = [8000 + i * 100 for i in range(4)]
+    workspace_frontend_ports = [3000 + i * 100 for i in range(4)]
+    all_ports = workspace_api_ports + workspace_frontend_ports
     origins = [
-        "http://localhost:5173",
-        "http://localhost:8000",
-        "http://localhost:8001",
-        "http://localhost:8002",
-        "http://localhost:8003",
-        "http://localhost:3000",  # Vike dev
-        "http://localhost:3001",  # Vike dev (workspace 1)
-        "http://localhost:3002",  # Vike dev (workspace 2)
-        "http://localhost:3003",  # Vike dev (workspace 3)
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:8000",
-        "http://127.0.0.1:8001",
-        "http://127.0.0.1:8002",
-        "http://127.0.0.1:8003",
-        "http://127.0.0.1:3000",  # Vike dev
-        "http://127.0.0.1:3001",  # Vike dev (workspace 1)
-        "http://127.0.0.1:3002",  # Vike dev (workspace 2)
-        "http://127.0.0.1:3003",  # Vike dev (workspace 3)
+        f"http://{host}:{port}"
+        for host in ("localhost", "127.0.0.1")
+        for port in all_ports
     ]
 
     # Add production frontend URL if not already in list
