@@ -47,7 +47,10 @@ import {
 } from "@/analytics";
 import { Skeleton, SkeletonText } from "@/components/Skeleton";
 import { getSectionSlug, findSectionBySlug } from "@/utils/sectionSlug";
-import { getCompletionButtonText } from "@/utils/completionButtonText";
+import {
+  getCompletionButtonText,
+  getSectionTextLength,
+} from "@/utils/completionButtonText";
 
 interface ModuleProps {
   courseId: string;
@@ -968,19 +971,17 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
 
   return (
     <div className="min-h-dvh bg-white overflow-x-clip">
-      <div className="sticky top-0 z-50 bg-white">
-        <ModuleHeader
-          moduleTitle={module.title}
-          stages={stages}
-          completedStages={completedSections}
-          currentSectionIndex={currentSectionIndex}
-          canGoPrevious={currentSectionIndex > 0}
-          canGoNext={currentSectionIndex < module.sections.length - 1}
-          onStageClick={handleStageClick}
-          onPrevious={handlePrevious}
-          onNext={handleNext}
-        />
-      </div>
+      <ModuleHeader
+        moduleTitle={module.title}
+        stages={stages}
+        completedStages={completedSections}
+        currentSectionIndex={currentSectionIndex}
+        canGoPrevious={currentSectionIndex > 0}
+        canGoNext={currentSectionIndex < module.sections.length - 1}
+        onStageClick={handleStageClick}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+      />
 
       {/* Main content - padding-top accounts for fixed header */}
       <main className="pt-[var(--module-header-height)]">
@@ -1238,7 +1239,34 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                 }
                 moduleSlug={moduleId}
                 buttonText={getCompletionButtonText(section, sectionIndex)}
+                isShort={getSectionTextLength(section) < 1750}
               />
+              {/* Last section completed: show course navigation */}
+              {sectionIndex === module.sections.length - 1 &&
+                completedSections.has(sectionIndex) &&
+                courseId && (
+                  <div className="flex justify-center pb-12">
+                    <a
+                      href={`/course/${courseId}`}
+                      className="flex items-center gap-2 px-5 py-2.5 text-stone-600 hover:text-stone-900 border border-stone-300 hover:border-stone-400 rounded-lg transition-colors font-medium"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 19l-7-7 7-7"
+                        />
+                      </svg>
+                      Back to Course Overview
+                    </a>
+                  </div>
+                )}
             </div>
           );
         })}
