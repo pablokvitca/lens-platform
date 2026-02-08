@@ -499,11 +499,18 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
   // Covers article, video, and chat — triggerActivity() keeps it alive during chat
   const { triggerActivity: triggerChatActivity } = useActivityTracker({
     contentId: currentSection?.contentId ?? undefined,
-    loId: currentSection && "learningOutcomeId" in currentSection
-      ? currentSection.learningOutcomeId
-      : undefined,
+    loId:
+      currentSection && "learningOutcomeId" in currentSection
+        ? currentSection.learningOutcomeId
+        : undefined,
     moduleId: moduleContentId,
     isAuthenticated,
+    contentTitle: currentSection?.meta?.title ?? undefined,
+    moduleTitle: module?.title,
+    loTitle:
+      currentSection && "learningOutcomeName" in currentSection
+        ? (currentSection.learningOutcomeName ?? undefined)
+        : undefined,
     inactivityTimeout: 300_000,
     enabled: !!currentSection?.contentId,
   });

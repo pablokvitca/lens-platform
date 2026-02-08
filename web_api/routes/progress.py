@@ -57,9 +57,11 @@ class MarkCompleteResponse(BaseModel):
 
 class TimeUpdateRequest(BaseModel):
     content_id: UUID
-    time_delta_s: int
     lo_id: UUID | None = None
     module_id: UUID | None = None
+    content_title: str = ""
+    module_title: str = ""
+    lo_title: str = ""
 
 
 async def get_user_or_token(
@@ -264,11 +266,12 @@ async def update_time_endpoint(
     """Update time spent on content (periodic heartbeat or beacon).
 
     Called periodically while user is viewing content to track engagement time.
+    Server computes elapsed time from last_heartbeat_at column.
     Also handles sendBeacon on page unload which sends raw JSON without Content-Type.
 
     Args:
         request: Raw request for handling sendBeacon
-        body: Request with content_id and time_delta_s (seconds to add)
+        body: Request with content_id (and optional lo_id, module_id)
              May be None for sendBeacon requests
     """
     user_id, anonymous_token = auth
@@ -279,16 +282,20 @@ async def update_time_endpoint(
             raw = await request.body()
             data = json.loads(raw)
             content_id = UUID(data["content_id"])
-            time_delta_s = data["time_delta_s"]
             lo_id = UUID(data["lo_id"]) if data.get("lo_id") else None
             module_id = UUID(data["module_id"]) if data.get("module_id") else None
+            content_title = data.get("content_title", "")
+            module_title = data.get("module_title", "")
+            lo_title = data.get("lo_title", "")
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             raise HTTPException(400, f"Invalid request body: {e}")
     else:
         content_id = body.content_id
-        time_delta_s = body.time_delta_s
         lo_id = body.lo_id
         module_id = body.module_id
+        content_title = body.content_title
+        module_title = body.module_title
+        lo_title = body.lo_title
 
     async with get_transaction() as conn:
         # Ensure lens record exists, then update time
@@ -298,14 +305,13 @@ async def update_time_endpoint(
             anonymous_token=anonymous_token,
             content_id=content_id,
             content_type="lens",
-            content_title="",
+            content_title=content_title,
         )
         await update_time_spent(
             conn,
             user_id=user_id,
             anonymous_token=anonymous_token,
             content_id=content_id,
-            time_delta_s=time_delta_s,
         )
 
         if lo_id:
@@ -315,14 +321,13 @@ async def update_time_endpoint(
                 anonymous_token=anonymous_token,
                 content_id=lo_id,
                 content_type="lo",
-                content_title="",
+                content_title=lo_title,
             )
             await update_time_spent(
                 conn,
                 user_id=user_id,
                 anonymous_token=anonymous_token,
                 content_id=lo_id,
-                time_delta_s=time_delta_s,
             )
 
         if module_id:
@@ -332,12 +337,11 @@ async def update_time_endpoint(
                 anonymous_token=anonymous_token,
                 content_id=module_id,
                 content_type="module",
-                content_title="",
+                content_title=module_title,
             )
             await update_time_spent(
                 conn,
                 user_id=user_id,
                 anonymous_token=anonymous_token,
                 content_id=module_id,
-                time_delta_s=time_delta_s,
             )

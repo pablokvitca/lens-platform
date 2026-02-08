@@ -4,6 +4,7 @@ These tests send real HTTP requests and verify database state.
 No mocking of core functions — tests the full request-to-database chain.
 """
 
+import asyncio
 import uuid
 
 import pytest
@@ -84,7 +85,6 @@ class TestHeartbeatMultiLevel:
                 "/api/progress/time",
                 json={
                     "content_id": lens_id,
-                    "time_delta_s": 30,
                     "lo_id": lo_id,
                     "module_id": module_id,
                 },
@@ -92,33 +92,35 @@ class TestHeartbeatMultiLevel:
             )
         assert response.status_code == 204
 
-        # Verify all three records exist in database
+        # First ping sets last_heartbeat_at but adds 0 time
         lens = await get_progress_record(lens_id, anon_token)
         lo = await get_progress_record(lo_id, anon_token)
         module = await get_progress_record(module_id, anon_token)
 
         assert lens is not None, "Lens record should exist"
         assert lens["content_type"] == "lens"
-        assert lens["total_time_spent_s"] == 30
+        assert lens["total_time_spent_s"] == 0
+        assert lens["last_heartbeat_at"] is not None
 
         assert lo is not None, "LO record should exist"
         assert lo["content_type"] == "lo"
-        assert lo["total_time_spent_s"] == 30
+        assert lo["total_time_spent_s"] == 0
+        assert lo["last_heartbeat_at"] is not None
 
         assert module is not None, "Module record should exist"
         assert module["content_type"] == "module"
-        assert module["total_time_spent_s"] == 30
+        assert module["total_time_spent_s"] == 0
+        assert module["last_heartbeat_at"] is not None
 
     @pytest.mark.asyncio
     async def test_heartbeat_accumulates_time_across_calls(
         self, anon_token, lens_id, lo_id, module_id
     ):
-        """Two heartbeats should sum their deltas at all three levels."""
+        """Two heartbeats should accumulate time at all three levels."""
         from main import app
 
         payload = {
             "content_id": lens_id,
-            "time_delta_s": 30,
             "lo_id": lo_id,
             "module_id": module_id,
         }
@@ -131,6 +133,7 @@ class TestHeartbeatMultiLevel:
                 json=payload,
                 headers={"X-Anonymous-Token": anon_token},
             )
+            await asyncio.sleep(2)
             await client.post(
                 "/api/progress/time",
                 json=payload,
@@ -141,9 +144,9 @@ class TestHeartbeatMultiLevel:
         lo = await get_progress_record(lo_id, anon_token)
         module = await get_progress_record(module_id, anon_token)
 
-        assert lens["total_time_spent_s"] == 60
-        assert lo["total_time_spent_s"] == 60
-        assert module["total_time_spent_s"] == 60
+        assert 1 <= lens["total_time_spent_s"] <= 4
+        assert 1 <= lo["total_time_spent_s"] <= 4
+        assert 1 <= module["total_time_spent_s"] <= 4
 
     @pytest.mark.asyncio
     async def test_heartbeat_without_lo_and_module_only_updates_lens(
@@ -159,7 +162,6 @@ class TestHeartbeatMultiLevel:
                 "/api/progress/time",
                 json={
                     "content_id": lens_id,
-                    "time_delta_s": 30,
                 },
                 headers={"X-Anonymous-Token": anon_token},
             )
@@ -167,7 +169,7 @@ class TestHeartbeatMultiLevel:
 
         lens = await get_progress_record(lens_id, anon_token)
         assert lens is not None
-        assert lens["total_time_spent_s"] == 30
+        assert lens["total_time_spent_s"] == 0  # First ping adds 0 time
 
 
 # --- Completion Propagation Tests ---
@@ -229,13 +231,12 @@ class TestCompletionPropagation:
         ) as client:
             headers = {"X-Anonymous-Token": anon_token}
 
-            # Send heartbeats to accumulate time
+            # Send heartbeats to create records
             for lens in [lens_1, lens_2]:
                 await client.post(
                     "/api/progress/time",
                     json={
                         "content_id": lens,
-                        "time_delta_s": 60,
                         "lo_id": lo,
                         "module_id": mod,
                     },
@@ -276,7 +277,7 @@ class TestCompletionPropagation:
 
         assert lo_record is not None, "LO record should exist"
         assert lo_record["completed_at"] is not None, "LO should be complete"
-        assert lo_record["time_to_complete_s"] == 120  # Snapshot of accumulated time
+        assert lo_record["time_to_complete_s"] >= 0
 
         assert mod_record is not None, "Module record should exist"
         assert mod_record["completed_at"] is not None, "Module should be complete"
@@ -343,7 +344,6 @@ class TestCompletionPropagation:
                     "/api/progress/time",
                     json={
                         "content_id": lens,
-                        "time_delta_s": 60,
                         "lo_id": lo,
                         "module_id": mod,
                     },
@@ -386,7 +386,6 @@ class TestCompletionPropagation:
                 "/api/progress/time",
                 json={
                     "content_id": lens_3,
-                    "time_delta_s": 30,
                     "lo_id": lo,
                     "module_id": mod,
                 },
@@ -411,3 +410,130 @@ class TestCompletionPropagation:
         clear_cache()
 
 
+# --- Server-Side Time Computation Tests ---
+
+
+class TestServerSideTimeComputation:
+    """Server computes time from last_heartbeat_at, not client-sent deltas."""
+
+    @pytest.mark.asyncio
+    async def test_first_ping_records_zero_time(self, anon_token, lens_id):
+        """First ping sets last_heartbeat_at but adds 0 time."""
+        from main import app
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/progress/time",
+                json={"content_id": lens_id},
+                headers={"X-Anonymous-Token": anon_token},
+            )
+        assert response.status_code == 204
+
+        record = await get_progress_record(lens_id, anon_token)
+        assert record is not None
+        assert record["total_time_spent_s"] == 0
+        assert record["last_heartbeat_at"] is not None
+
+    @pytest.mark.asyncio
+    async def test_second_ping_computes_delta(self, anon_token, lens_id):
+        """Second ping computes delta from last_heartbeat_at."""
+        from main import app
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            await client.post(
+                "/api/progress/time",
+                json={"content_id": lens_id},
+                headers={"X-Anonymous-Token": anon_token},
+            )
+            await asyncio.sleep(2)
+            await client.post(
+                "/api/progress/time",
+                json={"content_id": lens_id},
+                headers={"X-Anonymous-Token": anon_token},
+            )
+
+        record = await get_progress_record(lens_id, anon_token)
+        assert 1 <= record["total_time_spent_s"] <= 4
+
+    @pytest.mark.asyncio
+    async def test_delta_clamped_to_max(self, anon_token, lens_id):
+        """Delta is clamped to MAX_HEARTBEAT_DELTA_S (40s)."""
+        from main import app
+        from sqlalchemy import update as sa_update, func
+        from datetime import timedelta
+
+        # First ping to create the record
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            await client.post(
+                "/api/progress/time",
+                json={"content_id": lens_id},
+                headers={"X-Anonymous-Token": anon_token},
+            )
+
+        # Manually set last_heartbeat_at to 5 minutes ago
+        async with get_transaction() as conn:
+            await conn.execute(
+                sa_update(user_content_progress)
+                .where(
+                    user_content_progress.c.content_id == UUID(lens_id),
+                    user_content_progress.c.anonymous_token == UUID(anon_token),
+                )
+                .values(last_heartbeat_at=func.now() - timedelta(seconds=300))
+            )
+
+        # Second ping — delta should be clamped to 40
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            await client.post(
+                "/api/progress/time",
+                json={"content_id": lens_id},
+                headers={"X-Anonymous-Token": anon_token},
+            )
+
+        record = await get_progress_record(lens_id, anon_token)
+        assert record["total_time_spent_s"] == 40
+
+    @pytest.mark.asyncio
+    async def test_concurrent_pings_no_double_count(self, anon_token, lens_id):
+        """Two simultaneous pings should not double-count time."""
+        from main import app
+
+        # First ping to set timestamp
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            await client.post(
+                "/api/progress/time",
+                json={"content_id": lens_id},
+                headers={"X-Anonymous-Token": anon_token},
+            )
+
+        await asyncio.sleep(2)
+
+        # Fire two pings concurrently
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            await asyncio.gather(
+                client.post(
+                    "/api/progress/time",
+                    json={"content_id": lens_id},
+                    headers={"X-Anonymous-Token": anon_token},
+                ),
+                client.post(
+                    "/api/progress/time",
+                    json={"content_id": lens_id},
+                    headers={"X-Anonymous-Token": anon_token},
+                ),
+            )
+
+        record = await get_progress_record(lens_id, anon_token)
+        # Should be ~2s (not ~4s from double-counting)
+        assert record["total_time_spent_s"] <= 5
