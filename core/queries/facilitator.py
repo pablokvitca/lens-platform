@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, literal_column
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from ..tables import (
@@ -12,6 +12,8 @@ from ..tables import (
     cohorts,
     user_content_progress,
     chat_sessions,
+    meetings,
+    attendances,
 )
 
 
@@ -51,6 +53,7 @@ async def get_accessible_groups(
             groups.c.group_id,
             groups.c.group_name,
             groups.c.status,
+            groups.c.discord_text_channel_id,
             cohorts.c.cohort_id,
             cohorts.c.cohort_name,
             cohorts.c.cohort_start_date,
@@ -86,10 +89,55 @@ async def get_group_members_with_progress(
     """Get group members (participants) with aggregated progress stats."""
     name_col = func.coalesce(users.c.nickname, users.c.discord_username).label("name")
 
+    # Subquery: count of past meetings for this group
+    meetings_occurred_subq = (
+        select(func.count())
+        .where(
+            (meetings.c.group_id == group_id) & (meetings.c.scheduled_at < func.now())
+        )
+        .correlate()
+        .scalar_subquery()
+        .label("meetings_occurred")
+    )
+
+    # Subquery: meetings attended per user (checked_in_at is not null)
+    meetings_attended_subq = (
+        select(func.count())
+        .select_from(attendances)
+        .join(meetings, attendances.c.meeting_id == meetings.c.meeting_id)
+        .where(
+            (meetings.c.group_id == group_id)
+            & (meetings.c.scheduled_at < func.now())
+            & (attendances.c.user_id == groups_users.c.user_id)
+            & (attendances.c.checked_in_at.isnot(None))
+        )
+        .correlate(groups_users)
+        .scalar_subquery()
+        .label("meetings_attended")
+    )
+
+    # Subquery: count user-role messages across all chat sessions
+    # Uses PostgreSQL jsonb_array_elements to unnest and count
+    ai_message_count_subq = (
+        select(func.count())
+        .select_from(
+            chat_sessions,
+            func.jsonb_array_elements(chat_sessions.c.messages).alias("msg"),
+        )
+        .where(
+            (chat_sessions.c.user_id == groups_users.c.user_id)
+            & (literal_column("msg.value->>'role'") == "user")
+        )
+        .correlate(groups_users)
+        .scalar_subquery()
+        .label("ai_message_count")
+    )
+
     query = (
         select(
             groups_users.c.user_id,
             name_col,
+            users.c.discord_id,
             func.count(user_content_progress.c.completed_at).label(
                 "sections_completed"
             ),
@@ -97,6 +145,9 @@ async def get_group_members_with_progress(
                 func.sum(user_content_progress.c.total_time_spent_s), 0
             ).label("total_time_seconds"),
             func.max(user_content_progress.c.started_at).label("last_active_at"),
+            meetings_occurred_subq,
+            func.coalesce(meetings_attended_subq, 0).label("meetings_attended"),
+            func.coalesce(ai_message_count_subq, 0).label("ai_message_count"),
         )
         .join(users, groups_users.c.user_id == users.c.user_id)
         .outerjoin(
@@ -108,7 +159,12 @@ async def get_group_members_with_progress(
             & (groups_users.c.role == "participant")
             & (groups_users.c.status == "active")
         )
-        .group_by(groups_users.c.user_id, users.c.nickname, users.c.discord_username)
+        .group_by(
+            groups_users.c.user_id,
+            users.c.nickname,
+            users.c.discord_username,
+            users.c.discord_id,
+        )
         .order_by(name_col)
     )
 
@@ -143,6 +199,101 @@ async def get_user_chat_sessions_for_facilitator(
         .order_by(chat_sessions.c.started_at.desc())
     )
     return [dict(row) for row in result.mappings()]
+
+
+async def get_user_meeting_attendance(
+    conn: AsyncConnection, user_id: int, group_id: int
+) -> list[dict[str, Any]]:
+    """Get per-meeting attendance for a user in a group."""
+    query = (
+        select(
+            meetings.c.meeting_id,
+            meetings.c.meeting_number,
+            meetings.c.scheduled_at,
+            attendances.c.rsvp_status,
+            attendances.c.rsvp_at,
+            attendances.c.checked_in_at,
+        )
+        .outerjoin(
+            attendances,
+            (meetings.c.meeting_id == attendances.c.meeting_id)
+            & (attendances.c.user_id == user_id),
+        )
+        .where(meetings.c.group_id == group_id)
+        .order_by(meetings.c.scheduled_at)
+    )
+    result = await conn.execute(query)
+    rows = []
+    for row in result.mappings():
+        r = dict(row)
+        for key in ("scheduled_at", "rsvp_at", "checked_in_at"):
+            if r.get(key) is not None:
+                r[key] = r[key].isoformat()
+        rows.append(r)
+    return rows
+
+
+async def get_group_completion_data(
+    conn: AsyncConnection, group_id: int
+) -> tuple[dict[int, set[str]], dict[int, dict[int, bool]], set[int]]:
+    """Get bulk completion and attendance data for all active participants.
+
+    Returns:
+        (completions, attendance, past_meeting_numbers)
+        - completions: user_id -> set of completed content_id strings
+        - attendance: user_id -> {meeting_number: attended_bool}
+        - past_meeting_numbers: set of meeting numbers that have occurred
+    """
+    # Completed content_ids per member
+    comp_result = await conn.execute(
+        select(
+            user_content_progress.c.user_id,
+            user_content_progress.c.content_id,
+        )
+        .join(groups_users, user_content_progress.c.user_id == groups_users.c.user_id)
+        .where(
+            (groups_users.c.group_id == group_id)
+            & (groups_users.c.role == "participant")
+            & (groups_users.c.status == "active")
+            & (user_content_progress.c.completed_at.isnot(None))
+        )
+    )
+    completions: dict[int, set[str]] = {}
+    for row in comp_result:
+        completions.setdefault(row.user_id, set()).add(str(row.content_id))
+
+    # Past meetings for this group
+    mtg_result = await conn.execute(
+        select(meetings.c.meeting_id, meetings.c.meeting_number).where(
+            (meetings.c.group_id == group_id)
+            & (meetings.c.scheduled_at < func.now())
+            & (meetings.c.meeting_number.isnot(None))
+        )
+    )
+    mtg_rows = list(mtg_result)
+    past_meeting_numbers = {r.meeting_number for r in mtg_rows}
+    meeting_id_to_num = {r.meeting_id: r.meeting_number for r in mtg_rows}
+
+    # Attendance per member for past meetings
+    attendance: dict[int, dict[int, bool]] = {}
+    if mtg_rows:
+        att_result = await conn.execute(
+            select(
+                attendances.c.user_id,
+                attendances.c.meeting_id,
+                attendances.c.checked_in_at,
+            ).where(
+                attendances.c.meeting_id.in_([r.meeting_id for r in mtg_rows])
+            )
+        )
+        for row in att_result:
+            mnum = meeting_id_to_num.get(row.meeting_id)
+            if mnum is not None:
+                attendance.setdefault(row.user_id, {})[mnum] = (
+                    row.checked_in_at is not None
+                )
+
+    return completions, attendance, past_meeting_numbers
 
 
 async def is_user_in_group(conn: AsyncConnection, user_id: int, group_id: int) -> bool:

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { API_URL } from "../config";
 import { fetchWithRefresh } from "../api/fetchWithRefresh";
@@ -8,77 +8,202 @@ import type {
   GroupMember,
   UserProgress,
   ChatSession,
+  MeetingAttendance,
+  ModuleProgress,
+  TimelineData,
+  TimelineItem,
 } from "../types/facilitator";
 
-function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return `${hours}h ${minutes} min`;
-  }
-  return `${minutes} min`;
+// --- Utilities ---
+
+function fmtDuration(seconds: number): string {
+  if (seconds < 60) return "<1m";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return `${m}m`;
 }
 
-function formatTimeAgo(isoString: string | null): string {
-  if (!isoString) return "Never";
-  const date = new Date(isoString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
+function fmtTimeAgo(iso: string | null): { text: string; color: string } {
+  if (!iso) return { text: "Never", color: "text-slate-400" };
+  const ms = Date.now() - new Date(iso).getTime();
+  const hours = Math.floor(ms / 3_600_000);
+  const days = Math.floor(ms / 86_400_000);
+  if (hours < 1) return { text: "Now", color: "text-emerald-600" };
+  if (hours < 24) return { text: `${hours}h`, color: "text-emerald-600" };
+  if (days < 3) return { text: `${days}d`, color: "text-slate-600" };
+  if (days < 7) return { text: `${days}d`, color: "text-amber-600" };
+  return { text: `${days}d`, color: "text-red-600" };
+}
 
-  if (diffMins < 60) return `${diffMins} minutes ago`;
-  if (diffHours < 24) return `${diffHours} hours ago`;
-  return `${diffDays} days ago`;
+function attendColor(attended: number, occurred: number): string {
+  if (occurred === 0) return "text-slate-400";
+  const rate = attended / occurred;
+  if (rate >= 0.8) return "text-emerald-700 font-medium";
+  if (rate >= 0.5) return "text-amber-700";
+  return "text-red-700";
 }
 
 function statusBadge(status: string) {
-  const colors: Record<string, string> = {
-    completed: "bg-green-100 text-green-800",
-    in_progress: "bg-yellow-100 text-yellow-800",
-    not_started: "bg-gray-100 text-gray-600",
+  const styles: Record<string, string> = {
+    completed: "bg-emerald-100 text-emerald-800",
+    in_progress: "bg-amber-100 text-amber-800",
+    not_started: "bg-slate-100 text-slate-500",
   };
   const labels: Record<string, string> = {
-    completed: "Completed",
-    in_progress: "In Progress",
-    not_started: "Not Started",
+    completed: "Done",
+    in_progress: "In progress",
+    not_started: "Not started",
   };
   return (
     <span
-      className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${colors[status] || colors.not_started}`}
+      className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-medium leading-none ${styles[status] || styles.not_started}`}
     >
       {labels[status] || status}
     </span>
   );
 }
 
+// --- Small components ---
+
+function StatCard({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div className="px-3 py-2 bg-white rounded-lg border border-slate-200">
+      <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">
+        {label}
+      </div>
+      <div className="text-lg font-semibold text-slate-900 leading-tight mt-0.5">
+        {value}
+        {sub && (
+          <span className="text-sm font-normal text-slate-400 ml-1">
+            {sub}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ExtLink({ className = "w-3 h-3" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+      />
+    </svg>
+  );
+}
+
+// --- Main ---
+
 export default function Facilitator() {
   const { isAuthenticated, isLoading: authLoading, user, login } = useAuth();
 
   const [groups, setGroups] = useState<FacilitatorGroup[]>([]);
+  const [discordServerId, setDiscordServerId] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [userChats, setUserChats] = useState<ChatSession[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [userMeetings, setUserMeetings] = useState<MeetingAttendance[]>([]);
+  const [timeline, setTimeline] = useState<TimelineData | null>(null);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load groups on mount
+  // Group-level aggregate stats
+  const stats = useMemo(() => {
+    if (members.length === 0) return null;
+    const withMtgs = members.filter((m) => m.meetings_occurred > 0);
+    const avgAtt =
+      withMtgs.length > 0
+        ? withMtgs.reduce(
+            (s, m) => s + m.meetings_attended / m.meetings_occurred,
+            0,
+          ) / withMtgs.length
+        : null;
+    const active7d = members.filter((m) => {
+      if (!m.last_active_at) return false;
+      return Date.now() - new Date(m.last_active_at).getTime() < 7 * 86_400_000;
+    }).length;
+    const totalAi = members.reduce((s, m) => s + m.ai_message_count, 0);
+    return { avgAtt, active7d, totalAi };
+  }, [members]);
+
+  // Group modules into units by due_by_meeting, paired with meeting data
+  const units = useMemo(() => {
+    if (!userProgress) return [];
+
+    const unitMap = new Map<
+      number | null,
+      { modules: ModuleProgress[]; meeting: MeetingAttendance | null }
+    >();
+
+    for (const mod of userProgress.modules) {
+      const key = mod.due_by_meeting;
+      if (!unitMap.has(key)) {
+        const meeting =
+          key !== null
+            ? userMeetings.find((m) => m.meeting_number === key) ?? null
+            : null;
+        unitMap.set(key, { modules: [], meeting });
+      }
+      unitMap.get(key)!.modules.push(mod);
+    }
+
+    return [...unitMap.entries()]
+      .sort(([a], [b]) => (a ?? 999) - (b ?? 999))
+      .map(([meetingNum, data]) => ({
+        meetingNumber: meetingNum,
+        ...data,
+      }));
+  }, [userProgress, userMeetings]);
+
+  // Current unit = homework due at the next upcoming meeting
+  const currentUnitNumber = useMemo(() => {
+    const now = new Date();
+    const upcoming = userMeetings.find(
+      (m) => new Date(m.scheduled_at) > now && m.meeting_number !== null,
+    );
+    if (upcoming?.meeting_number) return upcoming.meeting_number;
+    // All meetings past: show last unit's homework
+    const past = userMeetings.filter(
+      (m) => new Date(m.scheduled_at) <= now && m.meeting_number !== null,
+    );
+    if (past.length > 0) {
+      return Math.max(...past.map((m) => m.meeting_number ?? 0));
+    }
+    return 1;
+  }, [userMeetings]);
+
+  // --- Data fetching ---
+
   useEffect(() => {
     if (!user) return;
-
-    const fetchGroups = async () => {
-      setIsLoading(true);
+    (async () => {
       setError(null);
       try {
         const res = await fetchWithRefresh(
           `${API_URL}/api/facilitator/groups`,
-          {
-            credentials: "include",
-          },
+          { credentials: "include" },
         );
         if (!res.ok) {
           if (res.status === 403) {
@@ -90,54 +215,55 @@ export default function Facilitator() {
         const data = await res.json();
         setGroups(data.groups);
         setIsAdmin(data.is_admin);
+        setDiscordServerId(data.discord_server_id || "");
         if (data.groups.length > 0) {
           setSelectedGroupId(data.groups[0].group_id);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    fetchGroups();
+    })();
   }, [user]);
 
-  // Load members when group changes
   useEffect(() => {
     if (!selectedGroupId) return;
-
-    const fetchMembers = async () => {
-      setIsLoading(true);
+    (async () => {
+      setMembersLoading(true);
       try {
-        const res = await fetchWithRefresh(
-          `${API_URL}/api/facilitator/groups/${selectedGroupId}/members`,
-          { credentials: "include" },
-        );
-        if (!res.ok) throw new Error("Failed to fetch members");
-        const data = await res.json();
-        setMembers(data.members);
+        const [membersRes, timelineRes] = await Promise.all([
+          fetchWithRefresh(
+            `${API_URL}/api/facilitator/groups/${selectedGroupId}/members`,
+            { credentials: "include" },
+          ),
+          fetchWithRefresh(
+            `${API_URL}/api/facilitator/groups/${selectedGroupId}/timeline`,
+            { credentials: "include" },
+          ),
+        ]);
+        if (!membersRes.ok) throw new Error("Failed to fetch members");
+        const membersData = await membersRes.json();
+        setMembers(membersData.members);
+        if (timelineRes.ok) {
+          setTimeline(await timelineRes.json());
+        }
         setSelectedUserId(null);
         setUserProgress(null);
         setUserChats([]);
+        setUserMeetings([]);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
-        setIsLoading(false);
+        setMembersLoading(false);
       }
-    };
-
-    fetchMembers();
+    })();
   }, [selectedGroupId]);
 
-  // Load user details when selected
   useEffect(() => {
     if (!selectedGroupId || !selectedUserId) return;
-
-    const fetchUserDetails = async () => {
-      setIsLoading(true);
+    (async () => {
+      setDetailLoading(true);
       try {
-        const [progressRes, chatsRes] = await Promise.all([
+        const [progressRes, chatsRes, meetingsRes] = await Promise.all([
           fetchWithRefresh(
             `${API_URL}/api/facilitator/groups/${selectedGroupId}/users/${selectedUserId}/progress`,
             { credentials: "include" },
@@ -146,46 +272,44 @@ export default function Facilitator() {
             `${API_URL}/api/facilitator/groups/${selectedGroupId}/users/${selectedUserId}/chats`,
             { credentials: "include" },
           ),
+          fetchWithRefresh(
+            `${API_URL}/api/facilitator/groups/${selectedGroupId}/users/${selectedUserId}/meetings`,
+            { credentials: "include" },
+          ),
         ]);
-
-        if (!progressRes.ok || !chatsRes.ok) {
+        if (!progressRes.ok || !chatsRes.ok || !meetingsRes.ok) {
           throw new Error("Failed to fetch user details");
         }
-
-        const progressData = await progressRes.json();
-        const chatsData = await chatsRes.json();
-
-        setUserProgress(progressData);
-        setUserChats(chatsData.chats);
+        setUserProgress(await progressRes.json());
+        setUserChats((await chatsRes.json()).chats);
+        setUserMeetings((await meetingsRes.json()).meetings);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
-        setIsLoading(false);
+        setDetailLoading(false);
       }
-    };
-
-    fetchUserDetails();
+    })();
   }, [selectedGroupId, selectedUserId]);
+
+  // --- Guards ---
 
   if (authLoading) {
     return (
-      <div className="py-8 max-w-6xl mx-auto px-4">
-        <div className="space-y-4">
-          <Skeleton variant="rectangular" className="h-8 w-48" />
-          <SkeletonText lines={3} />
-        </div>
+      <div className="py-6">
+        <Skeleton variant="rectangular" className="h-8 w-48 mb-4" />
+        <SkeletonText lines={3} />
       </div>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <div className="py-8 max-w-6xl mx-auto px-4">
+      <div className="py-8">
         <h1 className="text-2xl font-bold mb-4">Facilitator Panel</h1>
         <p className="mb-4">Please sign in to access the facilitator panel.</p>
         <button
           onClick={login}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          className="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
         >
           Sign in with Discord
         </button>
@@ -195,208 +319,654 @@ export default function Facilitator() {
 
   if (error) {
     return (
-      <div className="py-8 max-w-6xl mx-auto px-4">
+      <div className="py-8">
         <h1 className="text-2xl font-bold mb-4">Facilitator Panel</h1>
         <div className="text-red-600">{error}</div>
       </div>
     );
   }
 
+  // --- Derived ---
+
   const selectedGroup = groups.find((g) => g.group_id === selectedGroupId);
   const selectedMember = members.find((m) => m.user_id === selectedUserId);
+  const groupChannelUrl =
+    selectedGroup?.discord_text_channel_id && discordServerId
+      ? `https://discord.com/channels/${discordServerId}/${selectedGroup.discord_text_channel_id}`
+      : null;
+
+  // --- Render ---
 
   return (
-    <div className="py-8 max-w-6xl mx-auto px-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Facilitator Panel</h1>
-        <span className="text-sm text-gray-500">
-          Role: {isAdmin ? "Admin" : "Facilitator"}
-        </span>
+    <div className="py-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl font-bold text-slate-900">
+            Facilitator Panel
+          </h1>
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 uppercase tracking-wide">
+            {isAdmin ? "Admin" : "Facilitator"}
+          </span>
+        </div>
+        {groupChannelUrl && (
+          <a
+            href={groupChannelUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+          >
+            Message group <ExtLink className="w-3.5 h-3.5" />
+          </a>
+        )}
       </div>
 
-      {/* Group Selector */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium mb-2">Select Group</label>
-        <select
-          value={selectedGroupId ?? ""}
-          onChange={(e) => setSelectedGroupId(Number(e.target.value))}
-          className="border rounded px-3 py-2 w-full max-w-md"
-        >
-          {groups.map((group) => (
-            <option key={group.group_id} value={group.group_id}>
-              {group.group_name} ({group.cohort_name})
-            </option>
+      {/* Group Tabs */}
+      {groups.length > 1 && (
+        <div className="flex gap-1 mb-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
+          {groups.map((g) => (
+            <button
+              key={g.group_id}
+              onClick={() => setSelectedGroupId(g.group_id)}
+              className={`px-3 py-1.5 text-sm rounded-lg whitespace-nowrap transition-colors ${
+                selectedGroupId === g.group_id
+                  ? "bg-slate-900 text-white font-medium"
+                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+              }`}
+            >
+              {g.group_name}
+              <span className="ml-1.5 text-xs opacity-60">{g.cohort_name}</span>
+            </button>
           ))}
-        </select>
-      </div>
-
-      {selectedGroup && (
-        <div className="mb-4 text-sm text-gray-600">
-          Cohort: {selectedGroup.cohort_name} | Status: {selectedGroup.status}
         </div>
       )}
 
-      {/* Members Table */}
-      <div className="bg-white border rounded-lg overflow-hidden mb-6">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="text-left px-4 py-3 font-medium">User</th>
-              <th className="text-left px-4 py-3 font-medium">Progress</th>
-              <th className="text-left px-4 py-3 font-medium">Time Spent</th>
-              <th className="text-left px-4 py-3 font-medium">Last Active</th>
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((member) => (
-              <tr
-                key={member.user_id}
-                onClick={() => setSelectedUserId(member.user_id)}
-                className={`border-t cursor-pointer hover:bg-gray-50 ${
-                  selectedUserId === member.user_id ? "bg-blue-50" : ""
-                }`}
-              >
-                <td className="px-4 py-3">{member.name}</td>
-                <td className="px-4 py-3">
-                  {member.sections_completed} sections
-                </td>
-                <td className="px-4 py-3">
-                  {formatDuration(member.total_time_seconds)}
-                </td>
-                <td className="px-4 py-3">
-                  {formatTimeAgo(member.last_active_at)}
-                </td>
-              </tr>
-            ))}
-            {members.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
-                  No members in this group
-                </td>
-              </tr>
+      {/* Summary Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+          <StatCard label="Members" value={String(members.length)} />
+          <StatCard
+            label="Avg Attendance"
+            value={
+              stats.avgAtt !== null
+                ? `${Math.round(stats.avgAtt * 100)}%`
+                : "—"
+            }
+          />
+          <StatCard
+            label="Active (7d)"
+            value={String(stats.active7d)}
+            sub={`/ ${members.length}`}
+          />
+          <StatCard
+            label="AI Messages"
+            value={String(stats.totalAi)}
+            sub="total"
+          />
+        </div>
+      )}
+
+      {/* Master-Detail Layout */}
+      <div className="lg:flex lg:gap-4 items-start">
+        {/* Left: Members Table */}
+        <div className="flex-1 min-w-0 mb-4 lg:mb-0">
+          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+            {membersLoading && (
+              <div className="h-0.5 bg-indigo-100 overflow-hidden">
+                <div className="h-full w-full bg-indigo-500 animate-pulse" />
+              </div>
             )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* User Detail Panel */}
-      {selectedUserId && selectedMember && (
-        <div className="bg-white border rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">{selectedMember.name}</h2>
-
-          {/* Module Progress */}
-          <div>
-            <h3 className="font-medium mb-3">Module Progress</h3>
-            {userProgress && userProgress.modules.length > 0 ? (
-              <div className="space-y-3">
-                {userProgress.modules.map((mod) => {
-                  const chatsForModule = userChats.filter(
-                    (chat) => chat.module_slug === mod.slug,
-                  );
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/80">
+                  <th className="text-left px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="text-right px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Attend.
+                  </th>
+                  <th className="text-right px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Sections
+                  </th>
+                  <th className="text-right px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">
+                    AI
+                  </th>
+                  <th className="text-right px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">
+                    Time
+                  </th>
+                  <th className="text-right px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Active
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((m) => {
+                  const active = fmtTimeAgo(m.last_active_at);
+                  const sel = selectedUserId === m.user_id;
                   return (
-                    <details key={mod.slug} className="border rounded">
-                      <summary className="px-4 py-3 cursor-pointer hover:bg-gray-50">
-                        <div className="inline-flex justify-between items-center w-[calc(100%-1rem)]">
-                          <span className="font-medium">{mod.title}</span>
-                          <span className="text-sm text-gray-600 flex items-center gap-2">
-                            {statusBadge(mod.status)}
-                            <span>
-                              {mod.completed_count}/{mod.total_count} sections
-                            </span>
-                            <span>
-                              {formatDuration(mod.time_spent_seconds)}
-                            </span>
+                    <tr
+                      key={m.user_id}
+                      onClick={() => setSelectedUserId(m.user_id)}
+                      className={`border-b border-slate-100 last:border-0 cursor-pointer transition-colors ${
+                        sel
+                          ? "bg-indigo-50/80"
+                          : "hover:bg-slate-50/80"
+                      }`}
+                    >
+                      <td className="px-3 py-2 font-medium text-slate-900 truncate max-w-[180px]">
+                        {m.name}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {m.meetings_occurred > 0 ? (
+                          <span
+                            className={attendColor(
+                              m.meetings_attended,
+                              m.meetings_occurred,
+                            )}
+                          >
+                            {m.meetings_attended}/{m.meetings_occurred}
                           </span>
-                        </div>
-                      </summary>
-                      <div className="px-4 py-3 border-t bg-gray-50">
-                        {/* Section breakdown */}
-                        <div className="space-y-1 mb-4">
-                          {mod.sections.map((section) => (
-                            <div
-                              key={section.content_id}
-                              className="flex justify-between text-sm"
-                            >
-                              <span
-                                className={
-                                  section.completed
-                                    ? "text-green-700"
-                                    : "text-gray-600"
-                                }
-                              >
-                                {section.completed ? "\u2713" : "\u2013"}{" "}
-                                {section.title}
-                                <span className="text-gray-400 ml-1">
-                                  ({section.type})
-                                </span>
-                              </span>
-                              <span className="text-gray-500">
-                                {formatDuration(section.time_spent_seconds)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Chat history for this module */}
-                        {chatsForModule.length > 0 ? (
-                          <div>
-                            {chatsForModule.map((chat) => (
-                              <div key={chat.session_id} className="mb-3">
-                                <div className="text-sm font-medium text-gray-700 mb-2">
-                                  Chat ({chat.messages.length} messages)
-                                  {chat.is_archived && (
-                                    <span className="ml-2 text-gray-400">
-                                      (archived)
-                                    </span>
-                                  )}
-                                </div>
-                                {chat.messages.length > 0 && (
-                                  <div className="max-h-64 overflow-y-auto bg-white rounded border p-3">
-                                    {chat.messages.map((msg, idx) => (
-                                      <div
-                                        key={idx}
-                                        className={`mb-3 last:mb-0 ${
-                                          msg.role === "user"
-                                            ? "text-blue-800"
-                                            : "text-gray-700"
-                                        }`}
-                                      >
-                                        <span className="font-medium capitalize">
-                                          {msg.role}:
-                                        </span>{" "}
-                                        {msg.content}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
                         ) : (
-                          <p className="text-sm text-gray-500">
-                            No chat messages
-                          </p>
+                          <span className="text-slate-300">—</span>
                         )}
-                      </div>
-                    </details>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-slate-700">
+                        {m.sections_completed}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-slate-700 hidden sm:table-cell">
+                        {m.ai_message_count || (
+                          <span className="text-slate-300">0</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-slate-600 hidden sm:table-cell">
+                        {fmtDuration(m.total_time_seconds)}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right tabular-nums ${active.color}`}
+                      >
+                        {active.text}
+                      </td>
+                    </tr>
                   );
                 })}
-              </div>
-            ) : (
-              <p className="text-gray-500">No module progress recorded</p>
-            )}
+                {members.length === 0 && !membersLoading && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-3 py-8 text-center text-slate-400 text-sm"
+                    >
+                      No members in this group
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-      )}
 
-      {isLoading && (
-        <div className="fixed inset-0 bg-black/20 flex items-center justify-center">
-          <div className="bg-white px-6 py-4 rounded shadow space-y-3">
-            <Skeleton variant="text" className="h-6 w-32" />
-            <SkeletonText lines={2} />
+        {/* Right: User Detail Panel */}
+        {detailLoading ? (
+          <div className="lg:w-[400px] lg:shrink-0">
+            <div className="bg-white border border-slate-200 rounded-lg p-4">
+              <Skeleton variant="text" className="h-5 w-32 mb-4" />
+              <SkeletonText lines={8} />
+            </div>
           </div>
-        </div>
-      )}
+        ) : selectedUserId && selectedMember ? (
+          <div className="lg:w-[400px] lg:shrink-0">
+            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-semibold text-slate-900">
+                    {selectedMember.name}
+                  </h2>
+                  {selectedMember.discord_id && (
+                    <a
+                      href={`https://discord.com/users/${selectedMember.discord_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+                    >
+                      DM <ExtLink />
+                    </a>
+                  )}
+                </div>
+                {/* Inline stats */}
+                <div className="flex gap-4 mt-1.5 text-xs text-slate-500">
+                  <span>
+                    <span className="font-semibold text-slate-700 tabular-nums">
+                      {selectedMember.sections_completed}
+                    </span>{" "}
+                    sections
+                  </span>
+                  <span>
+                    <span className="font-semibold text-slate-700 tabular-nums">
+                      {fmtDuration(selectedMember.total_time_seconds)}
+                    </span>{" "}
+                    spent
+                  </span>
+                  <span>
+                    <span className="font-semibold text-slate-700 tabular-nums">
+                      {selectedMember.ai_message_count}
+                    </span>{" "}
+                    AI msgs
+                  </span>
+                </div>
+              </div>
+
+              {/* Unit-based progress (modules grouped by week, merged with meeting data) */}
+              <div className="divide-y divide-slate-100">
+                {units.length > 0 ? (
+                  units.map((unit) => {
+                    const isCurrent =
+                      unit.meetingNumber === currentUnitNumber;
+                    const mtg = unit.meeting;
+                    const isPastMeeting =
+                      mtg && new Date(mtg.scheduled_at) < new Date();
+                    const unitCompleted =
+                      unit.modules.length > 0 &&
+                      unit.modules.every((m) => m.status === "completed");
+                    const unitSections = unit.modules.reduce(
+                      (s, m) => s + m.completed_count,
+                      0,
+                    );
+                    const unitTotal = unit.modules.reduce(
+                      (s, m) => s + m.total_count,
+                      0,
+                    );
+                    const unitPct =
+                      unitTotal > 0
+                        ? Math.round((unitSections / unitTotal) * 100)
+                        : 0;
+
+                    return (
+                      <details
+                        key={unit.meetingNumber ?? "extra"}
+                        open={isCurrent}
+                        className="group/unit"
+                      >
+                        {/* Unit header */}
+                        <summary
+                          className={`px-4 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors flex items-center gap-2 ${
+                            isCurrent ? "bg-indigo-50/60" : ""
+                          }`}
+                        >
+                          <svg
+                            className="w-3 h-3 text-slate-400 transition-transform group-open/unit:rotate-90 shrink-0"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M6 6l4 4-4 4V6z" />
+                          </svg>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className={`text-sm font-medium ${isCurrent ? "text-indigo-900" : "text-slate-800"}`}
+                                >
+                                  {unit.meetingNumber !== null
+                                    ? `Unit ${unit.meetingNumber}`
+                                    : "Additional"}
+                                </span>
+                                {isCurrent && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 uppercase tracking-wide">
+                                    Current
+                                  </span>
+                                )}
+                                {/* Meeting attendance inline */}
+                                {mtg && (
+                                  <span className="text-xs text-slate-400 shrink-0">
+                                    {new Date(
+                                      mtg.scheduled_at,
+                                    ).toLocaleDateString(undefined, {
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
+                                    {isPastMeeting && (
+                                      <span
+                                        className={`ml-1 ${
+                                          mtg.checked_in_at
+                                            ? "text-emerald-600"
+                                            : "text-red-500"
+                                        }`}
+                                      >
+                                        {mtg.checked_in_at
+                                          ? "\u2713 attended"
+                                          : "\u2717 missed"}
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-xs text-slate-500 tabular-nums shrink-0">
+                                {unitCompleted ? (
+                                  <span className="text-emerald-600 font-medium">
+                                    Done
+                                  </span>
+                                ) : (
+                                  `${unitPct}%`
+                                )}
+                              </span>
+                            </div>
+                            {/* Unit progress bar */}
+                            <div className="w-full h-1 bg-slate-200 rounded-full mt-1.5">
+                              <div
+                                className={`h-1 rounded-full transition-all ${
+                                  unitPct === 100
+                                    ? "bg-emerald-500"
+                                    : isCurrent
+                                      ? "bg-indigo-500"
+                                      : unitPct > 0
+                                        ? "bg-slate-400"
+                                        : "bg-slate-200"
+                                }`}
+                                style={{ width: `${unitPct}%` }}
+                              />
+                            </div>
+                          </div>
+                        </summary>
+
+                        {/* Unit content — expanded */}
+                        <div
+                          className={`px-4 pb-3 ${isCurrent ? "bg-indigo-50/30" : ""}`}
+                        >
+                          {unit.modules.map((mod) => {
+                            const chatsForModule = userChats.filter(
+                              (c) => c.module_slug === mod.slug,
+                            );
+
+                            return isCurrent ? (
+                              /* Current unit: show full section detail */
+                              <div
+                                key={mod.slug}
+                                className="mt-2 first:mt-1"
+                              >
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                  <span className="text-sm font-medium text-slate-800 truncate">
+                                    {mod.title}
+                                  </span>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {statusBadge(mod.status)}
+                                    <span className="text-xs text-slate-500 tabular-nums">
+                                      {mod.completed_count}/{mod.total_count}
+                                    </span>
+                                  </div>
+                                </div>
+                                {/* Per-section progress */}
+                                <div className="space-y-0.5 text-xs ml-0.5">
+                                  {mod.sections.map((s) => (
+                                    <div
+                                      key={s.content_id}
+                                      className="flex justify-between py-0.5"
+                                    >
+                                      <span
+                                        className={
+                                          s.completed
+                                            ? "text-emerald-700"
+                                            : "text-slate-500"
+                                        }
+                                      >
+                                        {s.completed ? "\u2713" : "\u2013"}{" "}
+                                        {s.title}
+                                        <span className="text-slate-400 ml-1">
+                                          ({s.type})
+                                        </span>
+                                      </span>
+                                      <span className="text-slate-400 tabular-nums shrink-0 ml-2">
+                                        {fmtDuration(s.time_spent_seconds)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                  {chatsForModule.map((chat) => (
+                                    <details
+                                      key={chat.session_id}
+                                      className="mt-1 border-t border-slate-200/60 pt-1"
+                                    >
+                                      <summary className="text-slate-600 cursor-pointer hover:text-slate-900 transition-colors">
+                                        Chat ({chat.messages.length}{" "}
+                                        messages)
+                                        {chat.is_archived && (
+                                          <span className="text-slate-400 ml-1">
+                                            (archived)
+                                          </span>
+                                        )}
+                                      </summary>
+                                      {chat.messages.length > 0 && (
+                                        <div className="max-h-48 overflow-y-auto mt-1 bg-white/80 rounded border border-slate-200 p-2 space-y-1">
+                                          {chat.messages.map((msg, i) => (
+                                            <div
+                                              key={i}
+                                              className={
+                                                msg.role === "user"
+                                                  ? "text-indigo-800"
+                                                  : "text-slate-600"
+                                              }
+                                            >
+                                              <span className="font-medium capitalize">
+                                                {msg.role}:
+                                              </span>{" "}
+                                              {msg.content}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </details>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              /* Past/future units: compact module row */
+                              <details key={mod.slug} className="group/mod">
+                                <summary className="flex items-center gap-2 py-1 mt-1 first:mt-0.5 cursor-pointer hover:bg-slate-50 rounded -mx-1.5 px-1.5 transition-colors">
+                                  <svg
+                                    className="w-2.5 h-2.5 text-slate-400 transition-transform group-open/mod:rotate-90 shrink-0"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path d="M6 6l4 4-4 4V6z" />
+                                  </svg>
+                                  <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                                    <span className="text-sm text-slate-700 truncate">
+                                      {mod.title}
+                                    </span>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {statusBadge(mod.status)}
+                                      <span className="text-xs text-slate-500 tabular-nums">
+                                        {mod.completed_count}/
+                                        {mod.total_count}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </summary>
+                                <div className="ml-5 mt-0.5 mb-1.5 space-y-0.5 text-xs">
+                                  {mod.sections.map((s) => (
+                                    <div
+                                      key={s.content_id}
+                                      className="flex justify-between py-0.5"
+                                    >
+                                      <span
+                                        className={
+                                          s.completed
+                                            ? "text-emerald-700"
+                                            : "text-slate-500"
+                                        }
+                                      >
+                                        {s.completed ? "\u2713" : "\u2013"}{" "}
+                                        {s.title}
+                                      </span>
+                                      <span className="text-slate-400 tabular-nums shrink-0 ml-2">
+                                        {fmtDuration(s.time_spent_seconds)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    );
+                  })
+                ) : (
+                  <div className="px-4 py-6 text-center">
+                    <p className="text-sm text-slate-400">
+                      No progress recorded
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="hidden lg:block lg:w-[400px] lg:shrink-0">
+            <div className="border border-dashed border-slate-300 rounded-lg p-8 text-center">
+              <p className="text-sm text-slate-400">
+                Select a member to view details
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Progress Timeline */}
+      {timeline &&
+        timeline.timeline_items.length > 0 &&
+        timeline.members.length > 0 && (
+          <div className="mt-6">
+            <h2 className="text-sm font-semibold text-slate-700 mb-2">
+              Progress Timeline
+            </h2>
+            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-max min-w-full">
+                  {/* Header: unit markers */}
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      <th className="sticky left-0 z-10 bg-slate-50 px-3 py-1.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider min-w-[120px]">
+                        Name
+                      </th>
+                      <th className="px-2 py-1.5">
+                        <TimelineHeader items={timeline.timeline_items} />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {timeline.members.map((tm) => {
+                      const completedSet = new Set(tm.completed_ids);
+                      return (
+                        <tr
+                          key={tm.user_id}
+                          className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50"
+                        >
+                          <td className="sticky left-0 z-10 bg-white px-3 py-1.5 text-sm font-medium text-slate-900 truncate max-w-[160px]">
+                            {tm.name}
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <TimelineRow
+                              items={timeline.timeline_items}
+                              completedSet={completedSet}
+                              meetings={tm.meetings}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+    </div>
+  );
+}
+
+// --- Timeline subcomponents ---
+
+function TimelineHeader({ items }: { items: TimelineItem[] }) {
+  return (
+    <div className="flex items-end gap-[3px]">
+      {items.map((item, i) => {
+        const prev = i > 0 ? items[i - 1] : null;
+        const moduleBreak =
+          item.type === "section" &&
+          prev?.type === "section" &&
+          prev.module_slug !== item.module_slug;
+
+        if (item.type === "meeting") {
+          return (
+            <div
+              key={i}
+              className="w-4 h-4 flex items-center justify-center shrink-0 ml-0.5"
+            >
+              <span className="text-[9px] font-semibold text-slate-500">
+                {item.number}
+              </span>
+            </div>
+          );
+        }
+
+        return (
+          <Fragment key={i}>
+            {moduleBreak && <span className="w-0.5 shrink-0" />}
+            <span className="w-2 h-2 shrink-0" />
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+function TimelineRow({
+  items,
+  completedSet,
+  meetings,
+}: {
+  items: TimelineItem[];
+  completedSet: Set<string>;
+  meetings: Record<string, "attended" | "missed">;
+}) {
+  return (
+    <div className="flex items-center gap-[3px]">
+      {items.map((item, i) => {
+        const prev = i > 0 ? items[i - 1] : null;
+        const moduleBreak =
+          item.type === "section" &&
+          prev?.type === "section" &&
+          prev.module_slug !== item.module_slug;
+
+        if (item.type === "meeting") {
+          const status = meetings[String(item.number)];
+          const color = status
+            ? status === "attended"
+              ? "bg-emerald-500"
+              : "bg-red-400"
+            : "bg-slate-200";
+          return (
+            <span
+              key={i}
+              className={`w-4 h-4 rounded-full shrink-0 ml-0.5 border-2 border-white ${color}`}
+              title={`Meeting ${item.number}: ${status || "upcoming"}`}
+            />
+          );
+        }
+
+        const done = item.content_id
+          ? completedSet.has(item.content_id)
+          : false;
+        return (
+          <Fragment key={i}>
+            {moduleBreak && <span className="w-0.5 shrink-0" />}
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                done ? "bg-emerald-500" : "bg-slate-200"
+              }`}
+              title={item.module_slug || ""}
+            />
+          </Fragment>
+        );
+      })}
     </div>
   );
 }

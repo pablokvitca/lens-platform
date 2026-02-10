@@ -9,6 +9,7 @@ Endpoints:
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -19,12 +20,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.database import get_connection
 from core.modules.loader import get_available_modules, load_flattened_module
+from core.modules.course_loader import load_course, get_all_module_slugs, get_due_by_meeting
+from core.modules.flattened_types import ModuleRef, MeetingMarker
 from core.queries.facilitator import (
     can_access_group,
     get_accessible_groups,
+    get_group_completion_data,
     get_group_members_with_progress,
     get_user_all_progress,
     get_user_chat_sessions_for_facilitator,
+    get_user_meeting_attendance,
     is_admin,
     is_user_in_group,
 )
@@ -72,6 +77,7 @@ async def list_groups(
     return {
         "groups": groups,
         "is_admin": admin,
+        "discord_server_id": os.environ.get("DISCORD_SERVER_ID", ""),
     }
 
 
@@ -91,6 +97,77 @@ async def list_group_members(
         members = await get_group_members_with_progress(conn, group_id)
 
     return {"members": members}
+
+
+@router.get("/groups/{group_id}/timeline")
+async def get_group_timeline(
+    group_id: int,
+    user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Get timeline data for all group members (completion dots + meeting markers)."""
+    discord_id = user["sub"]
+    db_user = await get_db_user_or_403(discord_id)
+
+    async with get_connection() as conn:
+        if not await can_access_group(conn, db_user["user_id"], group_id):
+            raise HTTPException(403, "Access denied to this group")
+
+        members = await get_group_members_with_progress(conn, group_id)
+        completions, attendance, past_meetings = await get_group_completion_data(
+            conn, group_id
+        )
+
+    # Build timeline structure from course progression
+    try:
+        course = load_course("default")
+    except Exception:
+        return {"timeline_items": [], "members": []}
+
+    timeline_items: list[dict[str, Any]] = []
+    for item in course.progression:
+        if isinstance(item, ModuleRef):
+            slug = item.path.split("/")[-1]
+            try:
+                module = load_flattened_module(slug)
+            except Exception:
+                continue
+            for section in module.sections:
+                content_id = section.get("contentId")
+                if content_id:
+                    timeline_items.append(
+                        {
+                            "type": "section",
+                            "content_id": content_id,
+                            "module_slug": slug,
+                        }
+                    )
+        elif isinstance(item, MeetingMarker):
+            timeline_items.append(
+                {
+                    "type": "meeting",
+                    "number": item.number,
+                    "is_past": item.number in past_meetings,
+                }
+            )
+
+    # Build per-member data
+    members_out = []
+    for m in members:
+        uid = m["user_id"]
+        user_comps = list(completions.get(uid, set()))
+        user_att: dict[str, str] = {}
+        for num, attended in attendance.get(uid, {}).items():
+            user_att[str(num)] = "attended" if attended else "missed"
+        members_out.append(
+            {
+                "user_id": uid,
+                "name": m["name"],
+                "completed_ids": user_comps,
+                "meetings": user_att,
+            }
+        )
+
+    return {"timeline_items": timeline_items, "members": members_out}
 
 
 @router.get("/groups/{group_id}/users/{target_user_id}/progress")
@@ -118,8 +195,14 @@ async def get_user_progress(
         cid = str(row["content_id"])
         progress_map[cid] = row
 
-    # Build per-module progress
-    module_slugs = get_available_modules()
+    # Build per-module progress (in course progression order)
+    try:
+        course = load_course("default")
+        module_slugs = get_all_module_slugs("default")
+    except Exception:
+        course = None
+        module_slugs = get_available_modules()
+
     modules_out = []
     overall_time = 0
     overall_last_active = None
@@ -178,6 +261,8 @@ async def get_user_progress(
         else:
             status = "in_progress"
 
+        due_by = get_due_by_meeting(course, slug) if course else None
+
         modules_out.append(
             {
                 "slug": slug,
@@ -187,6 +272,7 @@ async def get_user_progress(
                 "total_count": total_count,
                 "time_spent_seconds": module_time,
                 "sections": sections_out,
+                "due_by_meeting": due_by,
             }
         )
         overall_time += module_time
@@ -205,6 +291,30 @@ async def get_user_progress(
             overall_last_active.isoformat() if overall_last_active else None
         ),
     }
+
+
+@router.get("/groups/{group_id}/users/{target_user_id}/meetings")
+async def get_user_meetings(
+    group_id: int,
+    target_user_id: int,
+    user: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Get per-meeting attendance for a specific user in a group."""
+    discord_id = user["sub"]
+    db_user = await get_db_user_or_403(discord_id)
+
+    async with get_connection() as conn:
+        if not await can_access_group(conn, db_user["user_id"], group_id):
+            raise HTTPException(403, "Access denied to this group")
+
+        if not await is_user_in_group(conn, target_user_id, group_id):
+            raise HTTPException(404, "User not found in this group")
+
+        meeting_attendance = await get_user_meeting_attendance(
+            conn, target_user_id, group_id
+        )
+
+    return {"meetings": meeting_attendance}
 
 
 @router.get("/groups/{group_id}/users/{target_user_id}/chats")
