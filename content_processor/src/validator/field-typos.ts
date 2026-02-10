@@ -17,10 +17,12 @@ const KNOWN_FIELDS = [
   'id',
   'slug',
   'title',
-  // Article metadata
+  // Article metadata (frontmatter)
   'author',
+  'source_url',
+  'date',
   'sourceUrl',
-  // Video metadata
+  // Video metadata (frontmatter)
   'channel',
   'url',
   // Chat segment fields

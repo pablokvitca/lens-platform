@@ -1,7 +1,15 @@
+export interface UrlToValidate {
+  url: string;
+  file: string;
+  line: number;
+  label: string;
+}
+
 export interface ProcessResult {
   modules: FlattenedModule[];
   courses: Course[];
   errors: ContentError[];
+  urlsToValidate: UrlToValidate[];
 }
 
 export interface FlattenedModule {
@@ -97,6 +105,9 @@ import { detectDuplicateSlugs, type SlugEntry } from './validator/duplicates.js'
 import { validateOutputIntegrity } from './validator/output-integrity.js';
 import { extractArticleExcerpt } from './bundler/article.js';
 import { extractVideoExcerpt, type TimestampEntry } from './bundler/video.js';
+import { parseArticle } from './parser/article.js';
+import { parseVideoTranscript } from './parser/video-transcript.js';
+import { validateTimestamps } from './validator/timestamps.js';
 
 /**
  * Validate lens excerpts by checking if source files exist and anchors/timestamps are valid.
@@ -187,16 +198,33 @@ function validateLensExcerpts(
   return errors;
 }
 
-export function processContent(files: Map<string, string>): ProcessResult {
+export interface ProcessOptions {
+  includeWip?: boolean;
+}
+
+/**
+ * Check if a file path contains a WIP directory segment (case-insensitive).
+ */
+function isWipPath(path: string): boolean {
+  return path.split('/').some(segment => segment.toLowerCase().includes('wip'));
+}
+
+export function processContent(files: Map<string, string>, options: ProcessOptions = {}): ProcessResult {
   const modules: FlattenedModule[] = [];
   const courses: Course[] = [];
   const errors: ContentError[] = [];
+  const urlsToValidate: UrlToValidate[] = [];
   const uuidEntries: UuidEntry[] = [];
   const slugEntries: SlugEntry[] = [];
   const slugToPath = new Map<string, string>();
 
   // Identify file types by path
   for (const [path, content] of files.entries()) {
+    // Skip WIP directories unless includeWip is set
+    if (!options.includeWip && isWipPath(path)) {
+      continue;
+    }
+
     if (path.startsWith('modules/')) {
       const result = flattenModule(path, files);
 
@@ -295,6 +323,24 @@ export function processContent(files: Map<string, string>): ProcessResult {
           field: 'id',
         });
       }
+    } else if (path.endsWith('.timestamps.json')) {
+      const tsErrors = validateTimestamps(content, path);
+      errors.push(...tsErrors);
+    } else if (path.startsWith('articles/') || path.includes('/articles/')) {
+      const result = parseArticle(content, path);
+      errors.push(...result.errors);
+      if (result.article) {
+        urlsToValidate.push({ url: result.article.sourceUrl, file: path, line: 2, label: 'source_url' });
+        for (const img of result.article.imageUrls) {
+          urlsToValidate.push({ url: img.url, file: path, line: img.line, label: 'Image URL' });
+        }
+      }
+    } else if (path.startsWith('video_transcripts/') || path.includes('/video_transcripts/')) {
+      const result = parseVideoTranscript(content, path);
+      errors.push(...result.errors);
+      if (result.transcript) {
+        urlsToValidate.push({ url: result.transcript.url, file: path, line: 2, label: 'url' });
+      }
     }
   }
 
@@ -306,9 +352,42 @@ export function processContent(files: Map<string, string>): ProcessResult {
   const duplicateSlugErrors = detectDuplicateSlugs(slugEntries);
   errors.push(...duplicateSlugErrors);
 
+  // Validate video transcript / timestamps.json pairing
+  const transcriptPaths = [...files.keys()].filter(p =>
+    (p.startsWith('video_transcripts/') || p.includes('/video_transcripts/')) &&
+    p.endsWith('.md') &&
+    (options.includeWip || !isWipPath(p))
+  );
+  const timestampPaths = new Set(
+    [...files.keys()].filter(p => p.endsWith('.timestamps.json'))
+  );
+
+  for (const mdPath of transcriptPaths) {
+    const expectedTs = mdPath.replace(/\.md$/, '.timestamps.json');
+    if (!timestampPaths.has(expectedTs)) {
+      errors.push({
+        file: mdPath,
+        message: `Missing timestamps.json: expected ${expectedTs}`,
+        severity: 'error',
+      });
+    }
+  }
+
+  for (const tsPath of timestampPaths) {
+    if (!options.includeWip && isWipPath(tsPath)) continue;
+    const expectedMd = tsPath.replace(/\.timestamps\.json$/, '.md');
+    if (!files.has(expectedMd)) {
+      errors.push({
+        file: tsPath,
+        message: `Orphaned timestamps file: no matching .md transcript found`,
+        severity: 'warning',
+      });
+    }
+  }
+
   // Safety-net: catch empty sections/segments in final output
   const integrityErrors = validateOutputIntegrity(modules, slugToPath);
   errors.push(...integrityErrors);
 
-  return { modules, courses, errors };
+  return { modules, courses, errors, urlsToValidate };
 }

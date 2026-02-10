@@ -389,5 +389,73 @@
       ]
     }
   ],
-  "errors": []
+  "errors": [],
+  "urlsToValidate": [
+    {
+      "url": "https://aisafety.info/questions/8IHO/What-are-the-differences-between-a-singularity,-an-intelligence-explosion,-and-a-hard-takeoff",
+      "file": "articles/aisafety-info-singularity-intelligence-explosion-hard-takeoff.md",
+      "line": 2,
+      "label": "source_url"
+    },
+    {
+      "url": "https://www.lesswrong.com/posts/yTvBSFrXhZfL8vr5a/worst-case-thinking-in-ai-alignment",
+      "file": "articles/buck-worst-case-thinking-in-ai-alignment.md",
+      "line": 2,
+      "label": "source_url"
+    },
+    {
+      "url": "https://www.lesswrong.com/posts/dq3KsCsqNotWc8nAK/cascades-cycles-insight",
+      "file": "articles/cascades-cycles-insight.md",
+      "line": 2,
+      "label": "source_url"
+    },
+    {
+      "url": "https://flyingpenguin.com/wp-content/uploads/2022/04/good-1964-.pdf",
+      "file": "articles/good-speculations-concerning-first-ultraintelligent-machine.md",
+      "line": 2,
+      "label": "source_url"
+    },
+    {
+      "url": "https://intelligence.org/2015/07/24/four-background-claims/",
+      "file": "articles/nate-soares-four-background-claims.md",
+      "line": 2,
+      "label": "source_url"
+    },
+    {
+      "url": "https://www.lesswrong.com/posts/rJLviHqJMTy8WQkow/recursion-magic",
+      "file": "articles/recursion-magic.md",
+      "line": 2,
+      "label": "source_url"
+    },
+    {
+      "url": "https://en.wikipedia.org/wiki/Existential_risk_from_artificial_intelligence",
+      "file": "articles/wikipedia-existential-risk-from-ai.md",
+      "line": 2,
+      "label": "source_url"
+    },
+    {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/AI_Time_Torizons_Are_Doubling_Every_4_Months.png/1280px-AI_Time_Torizons_Are_Doubling_Every_4_Months.png",
+      "file": "articles/wikipedia-existential-risk-from-ai.md",
+      "line": 10,
+      "label": "Image URL"
+    },
+    {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/X-risk-chart-en-01a.svg/500px-X-risk-chart-en-01a.svg.png",
+      "file": "articles/wikipedia-existential-risk-from-ai.md",
+      "line": 157,
+      "label": "Image URL"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=fa8k8IQ1_X0",
+      "file": "video_transcripts/kurzgesagt-ai-humanitys-final-invention.md",
+      "line": 2,
+      "label": "url"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=9i1WlcCudpU",
+      "file": "video_transcripts/robertmiles-10-reasons-to-ignore-ai-safety.md",
+      "line": 2,
+      "label": "url"
+    }
+  ]
 }
