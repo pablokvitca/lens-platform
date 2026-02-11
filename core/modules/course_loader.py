@@ -38,8 +38,13 @@ def load_course(course_slug: str) -> ParsedCourse:
 
 
 def _extract_slug_from_path(path: str) -> str:
-    """Extract module slug from path like 'modules/introduction' -> 'introduction'."""
-    return path.split("/")[-1]
+    """Extract module slug from path like 'modules/introduction' -> 'introduction'.
+
+    Normalizes to kebab-case to handle filename-based slugs like
+    'Cognitive Superpowers' -> 'cognitive-superpowers'.
+    """
+    raw = path.split("/")[-1]
+    return raw.lower().replace(" ", "-")
 
 
 def get_all_module_slugs(course_slug: str) -> list[str]:

@@ -255,7 +255,7 @@ export function parseModule(content: string, file: string): ModuleParseResult {
     }
   }
 
-  if (errors.length > 0) {
+  if (errors.some(e => e.severity === 'error')) {
     return { module: null, errors };
   }
 
