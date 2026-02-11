@@ -63,6 +63,17 @@ describe('validateFrontmatter', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it('suggests similar field when required field is missing but similar one exists', () => {
+    const errors = validateFrontmatter(
+      { title: 'My Article', author: 'Jane', url: 'https://example.com' },
+      'article',
+      'articles/test.md'
+    );
+    const sourceUrlError = errors.find(e => e.message.includes('source_url'));
+    expect(sourceUrlError).toBeDefined();
+    expect(sourceUrlError!.suggestion).toBe("Did you mean 'source_url' instead of 'url'?");
+  });
+
   it('reports all missing required fields at once', () => {
     const errors = validateFrontmatter(
       {},

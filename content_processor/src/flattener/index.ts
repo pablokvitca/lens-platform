@@ -199,12 +199,15 @@ function flattenLearningOutcomeSection(
 
   // Parse and resolve the wikilink
   const wikilink = parseWikilink(source);
-  if (!wikilink) {
+  if (!wikilink || wikilink.error) {
+    const suggestion = wikilink?.correctedPath
+      ? `Did you mean '[[${wikilink.correctedPath}]]'?`
+      : 'Use format [[../Learning Outcomes/filename.md|Display Text]]';
     errors.push({
       file: modulePath,
       line: section.line,
       message: `Invalid wikilink format: ${source}`,
-      suggestion: 'Use format [[../Learning Outcomes/filename.md|Display Text]]',
+      suggestion,
       severity: 'error',
     });
     return { sections: [], errors };
@@ -308,7 +311,7 @@ function flattenLearningOutcomeSection(
         // Extract article metadata from the article file's frontmatter
         if (lensSection.source) {
           const articleWikilink = parseWikilink(lensSection.source);
-          if (articleWikilink) {
+          if (articleWikilink && !articleWikilink.error) {
             const articlePathResolved = resolveWikilinkPath(articleWikilink.path, lensPath);
             const articlePath = findFileWithExtension(articlePathResolved, files);
             if (articlePath) {
@@ -340,7 +343,7 @@ function flattenLearningOutcomeSection(
         // Extract video metadata from the video transcript file's frontmatter
         if (lensSection.source) {
           const videoWikilink = parseWikilink(lensSection.source);
-          if (videoWikilink) {
+          if (videoWikilink && !videoWikilink.error) {
             const videoPathResolved = resolveWikilinkPath(videoWikilink.path, lensPath);
             const videoPath = findFileWithExtension(videoPathResolved, files);
             if (videoPath) {
@@ -487,7 +490,7 @@ function flattenUncategorizedSection(
         // Extract article metadata from the article file's frontmatter
         if (lensSection.source) {
           const articleWikilink = parseWikilink(lensSection.source);
-          if (articleWikilink) {
+          if (articleWikilink && !articleWikilink.error) {
             const articlePathResolved = resolveWikilinkPath(articleWikilink.path, lensPath);
             const articlePath = findFileWithExtension(articlePathResolved, files);
             if (articlePath) {
@@ -519,7 +522,7 @@ function flattenUncategorizedSection(
         // Extract video metadata from the video transcript file's frontmatter
         if (lensSection.source) {
           const videoWikilink = parseWikilink(lensSection.source);
-          if (videoWikilink) {
+          if (videoWikilink && !videoWikilink.error) {
             const videoPathResolved = resolveWikilinkPath(videoWikilink.path, lensPath);
             const videoPath = findFileWithExtension(videoPathResolved, files);
             if (videoPath) {
@@ -642,7 +645,7 @@ function parseUncategorizedLensRefs(
 
       if (currentFields.source) {
         const wikilink = parseWikilink(currentFields.source);
-        if (wikilink) {
+        if (wikilink && !wikilink.error) {
           const resolvedPath = resolveWikilinkPath(wikilink.path, parentPath);
           lensRefs.push({
             source: currentFields.source,
@@ -766,10 +769,14 @@ function convertSegment(
       }
 
       const wikilink = parseWikilink(lensSection.source);
-      if (!wikilink) {
+      if (!wikilink || wikilink.error) {
+        const suggestion = wikilink?.correctedPath
+          ? `Did you mean '[[${wikilink.correctedPath}]]'?`
+          : undefined;
         errors.push({
           file: lensPath,
           message: `Invalid wikilink in article source: ${lensSection.source}`,
+          suggestion,
           severity: 'error',
         });
         return { segment: null, errors };
@@ -842,10 +849,14 @@ function convertSegment(
       }
 
       const wikilink = parseWikilink(lensSection.source);
-      if (!wikilink) {
+      if (!wikilink || wikilink.error) {
+        const suggestion = wikilink?.correctedPath
+          ? `Did you mean '[[${wikilink.correctedPath}]]'?`
+          : undefined;
         errors.push({
           file: lensPath,
           message: `Invalid wikilink in video source: ${lensSection.source}`,
+          suggestion,
           severity: 'error',
         });
         return { segment: null, errors };

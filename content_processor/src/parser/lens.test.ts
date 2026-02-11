@@ -236,6 +236,31 @@ instructions:: Talk about AI basics.
     expect(chatSegment?.instructions).toBe('Talk about AI basics.');
   });
 
+  it('parses segment type case-insensitively (#### Chat, #### CHAT, #### chat all work)', () => {
+    const content = `---
+id: test-id
+---
+
+### Page: Mixed Case
+
+#### Chat
+instructions:: lowercase implicit
+#### Chat:
+instructions:: with trailing colon
+#### CHAT: Uppercase
+instructions:: uppercase variant
+`;
+
+    const result = parseLens(content, 'Lenses/test.md');
+
+    const segments = result.lens?.sections[0].segments ?? [];
+    expect(segments).toHaveLength(3);
+    expect(segments[0].type).toBe('chat');
+    expect(segments[1].type).toBe('chat');
+    expect(segments[2].type).toBe('chat');
+    expect(result.errors.filter(e => e.severity === 'error')).toHaveLength(0);
+  });
+
   // Task 7.2: Field in wrong segment type
   it('warns about from:: field in text segment', () => {
     const content = `---

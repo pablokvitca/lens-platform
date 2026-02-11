@@ -87,10 +87,11 @@ function collectRawSubsections(
       currentFieldLines.push(line);
     } else if (line.trim() && !freeTextWarned) {
       freeTextWarned = true;
+      const preview = line.trim().length > 60 ? line.trim().slice(0, 60) + '...' : line.trim();
       warnings.push({
         file: '',
         line: lineNum,
-        message: 'Text outside of a field:: definition will be ignored',
+        message: `Text outside of a field:: definition will be ignored: "${preview}"`,
         suggestion: 'Place this text inside a field (e.g., content:: your text), or remove it',
         severity: 'warning' as const,
       });

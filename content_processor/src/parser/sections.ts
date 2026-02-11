@@ -1,5 +1,6 @@
 // src/parser/sections.ts
 import type { ContentError } from '../index.js';
+import { levenshtein } from '../validator/field-typos.js';
 
 export interface ParsedSection {
   type: string;
@@ -21,6 +22,17 @@ export const LO_SECTION_TYPES = new Set(['lens', 'test']);
 // Lens sections: input headers are `### Article:`, `### Video:`, `### Page:`
 // Output types are `lens-article`, `lens-video`, `page` (v2 format)
 export const LENS_SECTION_TYPES = new Set(['page', 'article', 'video']);
+
+// All known structural header types (sections + segments) for markdown heading detection
+const ALL_STRUCTURAL_TYPES = new Set([
+  // Section types
+  'learning outcome', 'page', 'uncategorized', 'lens', 'test', 'module', 'meeting', 'article', 'video',
+  // Segment types
+  'text', 'chat', 'article-excerpt', 'video-excerpt',
+]);
+
+// Fields that commonly contain markdown with headings
+const MARKDOWN_CONTENT_FIELDS = new Set(['content', 'instructions']);
 
 // Map input section names to output types for Lens files
 export const LENS_OUTPUT_TYPE: Record<string, string> = {
@@ -169,7 +181,30 @@ function parseFields(section: ParsedSection, file: string): ParseFieldsResult {
     const lineNum = section.line + i + 1; // +1 because body starts after header
 
     // Check for sub-header first - starts a new scope for field tracking
-    if (line.match(/^#{1,6}\s/)) {
+    const headerMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    if (headerMatch) {
+      // Before resetting, check if this looks like a markdown heading
+      // inside a content/instructions field (not a structural header)
+      if (currentField && MARKDOWN_CONTENT_FIELDS.has(currentField)) {
+        const headingText = headerMatch[2].trim();
+        // Extract type word: "Text", "Chat: title", "Article-excerpt" etc.
+        const typeWord = headingText.replace(/:.*$/, '').trim().toLowerCase();
+        // Also check if it's a typo of a structural type (levenshtein ≤ 2)
+        const isTypoOfStructural = [...ALL_STRUCTURAL_TYPES].some(
+          st => levenshtein(typeWord, st) <= 2
+        );
+        if (!ALL_STRUCTURAL_TYPES.has(typeWord) && !isTypoOfStructural) {
+          const hashes = headerMatch[1];
+          warnings.push({
+            file,
+            line: lineNum,
+            message: `'${hashes} ${headingText}' looks like a Markdown heading inside ${currentField}:: field`,
+            suggestion: `Escape it as '!${hashes} ${headingText}' so it's treated as content, not a section boundary`,
+            severity: 'warning',
+          });
+        }
+      }
+
       // Save current field if any
       if (currentField) {
         section.fields[currentField] = currentValue.join('\n').trim();
@@ -221,10 +256,11 @@ function parseFields(section: ParsedSection, file: string): ParseFieldsResult {
         });
       } else if (line.trim() && !freeTextWarned) {
         freeTextWarned = true;
+        const preview = line.trim().length > 60 ? line.trim().slice(0, 60) + '...' : line.trim();
         warnings.push({
           file,
           line: lineNum,
-          message: 'Text outside of a field:: definition will be ignored',
+          message: `Text outside of a field:: definition will be ignored: "${preview}"`,
           suggestion: 'Place this text inside a field (e.g., content:: your text), or remove it',
           severity: 'warning',
         });

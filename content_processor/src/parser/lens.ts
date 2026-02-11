@@ -75,7 +75,7 @@ const VALID_SEGMENTS_PER_SECTION: Record<string, Set<string>> = {
   'lens-video': new Set(['text', 'chat', 'video-excerpt']),
 };
 // H4 segment header pattern: #### <type> or #### <type>: <title>
-const SEGMENT_HEADER_PATTERN = /^####\s+(\S+)(?::\s*(.*))?$/i;
+const SEGMENT_HEADER_PATTERN = /^####\s+([^:\s]+)(?::\s*(.*))?$/i;
 
 // Field pattern: fieldname:: value
 const FIELD_PATTERN = /^(\w+)::\s*(.*)$/;
@@ -488,7 +488,18 @@ export function parseLens(content: string, file: string): LensParseResult {
     // Validate source:: path is relative (contains /)
     if (source) {
       const wikilink = parseWikilink(source);
-      if (wikilink && !hasRelativePath(wikilink.path)) {
+      if (wikilink && wikilink.error) {
+        const suggestion = wikilink.correctedPath
+          ? `Did you mean '[[${wikilink.correctedPath}]]'?`
+          : 'Check the path in the wikilink';
+        errors.push({
+          file,
+          line: rawSection.line,
+          message: `Invalid wikilink in source:: field: ${source}`,
+          suggestion,
+          severity: 'error',
+        });
+      } else if (wikilink && !hasRelativePath(wikilink.path)) {
         errors.push({
           file,
           line: rawSection.line,

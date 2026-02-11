@@ -1,7 +1,7 @@
 // src/validator/validate-frontmatter.ts
 import type { ContentError } from '../index.js';
 import { CONTENT_SCHEMAS } from '../content-schema.js';
-import { detectFrontmatterTypos } from './field-typos.js';
+import { detectFrontmatterTypos, levenshtein } from './field-typos.js';
 
 /**
  * Generic frontmatter validation against the schema for a content type.
@@ -27,11 +27,22 @@ export function validateFrontmatter(
   for (const field of schema.requiredFields) {
     const value = frontmatter[field];
     if (value === undefined || value === null) {
+      // Check if a similar field exists (likely typo or wrong name)
+      let suggestion = `Add '${field}' to frontmatter`;
+      const presentFields = Object.keys(frontmatter);
+      for (const present of presentFields) {
+        if (schema.requiredFields.includes(present)) continue; // skip other required fields
+        const dist = levenshtein(field.toLowerCase(), present.toLowerCase());
+        if (dist <= 3 || field.toLowerCase().includes(present.toLowerCase()) || present.toLowerCase().includes(field.toLowerCase())) {
+          suggestion = `Did you mean '${field}' instead of '${present}'?`;
+          break;
+        }
+      }
       errors.push({
         file,
         line: 2,
         message: `Missing required field: ${field}`,
-        suggestion: `Add '${field}' to frontmatter`,
+        suggestion,
         severity: 'error',
       });
     } else if (typeof value === 'string' && value.trim() === '') {

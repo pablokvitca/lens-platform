@@ -439,6 +439,116 @@ content:: Important questions.
     )).toBe(true);
   });
 
+  describe('markdown heading detection in content/instructions fields', () => {
+    // When a # header inside a content:: or instructions:: multiline field
+    // is NOT a known structural type, it's probably a markdown heading.
+    // The parser should warn and suggest escaping.
+
+    it('warns when a markdown heading terminates a content:: field', () => {
+      // "# Understanding Existential Risk" is not a known section/segment type
+      const body = `
+### Page: Intro
+
+#### Text
+content::
+# Understanding Existential Risk
+This text gets orphaned.
+`;
+      const result = parseSections(body, 3, LENS_SECTION_TYPES, 'test.md');
+      const warning = result.errors.find(e =>
+        e.message.includes('looks like a Markdown heading')
+      );
+      expect(warning).toBeDefined();
+      expect(warning!.suggestion).toContain('!#');
+      expect(warning!.severity).toBe('warning');
+    });
+
+    it('warns when a markdown heading terminates an instructions:: field', () => {
+      const body = `
+### Page: Discussion
+
+#### Chat
+instructions::
+## Discussion Topic
+Talk about this.
+`;
+      const result = parseSections(body, 3, LENS_SECTION_TYPES, 'test.md');
+      const warning = result.errors.find(e =>
+        e.message.includes('looks like a Markdown heading')
+      );
+      expect(warning).toBeDefined();
+      expect(warning!.suggestion).toContain('!#');
+    });
+
+    it('does NOT warn when a known segment type header follows a content:: field', () => {
+      // "#### Chat" is a known type — it's structural, not markdown
+      const body = `
+### Page: Mixed
+
+#### Text
+content:: Some text.
+#### Chat
+instructions:: Do something.
+`;
+      const result = parseSections(body, 3, LENS_SECTION_TYPES, 'test.md');
+      const warning = result.errors.find(e =>
+        e.message.includes('looks like a Markdown heading')
+      );
+      expect(warning).toBeUndefined();
+    });
+
+    it('does NOT warn for headers outside a content/instructions field', () => {
+      // The header appears after source::, not content/instructions
+      const body = `
+### Page: Intro
+
+#### Text
+source:: [[../foo.md]]
+# Some Heading
+orphan text
+`;
+      const result = parseSections(body, 3, LENS_SECTION_TYPES, 'test.md');
+      const warning = result.errors.find(e =>
+        e.message.includes('looks like a Markdown heading')
+      );
+      expect(warning).toBeUndefined();
+    });
+
+    it('does NOT warn for typos of structural types (e.g., #### CHTA → Chat)', () => {
+      const body = `
+### Page: Test
+
+#### Text
+content::
+Some intro text.
+
+#### CHTA
+instructions:: Do something.
+`;
+      const result = parseSections(body, 3, LENS_SECTION_TYPES, 'test.md');
+      const warning = result.errors.find(e =>
+        e.message.includes('looks like a Markdown heading')
+      );
+      expect(warning).toBeUndefined();
+    });
+
+    it('includes the heading text in the warning', () => {
+      const body = `
+### Page: Intro
+
+#### Text
+content::
+## Why AI Safety Matters
+`;
+      const result = parseSections(body, 3, LENS_SECTION_TYPES, 'test.md');
+      const warning = result.errors.find(e =>
+        e.message.includes('looks like a Markdown heading')
+      );
+      expect(warning).toBeDefined();
+      expect(warning!.message).toContain('Why AI Safety Matters');
+    });
+  });
+
   describe('free text warnings', () => {
     it('warns when free text appears before first field in section body', () => {
       const content = `

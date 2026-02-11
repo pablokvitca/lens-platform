@@ -99,12 +99,15 @@ export function parseLearningOutcome(content: string, file: string): LearningOut
 
       // Parse wikilink and resolve path
       const wikilink = parseWikilink(source);
-      if (!wikilink) {
+      if (!wikilink || wikilink.error) {
+        const suggestion = wikilink?.correctedPath
+          ? `Did you mean '[[${wikilink.correctedPath}]]'?`
+          : 'Use format [[../Lenses/filename.md|Display Text]]';
         errors.push({
           file,
           line: section.line,
           message: `Invalid wikilink format in source:: field: ${source}`,
-          suggestion: 'Use format [[../Lenses/filename.md|Display Text]]',
+          suggestion,
           severity: 'error',
         });
         continue;
@@ -139,12 +142,15 @@ export function parseLearningOutcome(content: string, file: string): LearningOut
 
       // Parse wikilink and resolve path
       const wikilink = parseWikilink(source);
-      if (!wikilink) {
+      if (!wikilink || wikilink.error) {
+        const suggestion = wikilink?.correctedPath
+          ? `Did you mean '[[${wikilink.correctedPath}]]'?`
+          : 'Use format [[../Tests/filename.md|Display Text]]';
         errors.push({
           file,
           line: section.line,
           message: `Invalid wikilink format in source:: field: ${source}`,
-          suggestion: 'Use format [[../Tests/filename.md|Display Text]]',
+          suggestion,
           severity: 'error',
         });
         continue;

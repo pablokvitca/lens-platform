@@ -126,7 +126,7 @@ function validateLensExcerpts(
 
     // Resolve the source wikilink to get the actual file path
     const wikilink = parseWikilink(section.source);
-    if (!wikilink) continue;
+    if (!wikilink || wikilink.error) continue;
 
     const resolvedPath = resolveWikilinkPath(wikilink.path, lensPath);
     const actualPath = findFileWithExtension(resolvedPath, files);

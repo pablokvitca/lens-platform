@@ -30,13 +30,13 @@ describe('CONTENT_SCHEMAS', () => {
   it('learning-outcome schema has correct required and optional fields', () => {
     const schema = CONTENT_SCHEMAS['learning-outcome'];
     expect(schema.requiredFields).toEqual(['id']);
-    expect(schema.optionalFields).toEqual(['discussion']);
+    expect(schema.optionalFields).toEqual(['discussion', 'learning-outcome']);
   });
 
   it('article schema has correct required and optional fields', () => {
     const schema = CONTENT_SCHEMAS['article'];
     expect(schema.requiredFields).toEqual(['title', 'author', 'source_url']);
-    expect(schema.optionalFields).toEqual(['date']);
+    expect(schema.optionalFields).toEqual(['date', 'published', 'created', 'description', 'tags', 'url']);
   });
 
   it('video-transcript schema has correct required and optional fields', () => {

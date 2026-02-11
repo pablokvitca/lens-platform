@@ -7,6 +7,7 @@ export interface WikilinkParts {
   display?: string;
   isEmbed?: boolean;  // true for ![[embed]] syntax
   error?: string;     // syntax error message
+  correctedPath?: string; // suggested fix for path traversal
 }
 
 // Matches [[path]], [[path|display]], ![[embed]], ![[embed|display]]
@@ -92,9 +93,21 @@ export function parseWikilink(text: string): WikilinkParts | null {
     };
   }
 
-  // Block path traversal attacks (e.g., [[../../../../etc/passwd]])
-  if (containsPathTraversal(path)) {
+  // Block clearly malicious path traversal (Windows-style, mid-path escapes)
+  if (path.includes('..\\') || /[^./][/]\.\./.test(path)) {
     return null;
+  }
+
+  // For multiple ../ at start: likely a mistake, suggest correction
+  if (/^(\.\.[/]){2,}/.test(path)) {
+    const corrected = path.replace(/^(\.\.[/])+/, '../');
+    return {
+      path,
+      display: match[2]?.trim(),
+      isEmbed: text.startsWith('!'),
+      error: `Path has too many '../' segments`,
+      correctedPath: corrected,
+    };
   }
 
   return {

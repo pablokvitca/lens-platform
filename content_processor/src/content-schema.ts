@@ -32,8 +32,8 @@ export const CONTENT_SCHEMAS: Record<string, ContentTypeSchema> = {
   'module': contentSchema(['slug', 'title'], ['contentId', 'id', 'discussion']),
   'course': contentSchema(['slug', 'title'], ['id']),
   'lens': contentSchema(['id'], []),
-  'learning-outcome': contentSchema(['id'], ['discussion']),
-  'article': contentSchema(['title', 'author', 'source_url'], ['date']),
+  'learning-outcome': contentSchema(['id'], ['discussion', 'learning-outcome']),
+  'article': contentSchema(['title', 'author', 'source_url'], ['date', 'published', 'created', 'description', 'tags', 'url']),
   'video-transcript': contentSchema(['title', 'channel', 'url'], []),
 };
 
