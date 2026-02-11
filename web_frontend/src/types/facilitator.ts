@@ -83,7 +83,6 @@ export interface TimelineMember {
   rsvps: Record<string, "pending" | "attending" | "not_attending" | "tentative">;
   module_stats: Record<string, ModuleStats>;
   section_times: Record<string, number>;
-  section_chats: Record<string, number>;
 }
 
 export interface TimelineData {

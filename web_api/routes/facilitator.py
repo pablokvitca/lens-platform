@@ -127,6 +127,7 @@ async def get_group_timeline(
 
     # Map content_id -> module_slug for aggregation
     content_to_slug: dict[str, str] = {}
+    module_cid_to_slug: dict[str, str] = {}  # module content_id -> slug
     timeline_items: list[dict[str, Any]] = []
     for item in course.progression:
         if isinstance(item, ModuleRef):
@@ -135,6 +136,8 @@ async def get_group_timeline(
                 module = load_flattened_module(slug)
             except Exception:
                 continue
+            if module.content_id:
+                module_cid_to_slug[str(module.content_id)] = slug
             for section in module.sections:
                 content_id = section.get("contentId")
                 if content_id:
@@ -173,25 +176,28 @@ async def get_group_timeline(
         for num, status in rsvps.get(uid, {}).items():
             user_rsvps[str(num)] = status
 
-        # Aggregate time and chat counts by module slug
+        # Aggregate time by module slug (from section-level time data)
         module_stats: dict[str, dict[str, int]] = {}
         user_time = time_data.get(uid, {})
         user_chats = chat_data.get(uid, {})
         for cid, slug in content_to_slug.items():
-            if cid in user_time or cid in user_chats:
+            if cid in user_time:
                 if slug not in module_stats:
                     module_stats[slug] = {"time_seconds": 0, "chat_count": 0}
                 module_stats[slug]["time_seconds"] += user_time.get(cid, 0)
-                module_stats[slug]["chat_count"] += user_chats.get(cid, 0)
 
-        # Per-section time and chat data
+        # Add module-level chat counts (chats are keyed by module content_id)
+        for mod_cid, slug in module_cid_to_slug.items():
+            if mod_cid in user_chats:
+                if slug not in module_stats:
+                    module_stats[slug] = {"time_seconds": 0, "chat_count": 0}
+                module_stats[slug]["chat_count"] += user_chats[mod_cid]
+
+        # Per-section time data (time tracking is still section-level)
         section_times: dict[str, int] = {}
-        section_chats: dict[str, int] = {}
         for cid in content_to_slug:
             if cid in user_time:
                 section_times[cid] = user_time[cid]
-            if cid in user_chats:
-                section_chats[cid] = user_chats[cid]
 
         members_out.append(
             {
@@ -202,7 +208,6 @@ async def get_group_timeline(
                 "rsvps": user_rsvps,
                 "module_stats": module_stats,
                 "section_times": section_times,
-                "section_chats": section_chats,
             }
         )
 
