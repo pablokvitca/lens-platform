@@ -216,35 +216,52 @@ export default function ModuleOverview({
             if (item.kind === "branch" && colors.kind === "branch") {
               // Leading branch (first layout item) = no preceding trunk
               const hasPrecedingTrunk = li > 0;
-              // Fork junction y-position: py-1 (4px) + py-2 (8px) + half circle (14px) = 26px
-              // This aligns the fork with the center of the first branch dot.
-              const forkY = "26px";
+
+              // Geometry (px from branch wrapper's left edge):
+              //   Trunk line center:  14  (0.875rem = half of w-7)
+              //   Branch dot center:  54  (ml-10 40px + half w-7 14px)
+              //   First dot center-y: 46  (pt-6 24 + py-2 8 + half circle 14)
+              const trunkX = 14;
+              const branchX = 54;
+              const forkEndY = 46;
+              // Where solid trunk pass-through covers the S-curve overlap
+              const trunkEndY = 18;
 
               return (
                 <div key={li} className="relative">
-                  {/* Trunk pass-through line — only when there's a trunk to connect */}
+                  {/* SVG fork curve — rendered first so trunk pass-through paints over the overlap */}
+                  {hasPrecedingTrunk && (
+                    <svg
+                      className="absolute text-gray-300 pointer-events-none"
+                      style={{
+                        left: trunkX - 1,
+                        top: 0,
+                        width: branchX - trunkX + 2,
+                        height: forkEndY + 2,
+                      }}
+                      viewBox={`0 0 ${branchX - trunkX + 2} ${forkEndY + 2}`}
+                      fill="none"
+                    >
+                      <path
+                        d={`M 1 0 C 1 ${Math.round(forkEndY * 0.55)}, ${branchX - trunkX + 1} ${Math.round(forkEndY * 0.45)}, ${branchX - trunkX + 1} ${forkEndY}`}
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeDasharray="6 4"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  )}
+                  {/* Trunk pass-through — on top of SVG so solid line hides the dashed overlap */}
                   {hasPrecedingTrunk && (
                     <div
-                      className={`absolute left-[0.875rem] top-0 w-0.5 -translate-x-1/2 ${colors.passColor} ${
+                      className={`absolute left-[0.875rem] top-0 w-0.5 -translate-x-1/2 z-[1] ${colors.passColor} ${
                         isLast ? "" : "bottom-0"
                       }`}
-                      style={isLast ? { height: forkY } : undefined}
+                      style={isLast ? { height: trunkEndY } : undefined}
                     />
                   )}
-                  {/* Fork connector: horizontal dashed line from trunk to first branch dot */}
-                  {hasPrecedingTrunk && (
-                    <div
-                      className="absolute border-t-2 border-dashed border-gray-300"
-                      style={{
-                        left: "15px" /* right edge of trunk line */,
-                        top: forkY,
-                        width: "25px" /* to left edge of branch items (ml-10 = 40px) */,
-                        transform: "translateY(-1px)",
-                      }}
-                    />
-                  )}
-                  {/* Branch items, indented to the right */}
-                  <div className="ml-10 py-1">
+                  {/* Branch items, indented — pt-6 gives the S-curve room to breathe */}
+                  <div className="ml-10 pt-6 pb-1">
                     {item.items.map((branchItem, bi) => (
                       <div key={bi} className="relative">
                         {/* Branch connector above (dashed, matching optional style) */}
