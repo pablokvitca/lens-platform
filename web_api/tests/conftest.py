@@ -152,13 +152,13 @@ def api_test_cache():
             slug="default",
             title="AI Safety Fundamentals",
             progression=[
-                ModuleRef(path="modules/introduction"),
-                ModuleRef(path="modules/core-concepts"),
+                ModuleRef(slug="introduction"),
+                ModuleRef(slug="core-concepts"),
                 MeetingMarker(number=1),
-                ModuleRef(path="modules/advanced-topics"),
-                ModuleRef(path="modules/supplementary-reading", optional=True),
+                ModuleRef(slug="advanced-topics"),
+                ModuleRef(slug="supplementary-reading", optional=True),
                 MeetingMarker(number=2),
-                ModuleRef(path="modules/final-discussion"),
+                ModuleRef(slug="final-discussion"),
             ],
         ),
     }

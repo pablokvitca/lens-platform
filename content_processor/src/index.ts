@@ -48,7 +48,8 @@ export interface SectionMeta {
 
 export interface ProgressionItem {
   type: 'module' | 'meeting';
-  slug?: string;
+  slug?: string;      // Frontmatter slug — set by processContent after resolving path
+  path?: string;      // Raw wikilink path — set by course parser, removed by processContent
   number?: number;
   optional?: boolean;
 }
@@ -218,6 +219,8 @@ export function processContent(files: Map<string, string>, options: ProcessOptio
   const uuidEntries: UuidEntry[] = [];
   const slugEntries: SlugEntry[] = [];
   const slugToPath = new Map<string, string>();
+  const filePathToSlug = new Map<string, string>();  // Reverse: file path → slug (survives duplicate slugs)
+  const courseSlugToFile = new Map<string, string>();
 
   // Identify file types by path
   for (const [path, content] of files.entries()) {
@@ -232,6 +235,7 @@ export function processContent(files: Map<string, string>, options: ProcessOptio
       if (result.module) {
         modules.push(result.module);
         slugToPath.set(result.module.slug, path);
+        filePathToSlug.set(path, result.module.slug);
 
         // Collect slug for duplicate detection
         slugEntries.push({
@@ -270,6 +274,7 @@ export function processContent(files: Map<string, string>, options: ProcessOptio
 
       if (result.course) {
         courses.push(result.course);
+        courseSlugToFile.set(result.course.slug, path);
       }
 
       errors.push(...result.errors);
@@ -366,6 +371,54 @@ export function processContent(files: Map<string, string>, options: ProcessOptio
         });
       }
     }
+  }
+
+  // Resolve course module paths to frontmatter slugs.
+  // Use filePathToSlug (built during module parsing) instead of inverting slugToPath,
+  // because slugToPath loses entries when duplicate slugs exist.
+  for (const course of courses) {
+    const courseFile = courseSlugToFile.get(course.slug) ?? 'courses/';
+
+    for (const item of course.progression) {
+      if (item.type === 'module' && item.path) {
+        // Resolve wikilink path relative to the course file
+        const resolved = resolveWikilinkPath(item.path, courseFile);
+        const actualFile = findFileWithExtension(resolved, files);
+
+        if (actualFile && filePathToSlug.has(actualFile)) {
+          item.slug = filePathToSlug.get(actualFile)!;
+        } else {
+          // Try matching just the filename stem against module file stems
+          const stem = item.path.split('/').pop() ?? item.path;
+          let matched = false;
+          for (const [filePath, slug] of filePathToSlug.entries()) {
+            const fileStem = filePath.replace(/\.md$/, '').split('/').pop() ?? '';
+            if (fileStem === stem) {
+              item.slug = slug;
+              matched = true;
+              break;
+            }
+          }
+
+          if (!matched) {
+            errors.push({
+              file: courseFile,
+              message: `Module reference could not be resolved: "${item.path}"`,
+              suggestion: 'Check that the wikilink path points to an existing module file',
+              severity: 'error',
+            });
+          }
+        }
+
+        // Clean up internal path field from output
+        delete item.path;
+      }
+    }
+
+    // Remove unresolved module items (no slug after resolution)
+    course.progression = course.progression.filter(
+      item => item.type !== 'module' || item.slug !== undefined
+    );
   }
 
   // Validate all collected UUIDs

@@ -43,7 +43,7 @@ class TestCourseProgressionConversion:
         assert isinstance(course.progression[0], ModuleRef), (
             f"Expected ModuleRef, got {type(course.progression[0])}"
         )
-        assert course.progression[0].path == "modules/introduction"
+        assert course.progression[0].slug == "introduction"
         assert course.progression[0].optional is False
 
         # Second item should be a MeetingMarker
@@ -54,7 +54,7 @@ class TestCourseProgressionConversion:
 
         # Third item - another ModuleRef
         assert isinstance(course.progression[2], ModuleRef)
-        assert course.progression[2].path == "modules/feedback-loops"
+        assert course.progression[2].slug == "feedback-loops"
 
         # Fourth item - optional module
         assert isinstance(course.progression[3], ModuleRef)

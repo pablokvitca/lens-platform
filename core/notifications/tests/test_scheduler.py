@@ -1001,12 +1001,12 @@ def test_content_cache():
             slug="test-course",
             title="Test Course",
             progression=[
-                ModuleRef(path="modules/module-a"),  # required, due by meeting 1
-                ModuleRef(path="modules/module-b"),  # required, due by meeting 1
+                ModuleRef(slug="module-a"),  # required, due by meeting 1
+                ModuleRef(slug="module-b"),  # required, due by meeting 1
                 MeetingMarker(number=1),
-                ModuleRef(path="modules/module-c", optional=True),  # optional
+                ModuleRef(slug="module-c", optional=True),  # optional
                 MeetingMarker(number=2),
-                ModuleRef(path="modules/module-d"),  # required, no meeting after
+                ModuleRef(slug="module-d"),  # required, no meeting after
             ],
         ),
     }

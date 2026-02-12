@@ -37,21 +37,11 @@ def load_course(course_slug: str) -> ParsedCourse:
     raise CourseNotFoundError(f"Course not found: {course_slug}")
 
 
-def _extract_slug_from_path(path: str) -> str:
-    """Extract module slug from path like 'modules/introduction' -> 'introduction'.
-
-    Normalizes to kebab-case to handle filename-based slugs like
-    'Cognitive Superpowers' -> 'cognitive-superpowers'.
-    """
-    raw = path.split("/")[-1]
-    return raw.lower().replace(" ", "-")
-
-
 def get_all_module_slugs(course_slug: str) -> list[str]:
     """Get flat list of all module slugs in course order."""
     course = load_course(course_slug)
     return [
-        _extract_slug_from_path(item.path)
+        item.slug
         for item in course.progression
         if isinstance(item, ModuleRef)
     ]
@@ -71,8 +61,7 @@ def get_next_module(course_slug: str, current_module_slug: str) -> dict | None:
     current_index = None
     for i, item in enumerate(course.progression):
         if isinstance(item, ModuleRef):
-            # Extract slug from path (e.g., "modules/introduction" -> "introduction")
-            item_slug = _extract_slug_from_path(item.path)
+            item_slug = item.slug
             if item_slug == current_module_slug:
                 current_index = i
                 break
@@ -91,7 +80,7 @@ def get_next_module(course_slug: str, current_module_slug: str) -> dict | None:
         return {"type": "unit_complete", "unit_number": next_item.number}
 
     if isinstance(next_item, ModuleRef):
-        next_slug = _extract_slug_from_path(next_item.path)
+        next_slug = next_item.slug
         try:
             next_module = load_narrative_module(next_slug)
             return {
@@ -150,7 +139,7 @@ def get_due_by_meeting(course: ParsedCourse, module_slug: str) -> int | None:
 
     for item in course.progression:
         if isinstance(item, ModuleRef):
-            item_slug = _extract_slug_from_path(item.path)
+            item_slug = item.slug
             if item_slug == module_slug:
                 found_module = True
         elif found_module and isinstance(item, MeetingMarker):

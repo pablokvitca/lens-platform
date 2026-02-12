@@ -35,7 +35,7 @@ class FlattenedModule:
 class ModuleRef:
     """Reference to a module in a course progression."""
 
-    path: str  # Wiki-link path like "modules/introduction"
+    slug: str  # Module's frontmatter slug (e.g., "cognitive-superpowers")
     optional: bool = False
 
 
