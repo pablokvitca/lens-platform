@@ -228,7 +228,7 @@ export default function ModuleOverview({
                   {!isLast && (
                     trailsIntoBranchOnly ? (
                       <div
-                        className={`absolute left-[0.875rem] top-1/2 bottom-0 -translate-x-1/2 z-[1] border-l-2 border-dashed ${borderColorMap[colors.ownColor] ?? "border-gray-200"}`}
+                        className={`absolute left-[0.875rem] top-1/2 bottom-0 -translate-x-1/2 z-[1] border-l-2 border-dotted ${borderColorMap[colors.ownColor] ?? "border-gray-200"}`}
                       />
                     ) : (
                       <div
@@ -251,7 +251,7 @@ export default function ModuleOverview({
               const trunkX = 14;
               const branchX = 46; // ml-8 (32px) + half w-7 (14px)
               const endX = branchX - trunkX + 1;
-              const r = 16; // arc corner radius
+              const r = 10; // arc corner radius
               const trunkEndY = 0;
               // The SVG draws only the curve (two arcs). The vertical drop
               // to the first circle is handled by a separate div with bottom-1/2,
@@ -290,7 +290,7 @@ export default function ModuleOverview({
                         d={`M 1 0 A ${r} ${r} 0 0 0 ${1 + r} ${r} L ${endX - r} ${r} A ${r} ${r} 0 0 1 ${endX} ${2 * r}`}
                         stroke="currentColor"
                         strokeWidth="2"
-                        strokeDasharray="6 4"
+                        strokeDasharray="0 4"
                         strokeLinecap="round"
                       />
                     </svg>
@@ -310,15 +310,15 @@ export default function ModuleOverview({
                       <div key={bi} className="relative">
                         {/* Fork-to-circle connector for first item (adapts to row height via bottom-1/2) */}
                         {bi === 0 && hasPrecedingTrunk && (
-                          <div className={`absolute z-[2] left-[0.875rem] bottom-1/2 -translate-x-1/2 border-l-2 border-dashed ${forkBorderColor}`} style={{ top: forkConnectorTop }} />
+                          <div className={`absolute z-[2] left-[0.875rem] bottom-1/2 -translate-x-1/2 border-l-2 border-dotted ${forkBorderColor}`} style={{ top: forkConnectorTop }} />
                         )}
                         {/* Branch connector above (dashed, between items) */}
                         {bi > 0 && (
-                          <div className={`absolute z-[2] left-[0.875rem] top-0 bottom-1/2 -translate-x-1/2 border-l-2 border-dashed ${forkBorderColor}`} />
+                          <div className={`absolute z-[2] left-[0.875rem] top-0 bottom-1/2 -translate-x-1/2 border-l-2 border-dotted ${forkBorderColor}`} />
                         )}
                         {/* Branch connector below */}
                         {bi < item.items.length - 1 && (
-                          <div className={`absolute z-[2] left-[0.875rem] top-1/2 bottom-0 -translate-x-1/2 border-l-2 border-dashed ${forkBorderColor}`} />
+                          <div className={`absolute z-[2] left-[0.875rem] top-1/2 bottom-0 -translate-x-1/2 border-l-2 border-dotted ${forkBorderColor}`} />
                         )}
                         {renderStageRow(branchItem.stage, branchItem.index)}
                       </div>

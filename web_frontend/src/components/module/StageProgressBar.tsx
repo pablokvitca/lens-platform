@@ -181,7 +181,7 @@ export default function StageProgressBar({
     return -1;
   })();
 
-  function renderDot(stage: Stage, index: number) {
+  function renderDot(stage: Stage, index: number, branch = false) {
     const isCompleted = completedStages.has(index);
     const isViewing = index === currentSectionIndex;
     const isOptional = "optional" in stage && stage.optional === true;
@@ -191,6 +191,10 @@ export default function StageProgressBar({
       { includeHover: true },
     );
     const ringClasses = getRingClasses(isViewing, isCompleted);
+
+    const sizeClasses = compact
+      ? "w-7 h-7"
+      : "min-w-8 min-h-8 w-8 h-8 sm:min-w-[44px] sm:min-h-[44px] sm:w-11 sm:h-11";
 
     return (
       <Tooltip
@@ -203,24 +207,21 @@ export default function StageProgressBar({
             relative rounded-full flex items-center justify-center
             transition-all duration-150
             ${compact ? "" : "active:scale-95 shrink-0"}
-            ${
-              compact
-                ? "w-7 h-7"
-                : "min-w-8 min-h-8 w-8 h-8 sm:min-w-[44px] sm:min-h-[44px] sm:w-11 sm:h-11"
-            }
+            ${sizeClasses}
             ${fillClasses}
             ${ringClasses}
           `}
         >
-          <StageIcon type={stage.type} small={compact} />
+          <StageIcon type={stage.type} small={compact || branch} />
         </button>
       </Tooltip>
     );
   }
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Previous button */}
+    <div className="flex items-start gap-2">
+      {/* Previous button — wrapped to align with trunk dot center */}
+      <div className={`flex items-center shrink-0 ${compact ? "h-7" : "h-8 sm:h-11"}`}>
       <Tooltip content="Previous content">
         <button
           onClick={onPrevious}
@@ -246,15 +247,17 @@ export default function StageProgressBar({
           </svg>
         </button>
       </Tooltip>
+      </div>
 
       {/* Stage dots */}
       <div className="flex items-start">
         {layout.map((item, li) => {
           if (item.kind === "branch") {
             const dotSize = compact ? 28 : 32;
-            const r = 8;
+            const drop = compact ? 20 : 24; // distance from trunk center to branch dot center
+            const r = Math.min(8, Math.floor(drop / 2));
             const arcWidth = 2 * r + 2;
-            const arcHeight = dotSize + 2;
+            const arcHeight = drop + 2;
 
             const colors = layoutColors[li];
             const passColor =
@@ -276,54 +279,57 @@ export default function StageProgressBar({
                 key={li}
                 className="relative inline-flex flex-col items-start"
               >
-                {/* Row 1: pass-through connector at trunk height */}
-                <div
-                  className="flex items-center"
-                  style={{ height: dotSize }}
-                >
-                  {li > 0 &&
-                    (isAfterLastTrunk ? (
-                      <div
-                        className={`border-t-2 border-dashed ${connectorBorderColor} ${compact ? "w-4" : "w-2 sm:w-4"}`}
-                      />
-                    ) : (
-                      <div
-                        className={`h-0.5 ${compact ? "w-4" : "w-2 sm:w-4"} ${passColor}`}
-                      />
-                    ))}
-                  {isAfterLastTrunk ? (
-                    <div
-                      className={`relative z-[2] flex-1 border-t-2 border-dashed ${connectorBorderColor}`}
-                    />
-                  ) : (
-                    <div
-                      className={`relative z-[2] h-0.5 flex-1 ${passColor}`}
-                    />
-                  )}
-                </div>
+                {/* Trunk pass-through — flex-centered to match trunk connector alignment */}
+                {isAfterLastTrunk ? (
+                  /* Trailing: short dashed stub just past the arc fork */
+                  <div
+                    className={`absolute left-0 w-3 flex items-center z-[2] ${
+                      compact ? "h-7" : "h-8 sm:h-11"
+                    }`}
+                  >
+                    <div className={`w-full border-t-2 border-dotted ${connectorBorderColor}`} />
+                  </div>
+                ) : (
+                  /* Mid-layout: solid line spanning full width for trunk continuity */
+                  <div
+                    className={`absolute left-0 right-0 flex items-center z-[2] ${
+                      compact ? "h-7" : "h-8 sm:h-11"
+                    }`}
+                  >
+                    <div className={`w-full h-0.5 ${passColor}`} />
+                  </div>
+                )}
 
-                {/* Row 2: SVG arc + branch dots */}
-                <div className="flex items-center">
-                  {/* S-curve arc from trunk line to first branch dot (skip if no preceding trunk) */}
+                {/* S-curve arc — absolutely positioned from trunk center to branch row */}
+                {hasPrecedingTrunk && (
+                  <svg
+                    className={`absolute ${textColor} z-[1] pointer-events-none ${compact ? "left-4" : "left-2 sm:left-4"}`}
+                    style={{
+                      top: dotSize / 2 - 1,
+                      width: arcWidth,
+                      height: arcHeight,
+                    }}
+                    viewBox={`0 0 ${arcWidth} ${arcHeight}`}
+                    fill="none"
+                  >
+                    <path
+                      d={`M 1 1 A ${r} ${r} 0 0 1 ${r + 1} ${r + 1} L ${r + 1} ${drop - r + 1} A ${r} ${r} 0 0 0 ${2 * r + 1} ${drop + 1}`}
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeDasharray="0 4"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                )}
+
+                {/* Branch content row: connector gap + arc spacer + branch dots */}
+                <div className="flex items-center" style={{ paddingTop: drop }}>
+                  {/* Spacer matching connector-in + arc width */}
+                  {li > 0 && (
+                    <div className={`${compact ? "w-4" : "w-2 sm:w-4"} shrink-0`} />
+                  )}
                   {hasPrecedingTrunk && (
-                    <svg
-                      className={`shrink-0 ${textColor} z-[1]`}
-                      style={{
-                        width: arcWidth,
-                        height: arcHeight,
-                        marginTop: -(dotSize / 2 + 1),
-                      }}
-                      viewBox={`0 0 ${arcWidth} ${arcHeight}`}
-                      fill="none"
-                    >
-                      <path
-                        d={`M 1 1 A ${r} ${r} 0 0 1 ${r + 1} ${r + 1} L ${r + 1} ${dotSize - r + 1} A ${r} ${r} 0 0 0 ${2 * r + 1} ${dotSize + 1}`}
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeDasharray="4 3"
-                        strokeLinecap="round"
-                      />
-                    </svg>
+                    <div style={{ width: arcWidth }} className="shrink-0" />
                   )}
 
                   {/* Branch dots */}
@@ -331,10 +337,10 @@ export default function StageProgressBar({
                     <div key={bi} className="flex items-center">
                       {bi > 0 && (
                         <div
-                          className={`border-t-2 border-dashed ${branchBorderColor} ${compact ? "w-3" : "w-2 sm:w-3"}`}
+                          className={`border-t-2 border-dotted ${branchBorderColor} ${compact ? "w-3" : "w-2 sm:w-3"}`}
                         />
                       )}
-                      {renderDot(stages[branchItem.index], branchItem.index)}
+                      {renderDot(stages[branchItem.index], branchItem.index, true)}
                     </div>
                   ))}
                 </div>
@@ -361,7 +367,8 @@ export default function StageProgressBar({
         })}
       </div>
 
-      {/* Next button */}
+      {/* Next button — wrapped to align with trunk dot center */}
+      <div className={`flex items-center shrink-0 ${compact ? "h-7" : "h-8 sm:h-11"}`}>
       <Tooltip content="Next content">
         <button
           onClick={onNext}
@@ -387,6 +394,7 @@ export default function StageProgressBar({
           </svg>
         </button>
       </Tooltip>
+      </div>
     </div>
   );
 }
