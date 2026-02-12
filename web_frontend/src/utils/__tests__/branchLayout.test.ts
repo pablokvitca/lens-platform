@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildBranchLayout, type LayoutItem } from "../branchLayout";
+import { buildBranchLayout } from "../branchLayout";
 import type { StageInfo } from "../../types/course";
 
 function stage(title: string, optional = false): StageInfo {
