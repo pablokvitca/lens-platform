@@ -64,6 +64,22 @@ export default function ModuleOverview({
     return "bg-gray-200";
   }
 
+  // Index of the last trunk item in the layout — used to dash the
+  // bottom connector when only optional (branch) content follows.
+  const lastTrunkLi = (() => {
+    for (let i = layout.length - 1; i >= 0; i--) {
+      if (layout[i].kind === "trunk") return i;
+    }
+    return -1;
+  })();
+
+  // Static mapping so Tailwind's scanner sees full class names
+  const borderColorMap: Record<string, string> = {
+    "bg-blue-400": "border-blue-400",
+    "bg-gray-400": "border-gray-400",
+    "bg-gray-200": "border-gray-200",
+  };
+
   // Precompute connector colors for each layout item.
   // Trunk items get incoming (top) and outgoing (bottom) colors.
   // Branch groups get a pass-through color matching the preceding trunk.
@@ -96,11 +112,15 @@ export default function ModuleOverview({
 
     return (
       <div
-        className={`flex items-center gap-4 py-2 rounded-lg ${
-          isClickable ? "cursor-pointer hover:bg-slate-50" : ""
+        className={`group relative flex items-center gap-4 py-2 rounded-lg ${
+          isClickable ? "cursor-pointer" : ""
         }`}
         onClick={() => isClickable && onStageClick(index)}
       >
+        {/* Hover background — absolutely positioned at z-auto, paints below z-[1]+ elements */}
+        {isClickable && (
+          <div className="absolute inset-0 rounded-lg bg-slate-50 opacity-0 group-hover:opacity-100 transition-opacity" />
+        )}
         {/* Circle */}
         <div
           className={`relative z-10 w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${fillClasses} ${ringClasses}`}
@@ -109,7 +129,7 @@ export default function ModuleOverview({
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
+        <div className="relative z-[5] flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span
               className={`font-medium ${
@@ -193,20 +213,28 @@ export default function ModuleOverview({
             const isLast = li === layout.length - 1;
 
             if (item.kind === "trunk" && colors.kind === "trunk") {
+              // Dash the bottom connector when only optional content follows
+              const trailsIntoBranchOnly = li === lastTrunkLi && !isLast;
               return (
                 <div key={li} className="relative">
                   {/* Top connector: from previous item to this circle center */}
                   {/* left-[0.875rem] = half of w-7 (14px) = center of circle within this wrapper */}
                   {!isFirst && (
                     <div
-                      className={`absolute left-[0.875rem] top-0 bottom-1/2 w-0.5 -translate-x-1/2 ${colors.incomingColor}`}
+                      className={`absolute left-[0.875rem] top-0 bottom-1/2 w-0.5 -translate-x-1/2 z-[1] ${colors.incomingColor}`}
                     />
                   )}
                   {/* Bottom connector: from this circle center to next item */}
                   {!isLast && (
-                    <div
-                      className={`absolute left-[0.875rem] top-1/2 bottom-0 w-0.5 -translate-x-1/2 ${colors.ownColor}`}
-                    />
+                    trailsIntoBranchOnly ? (
+                      <div
+                        className={`absolute left-[0.875rem] top-1/2 bottom-0 -translate-x-1/2 z-[1] border-l-2 border-dashed ${borderColorMap[colors.ownColor] ?? "border-gray-200"}`}
+                      />
+                    ) : (
+                      <div
+                        className={`absolute left-[0.875rem] top-1/2 bottom-0 w-0.5 -translate-x-1/2 z-[1] ${colors.ownColor}`}
+                      />
+                    )
                   )}
                   {renderStageRow(item.stage, item.index)}
                 </div>
@@ -219,31 +247,47 @@ export default function ModuleOverview({
 
               // Geometry (px from branch wrapper's left edge):
               //   Trunk line center:  14  (0.875rem = half of w-7)
-              //   Branch dot center:  54  (ml-10 40px + half w-7 14px)
-              //   First dot center-y: 46  (pt-6 24 + py-2 8 + half circle 14)
+              //   Branch dot center:  46  (ml-8 32px + half w-7 14px)
               const trunkX = 14;
-              const branchX = 54;
-              const forkEndY = 46;
-              // Where solid trunk pass-through covers the S-curve overlap
-              const trunkEndY = 18;
+              const branchX = 46; // ml-8 (32px) + half w-7 (14px)
+              const endX = branchX - trunkX + 1;
+              const r = 16; // arc corner radius
+              const trunkEndY = 0;
+              // The SVG draws only the curve (two arcs). The vertical drop
+              // to the first circle is handled by a separate div with bottom-1/2,
+              // so it adapts to variable row heights (2-line vs 3-line titles).
+              const svgHeight = 2 * r + 2;
+              // Offset from first branch item's top to where the curve ends:
+              // curve ends at y = 2*r = 32 in wrapper; pt-6 (24px) pushes items down,
+              // so the curve endpoint is 32 - 24 = 8px below the first item's top.
+              const forkConnectorTop = 2 * r - 24; // 8px
+
+              // Static mapping so Tailwind's scanner sees full class names
+              const forkColors: Record<string, { text: string; border: string }> = {
+                "bg-blue-400": { text: "text-blue-400", border: "border-blue-400" },
+                "bg-gray-400": { text: "text-gray-400", border: "border-gray-400" },
+                "bg-gray-200": { text: "text-gray-200", border: "border-gray-200" },
+              };
+              const { text: forkTextColor, border: forkBorderColor } =
+                forkColors[colors.passColor] ?? forkColors["bg-gray-200"];
 
               return (
                 <div key={li} className="relative">
                   {/* SVG fork curve — rendered first so trunk pass-through paints over the overlap */}
                   {hasPrecedingTrunk && (
                     <svg
-                      className="absolute text-gray-300 pointer-events-none"
+                      className={`absolute z-[1] ${forkTextColor} pointer-events-none`}
                       style={{
                         left: trunkX - 1,
                         top: 0,
                         width: branchX - trunkX + 2,
-                        height: forkEndY + 2,
+                        height: svgHeight,
                       }}
-                      viewBox={`0 0 ${branchX - trunkX + 2} ${forkEndY + 2}`}
+                      viewBox={`0 0 ${branchX - trunkX + 2} ${svgHeight}`}
                       fill="none"
                     >
                       <path
-                        d={`M 1 0 C 1 ${Math.round(forkEndY * 0.55)}, ${branchX - trunkX + 1} ${Math.round(forkEndY * 0.45)}, ${branchX - trunkX + 1} ${forkEndY}`}
+                        d={`M 1 0 A ${r} ${r} 0 0 0 ${1 + r} ${r} L ${endX - r} ${r} A ${r} ${r} 0 0 1 ${endX} ${2 * r}`}
                         stroke="currentColor"
                         strokeWidth="2"
                         strokeDasharray="6 4"
@@ -254,23 +298,27 @@ export default function ModuleOverview({
                   {/* Trunk pass-through — on top of SVG so solid line hides the dashed overlap */}
                   {hasPrecedingTrunk && (
                     <div
-                      className={`absolute left-[0.875rem] top-0 w-0.5 -translate-x-1/2 z-[1] ${colors.passColor} ${
+                      className={`absolute left-[0.875rem] top-0 w-0.5 -translate-x-1/2 z-[2] ${colors.passColor} ${
                         isLast ? "" : "bottom-0"
                       }`}
                       style={isLast ? { height: trunkEndY } : undefined}
                     />
                   )}
                   {/* Branch items, indented — pt-6 gives the S-curve room to breathe */}
-                  <div className="ml-10 pt-6 pb-1">
+                  <div className="ml-8 pt-6 pb-1">
                     {item.items.map((branchItem, bi) => (
                       <div key={bi} className="relative">
-                        {/* Branch connector above (dashed, matching optional style) */}
+                        {/* Fork-to-circle connector for first item (adapts to row height via bottom-1/2) */}
+                        {bi === 0 && hasPrecedingTrunk && (
+                          <div className={`absolute z-[2] left-[0.875rem] bottom-1/2 -translate-x-1/2 border-l-2 border-dashed ${forkBorderColor}`} style={{ top: forkConnectorTop }} />
+                        )}
+                        {/* Branch connector above (dashed, between items) */}
                         {bi > 0 && (
-                          <div className="absolute left-[0.875rem] top-0 bottom-1/2 -translate-x-1/2 border-l-2 border-dashed border-gray-300" />
+                          <div className={`absolute z-[2] left-[0.875rem] top-0 bottom-1/2 -translate-x-1/2 border-l-2 border-dashed ${forkBorderColor}`} />
                         )}
                         {/* Branch connector below */}
                         {bi < item.items.length - 1 && (
-                          <div className="absolute left-[0.875rem] top-1/2 bottom-0 -translate-x-1/2 border-l-2 border-dashed border-gray-300" />
+                          <div className={`absolute z-[2] left-[0.875rem] top-1/2 bottom-0 -translate-x-1/2 border-l-2 border-dashed ${forkBorderColor}`} />
                         )}
                         {renderStageRow(branchItem.stage, branchItem.index)}
                       </div>
