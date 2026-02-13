@@ -54,7 +54,8 @@ export default function ModuleOverview({
     [stages],
   );
   const branchStates = useMemo(
-    () => computeBranchStates(branchPaths, completedStages, currentSectionIndex),
+    () =>
+      computeBranchStates(branchPaths, completedStages, currentSectionIndex),
     [branchPaths, completedStages, currentSectionIndex],
   );
   const layoutColors = useMemo(
@@ -204,8 +205,8 @@ export default function ModuleOverview({
                     />
                   )}
                   {/* Bottom connector: from this circle center to next item */}
-                  {!isLast && (
-                    trailsIntoBranchOnly ? (
+                  {!isLast &&
+                    (trailsIntoBranchOnly ? (
                       <div
                         className={`absolute left-[0.875rem] top-1/2 bottom-0 -translate-x-1/2 z-[1] dotted-round-v ${textColorMap[colors.outgoingColor] ?? "text-gray-200"}`}
                       />
@@ -213,8 +214,7 @@ export default function ModuleOverview({
                       <div
                         className={`absolute left-[0.875rem] top-1/2 bottom-0 w-0.5 -translate-x-1/2 z-[1] ${colors.outgoingColor}`}
                       />
-                    )
-                  )}
+                    ))}
                   {renderStageRow(item.stage, item.index)}
                 </div>
               );
@@ -242,20 +242,40 @@ export default function ModuleOverview({
               const forkConnectorTop = 2 * r - 24; // 8px
 
               // Static mapping so Tailwind's scanner sees full class names
-              const forkColors: Record<string, { text: string; border: string }> = {
-                "bg-blue-400": { text: "text-blue-400", border: "border-blue-400" },
-                "bg-gray-400": { text: "text-gray-400", border: "border-gray-400" },
-                "bg-gray-200": { text: "text-gray-200", border: "border-gray-200" },
+              const forkColors: Record<
+                string,
+                { text: string; border: string }
+              > = {
+                "bg-blue-400": {
+                  text: "text-blue-400",
+                  border: "border-blue-400",
+                },
+                "bg-gray-400": {
+                  text: "text-gray-400",
+                  border: "border-gray-400",
+                },
+                "bg-gray-200": {
+                  text: "text-gray-200",
+                  border: "border-gray-200",
+                },
               };
               const segmentColors = colors.segmentColors;
-              const arcFork = forkColors[segmentColors[0]] ?? forkColors["bg-gray-200"];
+              const arcFork =
+                forkColors[segmentColors[0]] ?? forkColors["bg-gray-200"];
               const forkDotColor = (i: number) =>
-                (forkColors[segmentColors[i]] ?? forkColors["bg-gray-200"]).text;
+                (forkColors[segmentColors[i]] ?? forkColors["bg-gray-200"])
+                  .text;
 
               // When branch lines are darker than the trunk pass-through,
               // bump them above so the light solid line doesn't cover the dark dotted lines.
-              const colorRank: Record<string, number> = { "bg-gray-200": 0, "bg-gray-400": 1, "bg-blue-400": 2 };
-              const arcDarker = (colorRank[segmentColors[0]] ?? 0) > (colorRank[colors.passColor] ?? 0);
+              const colorRank: Record<string, number> = {
+                "bg-gray-200": 0,
+                "bg-gray-400": 1,
+                "bg-blue-400": 2,
+              };
+              const arcDarker =
+                (colorRank[segmentColors[0]] ?? 0) >
+                (colorRank[colors.passColor] ?? 0);
               const arcZ = arcDarker ? "z-[2]" : "z-[1]";
               const passZ = arcDarker ? "z-[1]" : "z-[2]";
               const branchConnZ = arcDarker ? "z-[3]" : "z-[2]";
@@ -299,15 +319,22 @@ export default function ModuleOverview({
                       <div key={bi} className="relative">
                         {/* Fork-to-circle connector for first item (adapts to row height via bottom-1/2) */}
                         {bi === 0 && hasPrecedingTrunk && (
-                          <div className={`absolute ${branchConnZ} left-[0.875rem] bottom-1/2 -translate-x-1/2 dotted-round-v ${forkDotColor(0)}`} style={{ top: forkConnectorTop }} />
+                          <div
+                            className={`absolute ${branchConnZ} left-[0.875rem] bottom-1/2 -translate-x-1/2 dotted-round-v ${forkDotColor(0)}`}
+                            style={{ top: forkConnectorTop }}
+                          />
                         )}
                         {/* Branch connector above (dashed, between items) */}
                         {bi > 0 && (
-                          <div className={`absolute ${branchConnZ} left-[0.875rem] top-0 bottom-1/2 -translate-x-1/2 dotted-round-v ${forkDotColor(bi)}`} />
+                          <div
+                            className={`absolute ${branchConnZ} left-[0.875rem] top-0 bottom-1/2 -translate-x-1/2 dotted-round-v ${forkDotColor(bi)}`}
+                          />
                         )}
                         {/* Branch connector below */}
                         {bi < item.items.length - 1 && (
-                          <div className={`absolute ${branchConnZ} left-[0.875rem] top-1/2 bottom-0 -translate-x-1/2 dotted-round-v ${forkDotColor(bi + 1)}`} />
+                          <div
+                            className={`absolute ${branchConnZ} left-[0.875rem] top-1/2 bottom-0 -translate-x-1/2 dotted-round-v ${forkDotColor(bi + 1)}`}
+                          />
                         )}
                         {renderStageRow(branchItem.stage, branchItem.index)}
                       </div>

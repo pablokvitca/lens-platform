@@ -141,7 +141,8 @@ export default function StageProgressBar({
     [stages],
   );
   const branchStates = useMemo(
-    () => computeBranchStates(branchPaths, completedStages, currentSectionIndex),
+    () =>
+      computeBranchStates(branchPaths, completedStages, currentSectionIndex),
     [branchPaths, completedStages, currentSectionIndex],
   );
   const layoutColors = useMemo(
@@ -205,32 +206,34 @@ export default function StageProgressBar({
   return (
     <div className="flex items-start gap-2">
       {/* Previous button — wrapped to align with trunk dot center */}
-      <div className={`flex items-center shrink-0 ${compact ? "h-7" : "h-8 sm:h-11"}`}>
-      <Tooltip content="Previous content">
-        <button
-          onClick={onPrevious}
-          disabled={!canGoPrevious}
-          className={`rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default ${
-            compact
-              ? "p-1"
-              : "min-w-8 min-h-8 sm:min-w-[44px] sm:min-h-[44px] p-1.5 sm:p-2 transition-all active:scale-95 shrink-0"
-          }`}
-        >
-          <svg
-            className={compact ? "w-4 h-4" : "w-4 h-4 sm:w-5 sm:h-5"}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+      <div
+        className={`flex items-center shrink-0 ${compact ? "h-7" : "h-8 sm:h-11"}`}
+      >
+        <Tooltip content="Previous content">
+          <button
+            onClick={onPrevious}
+            disabled={!canGoPrevious}
+            className={`rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default ${
+              compact
+                ? "p-1"
+                : "min-w-8 min-h-8 sm:min-w-[44px] sm:min-h-[44px] p-1.5 sm:p-2 transition-all active:scale-95 shrink-0"
+            }`}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-        </button>
-      </Tooltip>
+            <svg
+              className={compact ? "w-4 h-4" : "w-4 h-4 sm:w-5 sm:h-5"}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+        </Tooltip>
       </div>
 
       {/* Stage dots */}
@@ -248,7 +251,8 @@ export default function StageProgressBar({
               colors.kind === "branch" ? colors.passColor : "bg-gray-200";
             const segmentColors =
               colors.kind === "branch" ? colors.segmentColors : [];
-            const hasPrecedingTrunk = li > 0 && layout[li - 1]?.kind === "trunk";
+            const hasPrecedingTrunk =
+              li > 0 && layout[li - 1]?.kind === "trunk";
             const isAfterLastTrunk =
               hasPrecedingTrunk &&
               li - 1 === lastTrunkLi &&
@@ -271,8 +275,13 @@ export default function StageProgressBar({
 
             // When branch lines are darker than the trunk pass-through,
             // bump them above so the light solid line doesn't cover the dark dotted lines.
-            const colorRank: Record<string, number> = { "bg-gray-200": 0, "bg-gray-400": 1, "bg-blue-400": 2 };
-            const arcDarker = (colorRank[segmentColors[0]] ?? 0) > (colorRank[passColor] ?? 0);
+            const colorRank: Record<string, number> = {
+              "bg-gray-200": 0,
+              "bg-gray-400": 1,
+              "bg-blue-400": 2,
+            };
+            const arcDarker =
+              (colorRank[segmentColors[0]] ?? 0) > (colorRank[passColor] ?? 0);
             const arcZ = arcDarker ? "z-[2]" : "z-[1]";
             const passZ = arcDarker ? "z-[1]" : "z-[2]";
 
@@ -289,7 +298,9 @@ export default function StageProgressBar({
                       compact ? "h-7" : "h-8 sm:h-11"
                     }`}
                   >
-                    <div className={`w-full dotted-round-h ${connectorTextColor}`} />
+                    <div
+                      className={`w-full dotted-round-h ${connectorTextColor}`}
+                    />
                   </div>
                 ) : (
                   /* Mid-layout: fork segment (outgoing color) + continuation (pass color) */
@@ -299,7 +310,9 @@ export default function StageProgressBar({
                     }`}
                   >
                     {hasPrecedingTrunk && (
-                      <div className={`h-0.5 ${compact ? "w-4" : "w-2 sm:w-4"} shrink-0 ${forkColor}`} />
+                      <div
+                        className={`h-0.5 ${compact ? "w-4" : "w-2 sm:w-4"} shrink-0 ${forkColor}`}
+                      />
                     )}
                     <div className={`flex-1 h-0.5 ${passColor}`} />
                   </div>
@@ -331,7 +344,9 @@ export default function StageProgressBar({
                 <div className="flex items-center" style={{ paddingTop: drop }}>
                   {/* Spacer matching connector-in + arc width */}
                   {li > 0 && (
-                    <div className={`${compact ? "w-4" : "w-2 sm:w-4"} shrink-0`} />
+                    <div
+                      className={`${compact ? "w-4" : "w-2 sm:w-4"} shrink-0`}
+                    />
                   )}
                   {hasPrecedingTrunk && (
                     <div style={{ width: arcWidth }} className="shrink-0" />
@@ -343,11 +358,16 @@ export default function StageProgressBar({
                       {bi > 0 && (
                         <div
                           className={`dotted-round-h ${
-                            branchColorMap[segmentColors[bi]]?.text ?? "text-gray-200"
+                            branchColorMap[segmentColors[bi]]?.text ??
+                            "text-gray-200"
                           } ${compact ? "w-3" : "w-2 sm:w-3"}`}
                         />
                       )}
-                      {renderDot(stages[branchItem.index], branchItem.index, true)}
+                      {renderDot(
+                        stages[branchItem.index],
+                        branchItem.index,
+                        true,
+                      )}
                     </div>
                   ))}
                 </div>
@@ -364,7 +384,9 @@ export default function StageProgressBar({
               {li > 0 && (
                 <div
                   className={`h-0.5 ${compact ? "w-4" : "w-2 sm:w-4"} ${
-                    layoutColors[li].kind === "trunk" ? layoutColors[li].connectorColor : "bg-gray-200"
+                    layoutColors[li].kind === "trunk"
+                      ? layoutColors[li].connectorColor
+                      : "bg-gray-200"
                   }`}
                 />
               )}
@@ -377,32 +399,34 @@ export default function StageProgressBar({
       </div>
 
       {/* Next button — wrapped to align with trunk dot center */}
-      <div className={`flex items-center shrink-0 ${compact ? "h-7" : "h-8 sm:h-11"}`}>
-      <Tooltip content="Next content">
-        <button
-          onClick={onNext}
-          disabled={!canGoNext}
-          className={`rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default ${
-            compact
-              ? "p-1"
-              : "min-w-8 min-h-8 sm:min-w-[44px] sm:min-h-[44px] p-1.5 sm:p-2 transition-all active:scale-95 shrink-0"
-          }`}
-        >
-          <svg
-            className={compact ? "w-4 h-4" : "w-4 h-4 sm:w-5 sm:h-5"}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+      <div
+        className={`flex items-center shrink-0 ${compact ? "h-7" : "h-8 sm:h-11"}`}
+      >
+        <Tooltip content="Next content">
+          <button
+            onClick={onNext}
+            disabled={!canGoNext}
+            className={`rounded hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default ${
+              compact
+                ? "p-1"
+                : "min-w-8 min-h-8 sm:min-w-[44px] sm:min-h-[44px] p-1.5 sm:p-2 transition-all active:scale-95 shrink-0"
+            }`}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </button>
-      </Tooltip>
+            <svg
+              className={compact ? "w-4 h-4" : "w-4 h-4 sm:w-5 sm:h-5"}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </button>
+        </Tooltip>
       </div>
     </div>
   );
