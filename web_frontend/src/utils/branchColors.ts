@@ -16,9 +16,7 @@ import type { LayoutItem } from "./branchLayout";
  *
  * "Trunk prefix" = all required indices that precede this optional group.
  */
-export function buildBranchPaths(
-  stages: { optional: boolean }[],
-): number[][] {
+export function buildBranchPaths(stages: { optional: boolean }[]): number[][] {
   const trunk: number[] = [];
   const branches: number[][] = [];
 

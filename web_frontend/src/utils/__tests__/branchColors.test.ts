@@ -134,23 +134,17 @@ describe("computeBranchStates", () => {
 
 describe("getSegmentColor", () => {
   it("returns light when no branches have activity past previousIndex", () => {
-    const states: BranchState[] = [
-      { selected: -1, highestCompleted: -1 },
-    ];
+    const states: BranchState[] = [{ selected: -1, highestCompleted: -1 }];
     expect(getSegmentColor(0, states)).toBe("bg-gray-200");
   });
 
   it("returns gray when a branch has selected > previousIndex", () => {
-    const states: BranchState[] = [
-      { selected: 3, highestCompleted: -1 },
-    ];
+    const states: BranchState[] = [{ selected: 3, highestCompleted: -1 }];
     expect(getSegmentColor(1, states)).toBe("bg-gray-400");
   });
 
   it("returns blue when a branch has highestCompleted > previousIndex", () => {
-    const states: BranchState[] = [
-      { selected: -1, highestCompleted: 5 },
-    ];
+    const states: BranchState[] = [{ selected: -1, highestCompleted: 5 }];
     expect(getSegmentColor(1, states)).toBe("bg-blue-400");
   });
 
@@ -165,25 +159,19 @@ describe("getSegmentColor", () => {
   it("returns blue when highestCompleted equals previousIndex and selected is past", () => {
     // Bug scenario: completed section 1, viewing section 2
     // Line from 1→2 should be blue (completion-backed reach)
-    const states: BranchState[] = [
-      { selected: 2, highestCompleted: 1 },
-    ];
+    const states: BranchState[] = [{ selected: 2, highestCompleted: 1 }];
     expect(getSegmentColor(1, states)).toBe("bg-blue-400");
   });
 
   it("returns light when highestCompleted equals previousIndex but nothing past it", () => {
     // Completed section 1, not viewing anything further
-    const states: BranchState[] = [
-      { selected: 1, highestCompleted: 1 },
-    ];
+    const states: BranchState[] = [{ selected: 1, highestCompleted: 1 }];
     expect(getSegmentColor(1, states)).toBe("bg-gray-200");
   });
 
   it("returns light when highestCompleted equals previousIndex and selected is before", () => {
     // Completed section 1, viewing section 0 (went back)
-    const states: BranchState[] = [
-      { selected: 0, highestCompleted: 1 },
-    ];
+    const states: BranchState[] = [{ selected: 0, highestCompleted: 1 }];
     expect(getSegmentColor(1, states)).toBe("bg-gray-200");
   });
 
@@ -202,9 +190,7 @@ describe("getSegmentColor", () => {
   });
 
   it("checks > not >=", () => {
-    const states: BranchState[] = [
-      { selected: 3, highestCompleted: -1 },
-    ];
+    const states: BranchState[] = [{ selected: 3, highestCompleted: -1 }];
     // selected(3) > previousIndex(3) is false
     expect(getSegmentColor(3, states)).toBe("bg-gray-200");
   });
@@ -382,7 +368,10 @@ describe("computeLayoutColors", () => {
     const colors = computeLayoutColors(simpleLayout, simplePaths, states);
 
     // Trunk 0: no incoming; outgoing (prev=0): hc(1)>=0, max(1,2)>0 → blue
-    expect(colors[0]).toMatchObject({ kind: "trunk", connectorColor: "bg-gray-200" });
+    expect(colors[0]).toMatchObject({
+      kind: "trunk",
+      connectorColor: "bg-gray-200",
+    });
     expect(asRecord(colors[0]).outgoingColor).toBe("bg-blue-400");
 
     // Trunk 1: connector 0→1 (prev=0): hc(1)>=0, max(1,2)>0 → blue
