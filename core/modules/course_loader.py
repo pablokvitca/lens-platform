@@ -40,11 +40,7 @@ def load_course(course_slug: str) -> ParsedCourse:
 def get_all_module_slugs(course_slug: str) -> list[str]:
     """Get flat list of all module slugs in course order."""
     course = load_course(course_slug)
-    return [
-        item.slug
-        for item in course.progression
-        if isinstance(item, ModuleRef)
-    ]
+    return [item.slug for item in course.progression if isinstance(item, ModuleRef)]
 
 
 def get_next_module(course_slug: str, current_module_slug: str) -> dict | None:

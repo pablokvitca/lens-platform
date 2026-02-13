@@ -134,23 +134,17 @@ describe("computeBranchStates", () => {
 
 describe("getSegmentColor", () => {
   it("returns light when no branches have activity past previousIndex", () => {
-    const states: BranchState[] = [
-      { selected: -1, highestCompleted: -1 },
-    ];
+    const states: BranchState[] = [{ selected: -1, highestCompleted: -1 }];
     expect(getSegmentColor(0, states)).toBe("bg-gray-200");
   });
 
   it("returns gray when a branch has selected > previousIndex", () => {
-    const states: BranchState[] = [
-      { selected: 3, highestCompleted: -1 },
-    ];
+    const states: BranchState[] = [{ selected: 3, highestCompleted: -1 }];
     expect(getSegmentColor(1, states)).toBe("bg-gray-400");
   });
 
   it("returns blue when a branch has highestCompleted > previousIndex", () => {
-    const states: BranchState[] = [
-      { selected: -1, highestCompleted: 5 },
-    ];
+    const states: BranchState[] = [{ selected: -1, highestCompleted: 5 }];
     expect(getSegmentColor(1, states)).toBe("bg-blue-400");
   });
 
@@ -163,9 +157,7 @@ describe("getSegmentColor", () => {
   });
 
   it("checks > not >=", () => {
-    const states: BranchState[] = [
-      { selected: 3, highestCompleted: -1 },
-    ];
+    const states: BranchState[] = [{ selected: 3, highestCompleted: -1 }];
     // selected(3) > previousIndex(3) is false
     expect(getSegmentColor(3, states)).toBe("bg-gray-200");
   });
