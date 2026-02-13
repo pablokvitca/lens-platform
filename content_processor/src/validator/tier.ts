@@ -15,7 +15,7 @@ export function getTierFromFrontmatter(frontmatter: Record<string, unknown>): Co
   if (!Array.isArray(tags)) return 'production';
   const normalized = tags.map((t: unknown) => String(t).toLowerCase());
   if (normalized.includes('validator-ignore')) return 'ignored';
-  if (normalized.includes('wip')) return 'wip';
+  if (normalized.includes('wip') || normalized.includes('work-in-progress')) return 'wip';
   return 'production';
 }
 
