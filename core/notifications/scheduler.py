@@ -418,7 +418,6 @@ async def _check_module_progress(
             load_course,
             get_required_modules,
             get_due_by_meeting,
-            _extract_slug_from_path,
         )
         from core.modules.loader import load_flattened_module, ModuleNotFoundError
         from core.modules.progress import get_module_progress
@@ -461,7 +460,7 @@ async def _check_module_progress(
             required_modules = get_required_modules(course)
             modules_due_slugs = []
             for m in required_modules:
-                slug = _extract_slug_from_path(m.path)
+                slug = m.slug
                 due_by = get_due_by_meeting(course, slug)
                 if due_by is not None and due_by <= meeting_number:
                     modules_due_slugs.append(slug)

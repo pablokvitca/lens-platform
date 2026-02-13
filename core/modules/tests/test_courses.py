@@ -18,7 +18,6 @@ from core.modules.course_loader import (
     get_required_modules,
     get_due_by_meeting,
     CourseNotFoundError,
-    _extract_slug_from_path,
 )
 from core.modules.flattened_types import (
     FlattenedModule,
@@ -101,12 +100,12 @@ def test_cache():
             slug="test-course",
             title="Test Course",
             progression=[
-                ModuleRef(path="modules/module-a"),
-                ModuleRef(path="modules/module-b"),
+                ModuleRef(slug="module-a"),
+                ModuleRef(slug="module-b"),
                 MeetingMarker(number=1),
-                ModuleRef(path="modules/module-c", optional=True),
+                ModuleRef(slug="module-c", optional=True),
                 MeetingMarker(number=2),
-                ModuleRef(path="modules/module-d"),
+                ModuleRef(slug="module-d"),
             ],
         ),
     }
@@ -201,30 +200,23 @@ def test_get_all_module_slugs(test_cache):
 # --- Tests for helper functions ---
 
 
-def test_extract_slug_from_path():
-    """_extract_slug_from_path should extract slug from path."""
-    assert _extract_slug_from_path("modules/introduction") == "introduction"
-    assert _extract_slug_from_path("modules/nested/path") == "path"
-    assert _extract_slug_from_path("simple") == "simple"
-
-
 def test_get_modules():
     """get_modules should return all ModuleRefs excluding MeetingMarkers."""
     course = ParsedCourse(
         slug="test",
         title="Test Course",
         progression=[
-            ModuleRef(path="modules/module-1"),
-            ModuleRef(path="modules/module-2", optional=True),
+            ModuleRef(slug="module-1"),
+            ModuleRef(slug="module-2", optional=True),
             MeetingMarker(number=1),
-            ModuleRef(path="modules/module-3"),
+            ModuleRef(slug="module-3"),
         ],
     )
     modules = get_modules(course)
     assert len(modules) == 3
-    assert _extract_slug_from_path(modules[0].path) == "module-1"
-    assert _extract_slug_from_path(modules[1].path) == "module-2"
-    assert _extract_slug_from_path(modules[2].path) == "module-3"
+    assert modules[0].slug == "module-1"
+    assert modules[1].slug == "module-2"
+    assert modules[2].slug == "module-3"
 
 
 def test_get_required_modules():
@@ -233,17 +225,17 @@ def test_get_required_modules():
         slug="test",
         title="Test Course",
         progression=[
-            ModuleRef(path="modules/module-1"),
-            ModuleRef(path="modules/module-2", optional=True),
+            ModuleRef(slug="module-1"),
+            ModuleRef(slug="module-2", optional=True),
             MeetingMarker(number=1),
-            ModuleRef(path="modules/module-3"),
-            ModuleRef(path="modules/module-4", optional=True),
+            ModuleRef(slug="module-3"),
+            ModuleRef(slug="module-4", optional=True),
         ],
     )
     required = get_required_modules(course)
     assert len(required) == 2
-    assert _extract_slug_from_path(required[0].path) == "module-1"
-    assert _extract_slug_from_path(required[1].path) == "module-3"
+    assert required[0].slug == "module-1"
+    assert required[1].slug == "module-3"
 
 
 def test_get_due_by_meeting():
@@ -252,10 +244,10 @@ def test_get_due_by_meeting():
         slug="test",
         title="Test Course",
         progression=[
-            ModuleRef(path="modules/module-1"),
-            ModuleRef(path="modules/module-2"),
+            ModuleRef(slug="module-1"),
+            ModuleRef(slug="module-2"),
             MeetingMarker(number=1),
-            ModuleRef(path="modules/module-3"),
+            ModuleRef(slug="module-3"),
             MeetingMarker(number=2),
         ],
     )
@@ -270,9 +262,9 @@ def test_get_due_by_meeting_no_following_meeting():
         slug="test",
         title="Test Course",
         progression=[
-            ModuleRef(path="modules/module-1"),
+            ModuleRef(slug="module-1"),
             MeetingMarker(number=1),
-            ModuleRef(path="modules/module-2"),
+            ModuleRef(slug="module-2"),
         ],
     )
     assert get_due_by_meeting(course, "module-1") == 1
@@ -285,7 +277,7 @@ def test_get_due_by_meeting_unknown_module():
         slug="test",
         title="Test Course",
         progression=[
-            ModuleRef(path="modules/module-1"),
+            ModuleRef(slug="module-1"),
             MeetingMarker(number=1),
         ],
     )
@@ -305,8 +297,8 @@ def test_load_course_parses_progression_types(test_cache):
     assert len(module_refs) == 4
     assert len(meetings) == 2
 
-    # Check module refs - now use path instead of slug
-    assert _extract_slug_from_path(module_refs[0].path) == "module-a"
+    # Check module refs
+    assert module_refs[0].slug == "module-a"
     assert module_refs[2].optional is True  # module-c is optional
 
     # Check meetings

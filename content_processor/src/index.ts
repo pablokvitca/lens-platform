@@ -48,7 +48,8 @@ export interface SectionMeta {
 
 export interface ProgressionItem {
   type: 'module' | 'meeting';
-  slug?: string;
+  slug?: string;      // Frontmatter slug — set by processContent after resolving path
+  path?: string;      // Raw wikilink path — set by course parser, removed by processContent
   number?: number;
   optional?: boolean;
 }
@@ -59,6 +60,7 @@ export interface ContentError {
   message: string;
   suggestion?: string;
   severity: 'error' | 'warning';
+  category?: 'production' | 'wip';
 }
 
 // Segment types with their specific fields
@@ -109,6 +111,9 @@ import { parseArticle } from './parser/article.js';
 import { parseVideoTranscript } from './parser/video-transcript.js';
 import { validateTimestamps } from './validator/timestamps.js';
 import { levenshtein } from './validator/field-typos.js';
+import { buildTierMap, checkTierViolation, type ContentTier } from './validator/tier.js';
+export type { ContentTier } from './validator/tier.js';
+export { checkTierViolation } from './validator/tier.js';
 
 /**
  * Validate lens excerpts by checking if source files exist and anchors/timestamps are valid.
@@ -116,7 +121,8 @@ import { levenshtein } from './validator/field-typos.js';
 function validateLensExcerpts(
   lens: ParsedLens,
   lensPath: string,
-  files: Map<string, string>
+  files: Map<string, string>,
+  tierMap?: Map<string, ContentTier>
 ): ContentError[] {
   const errors: ContentError[] = [];
 
@@ -145,6 +151,21 @@ function validateLensExcerpts(
         severity: 'error',
       });
       continue;
+    }
+
+    // Check tier violation (Lens → Article/Video)
+    if (tierMap) {
+      const childLabel = section.type.includes('article') ? 'article' : 'video transcript';
+      const parentTier = tierMap.get(lensPath) ?? 'production';
+      const childTier = tierMap.get(actualPath) ?? 'production';
+      const violation = checkTierViolation(lensPath, parentTier, actualPath, childTier, childLabel, section.line);
+      if (violation) {
+        errors.push(violation);
+        continue;
+      }
+      if (childTier === 'ignored') {
+        continue;
+      }
     }
 
     const sourceContent = files.get(actualPath)!;
@@ -199,18 +220,7 @@ function validateLensExcerpts(
   return errors;
 }
 
-export interface ProcessOptions {
-  includeWip?: boolean;
-}
-
-/**
- * Check if a file path contains a WIP directory segment (case-insensitive).
- */
-function isWipPath(path: string): boolean {
-  return path.split('/').some(segment => segment.toLowerCase().includes('wip'));
-}
-
-export function processContent(files: Map<string, string>, options: ProcessOptions = {}): ProcessResult {
+export function processContent(files: Map<string, string>): ProcessResult {
   const modules: FlattenedModule[] = [];
   const courses: Course[] = [];
   const errors: ContentError[] = [];
@@ -218,20 +228,26 @@ export function processContent(files: Map<string, string>, options: ProcessOptio
   const uuidEntries: UuidEntry[] = [];
   const slugEntries: SlugEntry[] = [];
   const slugToPath = new Map<string, string>();
+  const filePathToSlug = new Map<string, string>();  // Reverse: file path → slug (survives duplicate slugs)
+  const courseSlugToFile = new Map<string, string>();
+
+  // Pre-scan: build tier map from frontmatter tags
+  const tierMap = buildTierMap(files);
 
   // Identify file types by path
   for (const [path, content] of files.entries()) {
-    // Skip WIP directories unless includeWip is set
-    if (!options.includeWip && isWipPath(path)) {
+    // Skip ignored files entirely
+    if (tierMap.get(path) === 'ignored') {
       continue;
     }
 
     if (path.startsWith('modules/')) {
-      const result = flattenModule(path, files);
+      const result = flattenModule(path, files, new Set(), tierMap);
 
       if (result.module) {
         modules.push(result.module);
         slugToPath.set(result.module.slug, path);
+        filePathToSlug.set(path, result.module.slug);
 
         // Collect slug for duplicate detection
         slugEntries.push({
@@ -270,6 +286,7 @@ export function processContent(files: Map<string, string>, options: ProcessOptio
 
       if (result.course) {
         courses.push(result.course);
+        courseSlugToFile.set(result.course.slug, path);
       }
 
       errors.push(...result.errors);
@@ -293,6 +310,19 @@ export function processContent(files: Map<string, string>, options: ProcessOptio
               suggestion,
               severity: 'error',
             });
+            continue;
+          }
+
+          // Check tier violation (LO → Lens)
+          const parentTier = tierMap.get(path) ?? 'production';
+          const childTier = tierMap.get(lensPath) ?? 'production';
+          const violation = checkTierViolation(path, parentTier, lensPath, childTier, 'lens');
+          if (violation) {
+            errors.push(violation);
+            continue;
+          }
+          if (childTier === 'ignored') {
+            continue;
           }
         }
       }
@@ -312,7 +342,7 @@ export function processContent(files: Map<string, string>, options: ProcessOptio
 
       // Validate excerpts (source files exist, anchors/timestamps valid)
       if (result.lens) {
-        const excerptErrors = validateLensExcerpts(result.lens, path, files);
+        const excerptErrors = validateLensExcerpts(result.lens, path, files, tierMap);
         errors.push(...excerptErrors);
       }
 
@@ -368,6 +398,77 @@ export function processContent(files: Map<string, string>, options: ProcessOptio
     }
   }
 
+  // Resolve course module paths to frontmatter slugs.
+  // Use filePathToSlug (built during module parsing) instead of inverting slugToPath,
+  // because slugToPath loses entries when duplicate slugs exist.
+  for (const course of courses) {
+    const courseFile = courseSlugToFile.get(course.slug) ?? 'courses/';
+
+    for (const item of course.progression) {
+      if (item.type === 'module' && item.path) {
+        // Resolve wikilink path relative to the course file
+        const resolved = resolveWikilinkPath(item.path, courseFile);
+        const actualFile = findFileWithExtension(resolved, files);
+
+        if (actualFile && filePathToSlug.has(actualFile)) {
+          item.slug = filePathToSlug.get(actualFile)!;
+        } else {
+          // Try matching just the filename stem against module file stems
+          const stem = item.path.split('/').pop() ?? item.path;
+          let matched = false;
+          for (const [filePath, slug] of filePathToSlug.entries()) {
+            const fileStem = filePath.replace(/\.md$/, '').split('/').pop() ?? '';
+            if (fileStem === stem) {
+              item.slug = slug;
+              matched = true;
+              break;
+            }
+          }
+
+          if (!matched) {
+            errors.push({
+              file: courseFile,
+              message: `Module reference could not be resolved: "${item.path}"`,
+              suggestion: 'Check that the wikilink path points to an existing module file',
+              severity: 'error',
+            });
+          }
+        }
+
+        // Clean up internal path field from output
+        delete item.path;
+      }
+    }
+
+    // Remove unresolved module items (no slug after resolution)
+    course.progression = course.progression.filter(
+      item => item.type !== 'module' || item.slug !== undefined
+    );
+  }
+
+  // Check tier violations: Course → Module
+  for (const course of courses) {
+    const coursePath = courseSlugToFile.get(course.slug);
+    if (!coursePath) continue;
+
+    for (const item of course.progression) {
+      if (item.type !== 'module' || !item.slug) continue;
+
+      // Construct expected module path and find it in files
+      const expectedModulePath = `modules/${item.slug}.md`;
+      const modulePath = findFileWithExtension(expectedModulePath, files) ?? expectedModulePath;
+
+      if (tierMap.has(modulePath)) {
+        const parentTier = tierMap.get(coursePath) ?? 'production';
+        const childTier = tierMap.get(modulePath) ?? 'production';
+        const violation = checkTierViolation(coursePath, parentTier, modulePath, childTier, 'module');
+        if (violation) {
+          errors.push(violation);
+        }
+      }
+    }
+  }
+
   // Validate all collected UUIDs
   const uuidValidation = validateUuids(uuidEntries);
   errors.push(...uuidValidation.errors);
@@ -380,7 +481,7 @@ export function processContent(files: Map<string, string>, options: ProcessOptio
   const transcriptPaths = [...files.keys()].filter(p =>
     (p.startsWith('video_transcripts/') || p.includes('/video_transcripts/')) &&
     p.endsWith('.md') &&
-    (options.includeWip || !isWipPath(p))
+    tierMap.get(p) !== 'ignored'
   );
   const timestampPaths = new Set(
     [...files.keys()].filter(p => p.endsWith('.timestamps.json'))
@@ -398,8 +499,8 @@ export function processContent(files: Map<string, string>, options: ProcessOptio
   }
 
   for (const tsPath of timestampPaths) {
-    if (!options.includeWip && isWipPath(tsPath)) continue;
     const expectedMd = tsPath.replace(/\.timestamps\.json$/, '.md');
+    if (tierMap.get(expectedMd) === 'ignored') continue;
     if (!files.has(expectedMd)) {
       errors.push({
         file: tsPath,
@@ -412,6 +513,14 @@ export function processContent(files: Map<string, string>, options: ProcessOptio
   // Safety-net: catch empty sections/segments in final output
   const integrityErrors = validateOutputIntegrity(modules, slugToPath);
   errors.push(...integrityErrors);
+
+  // Post-process: assign category to errors that don't already have one
+  for (const error of errors) {
+    if (!error.category) {
+      const tier = tierMap.get(error.file);
+      error.category = tier === 'wip' ? 'wip' : 'production';
+    }
+  }
 
   return { modules, courses, errors, urlsToValidate };
 }

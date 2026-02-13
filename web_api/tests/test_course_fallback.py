@@ -36,7 +36,7 @@ def single_course_cache():
         slug="actual-course",
         title="The Actual Course",
         progression=[
-            ModuleRef(path="modules/intro", optional=False),
+            ModuleRef(slug="intro", optional=False),
             MeetingMarker(number=1),
         ],
     )

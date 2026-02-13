@@ -25,15 +25,15 @@ optional:: true
     expect(result.course?.title).toBe('Introduction to AI Safety');
     expect(result.course?.progression).toHaveLength(4);
     expect(result.course?.progression[0].type).toBe('module');
-    expect(result.course?.progression[0].slug).toBe('intro');
+    expect(result.course?.progression[0].path).toBe('../modules/intro.md');
     expect(result.course?.progression[0].optional).toBe(false);
     expect(result.course?.progression[1].type).toBe('module');
-    expect(result.course?.progression[1].slug).toBe('advanced');
+    expect(result.course?.progression[1].path).toBe('../modules/advanced.md');
     expect(result.course?.progression[1].optional).toBe(true);
     expect(result.course?.progression[2].type).toBe('meeting');
     expect(result.course?.progression[2].number).toBe(1);
     expect(result.course?.progression[3].type).toBe('module');
-    expect(result.course?.progression[3].slug).toBe('conclusion');
+    expect(result.course?.progression[3].path).toBe('../modules/conclusion.md');
     expect(result.errors).toHaveLength(0);
   });
 
@@ -54,7 +54,7 @@ title: Broken Course
     expect(result.course?.slug).toBe('broken-course');
     expect(result.course?.progression).toHaveLength(1);
     expect(result.course?.progression[0].type).toBe('module');
-    expect(result.course?.progression[0].slug).toBe('nonexistent');
+    expect(result.course?.progression[0].path).toBe('../modules/nonexistent.md');
     // Errors about missing modules are added during processContent, not parseCourse
   });
 

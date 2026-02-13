@@ -3,7 +3,6 @@ import type { ContentError, ProgressionItem, Course } from '../index.js';
 import { parseFrontmatter } from './frontmatter.js';
 import { parseSections, type ParsedSection } from './sections.js';
 import { parseWikilink } from './wikilink.js';
-import { basename } from 'path';
 import { validateSlugFormat } from '../validator/field-values.js';
 import { validateFrontmatter } from '../validator/validate-frontmatter.js';
 
@@ -16,22 +15,13 @@ export interface CourseParseResult {
 }
 
 /**
- * Extracts the slug from a module path (filename without extension)
- * e.g., '../modules/intro.md' -> 'intro'
- */
-function extractSlugFromPath(path: string): string {
-  const filename = basename(path);
-  return filename.replace(/\.md$/, '');
-}
-
-/**
- * Parses a Module section title to extract the wikilink and module slug
+ * Parses a Module section title to extract the wikilink path
  * Title format: [[../modules/intro.md|Display Text]]
  */
 function parseModuleSection(
   section: ParsedSection,
   file: string
-): { slug: string; optional: boolean } | { error: ContentError } {
+): { path: string; optional: boolean } | { error: ContentError } {
   // The title should be a wikilink
   const wikilink = parseWikilink(section.title);
 
@@ -47,10 +37,9 @@ function parseModuleSection(
     };
   }
 
-  const slug = extractSlugFromPath(wikilink.path);
   const optional = section.fields.optional?.toLowerCase() === 'true';
 
-  return { slug, optional };
+  return { path: wikilink.path, optional };
 }
 
 /**
@@ -85,8 +74,8 @@ function parseMeetingSection(
  * - `# Module: [[../modules/name.md|Display]]` - references a module
  * - `# Meeting: 1` - marks a meeting point
  *
- * The module slug is extracted from the filename in the wikilink path.
- * Reference validation (checking if modules exist) happens in processContent.
+ * The raw wikilink path is stored in the progression item; processContent
+ * resolves it to the frontmatter slug after all files are parsed.
  */
 export function parseCourse(content: string, file: string): CourseParseResult {
   const errors: ContentError[] = [];
@@ -142,7 +131,7 @@ export function parseCourse(content: string, file: string): CourseParseResult {
       } else {
         progression.push({
           type: 'module',
-          slug: result.slug,
+          path: result.path,
           optional: result.optional,
         });
       }

@@ -15,7 +15,7 @@ sys.path.insert(0, str(project_root))
 import pytest
 from fastapi.testclient import TestClient
 from main import app
-from core.modules.course_loader import load_course, _extract_slug_from_path
+from core.modules.course_loader import load_course
 from core.modules.flattened_types import ModuleRef, MeetingMarker
 
 client = TestClient(app)
@@ -31,7 +31,7 @@ def get_first_module_before_meeting(course_slug: str) -> str | None:
         if isinstance(item, ModuleRef) and isinstance(
             course.progression[i + 1], MeetingMarker
         ):
-            return _extract_slug_from_path(item.path)
+            return item.slug
     return None
 
 
@@ -42,7 +42,7 @@ def get_first_module_before_module(course_slug: str) -> str | None:
         if isinstance(item, ModuleRef) and isinstance(
             course.progression[i + 1], ModuleRef
         ):
-            return _extract_slug_from_path(item.path)
+            return item.slug
     return None
 
 
@@ -51,7 +51,7 @@ def get_last_module(course_slug: str) -> str | None:
     course = load_course(course_slug)
     for item in reversed(course.progression):
         if isinstance(item, ModuleRef):
-            return _extract_slug_from_path(item.path)
+            return item.slug
     return None
 
 

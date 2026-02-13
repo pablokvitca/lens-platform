@@ -3,13 +3,6 @@
  * Used by both StageProgressBar (horizontal) and ModuleOverview (vertical).
  */
 
-/**
- * Get the highest completed stage index from a set of completed stages.
- */
-export function getHighestCompleted(completedStages: Set<number>): number {
-  return completedStages.size > 0 ? Math.max(...completedStages) : -1;
-}
-
 type CircleState = {
   isCompleted: boolean;
   isViewing: boolean;
@@ -33,12 +26,12 @@ export function getCircleFillClasses(
   if (isOptional) {
     if (isCompleted) {
       return includeHover
-        ? "bg-transparent text-blue-500 border-2 border-dashed border-blue-400 hover:border-blue-500"
-        : "bg-transparent text-blue-500 border-2 border-dashed border-blue-400";
+        ? "bg-white text-blue-500 border-2 border-dashed border-blue-400 hover:border-blue-500"
+        : "bg-white text-blue-500 border-2 border-dashed border-blue-400";
     }
     return includeHover
-      ? "bg-transparent text-gray-400 border-2 border-dashed border-gray-400 hover:border-gray-500"
-      : "bg-transparent text-gray-400 border-2 border-dashed border-gray-400";
+      ? "bg-white text-gray-400 border-2 border-dashed border-gray-400 hover:border-gray-500"
+      : "bg-white text-gray-400 border-2 border-dashed border-gray-400";
   }
 
   if (isCompleted) {

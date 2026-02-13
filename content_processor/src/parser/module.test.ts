@@ -168,6 +168,29 @@ title: Valid Title
     });
   });
 
+  it('returns module when frontmatter has unrecognized fields (warnings only)', () => {
+    const content = `---
+slug: test-module
+title: Test Module
+some_unknown_field: hello
+---
+
+# Page: Welcome
+
+## Text:
+Hello world
+`;
+
+    const result = parseModule(content, 'modules/test.md');
+
+    // Module should still be returned — unrecognized fields are warnings, not errors
+    expect(result.module).not.toBeNull();
+    expect(result.module?.slug).toBe('test-module');
+    // Should have a warning about the unrecognized field
+    expect(result.errors.some(e => e.severity === 'warning')).toBe(true);
+    expect(result.errors.some(e => e.severity === 'error')).toBe(false);
+  });
+
   it('warns when module has no sections', () => {
     const content = `---
 slug: empty-module

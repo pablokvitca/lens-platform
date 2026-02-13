@@ -11,7 +11,6 @@ from core.modules.course_loader import (
     load_course,
     get_next_module,
     CourseNotFoundError,
-    _extract_slug_from_path,
 )
 from core.modules.flattened_types import ModuleRef, MeetingMarker
 from core.modules import (
@@ -134,7 +133,7 @@ async def get_course_progress(
 
     for item in course.progression:
         if isinstance(item, ModuleRef):
-            module_slug = _extract_slug_from_path(item.path)
+            module_slug = item.slug
             try:
                 parsed = load_narrative_module(module_slug)
                 parsed_modules[module_slug] = parsed
@@ -176,8 +175,8 @@ async def get_course_progress(
                 current_modules = []
             current_meeting_number = item.number
         elif isinstance(item, ModuleRef):
-            # Extract module slug from path (e.g., "modules/introduction" -> "introduction")
-            module_slug = _extract_slug_from_path(item.path)
+            # Get module slug from progression item
+            module_slug = item.slug
 
             # Load module details (use parsed module if available)
             parsed = parsed_modules.get(module_slug)

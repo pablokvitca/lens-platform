@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Critical Rules
 
-**NEVER push directly to `main`** All changes must go through pull requests with CI checks. 
+**NEVER push directly to `main`** All changes must go through pull requests with CI checks.
+
+**NEVER push to [Lens-Academy/lens-edu-relay](https://github.com/Lens-Academy/lens-edu-relay)** (a separate repo, not this codebase) — not via `git push`, `gh api`, or any other method. That repo hosts the educational content and is continuously synced by `relay-git-sync` on the Hetzner relay production server. External pushes cause divergence that breaks the sync. Content validation CI workflow files (`.github/workflows/validate.yml`) live there. To modify them, ask the user for instructions on making changes via the production server. See `~/code/lens-relay/ws1/CLAUDE.md` for details.
 
 Always ask the user before pushing to any shared branch, including `staging`.
 

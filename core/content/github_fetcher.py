@@ -39,7 +39,7 @@ def _convert_ts_course_to_parsed_course(ts_course: dict) -> ParsedCourse:
         if item.get("type") == "module":
             progression.append(
                 ModuleRef(
-                    path=f"modules/{item['slug']}",
+                    slug=item["slug"],
                     optional=item.get("optional", False),
                 )
             )
