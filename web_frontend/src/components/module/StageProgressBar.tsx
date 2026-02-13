@@ -269,6 +269,13 @@ export default function StageProgressBar({
                 ? precedingColors.outgoingColor
                 : passColor;
 
+            // When branch lines are darker than the trunk pass-through,
+            // bump them above so the light solid line doesn't cover the dark dotted lines.
+            const colorRank: Record<string, number> = { "bg-gray-200": 0, "bg-gray-400": 1, "bg-blue-400": 2 };
+            const arcDarker = (colorRank[segmentColors[0]] ?? 0) > (colorRank[passColor] ?? 0);
+            const arcZ = arcDarker ? "z-[2]" : "z-[1]";
+            const passZ = arcDarker ? "z-[1]" : "z-[2]";
+
             return (
               <div
                 key={li}
@@ -278,7 +285,7 @@ export default function StageProgressBar({
                 {isAfterLastTrunk ? (
                   /* Trailing: short dashed stub just past the arc fork */
                   <div
-                    className={`absolute left-0 w-3 flex items-center z-[2] ${
+                    className={`absolute left-0 w-3 flex items-center ${passZ} ${
                       compact ? "h-7" : "h-8 sm:h-11"
                     }`}
                   >
@@ -287,7 +294,7 @@ export default function StageProgressBar({
                 ) : (
                   /* Mid-layout: fork segment (outgoing color) + continuation (pass color) */
                   <div
-                    className={`absolute left-0 right-0 flex items-center z-[2] ${
+                    className={`absolute left-0 right-0 flex items-center ${passZ} ${
                       compact ? "h-7" : "h-8 sm:h-11"
                     }`}
                   >
@@ -301,7 +308,7 @@ export default function StageProgressBar({
                 {/* S-curve arc — absolutely positioned from trunk center to branch row */}
                 {hasPrecedingTrunk && (
                   <svg
-                    className={`absolute ${arcTextColor} z-[1] pointer-events-none ${compact ? "left-4" : "left-2 sm:left-4"}`}
+                    className={`absolute ${arcTextColor} ${arcZ} pointer-events-none ${compact ? "left-4" : "left-2 sm:left-4"}`}
                     style={{
                       top: dotSize / 2 - 1,
                       width: arcWidth,

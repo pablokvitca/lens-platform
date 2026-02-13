@@ -1,4 +1,4 @@
-#!/home/penguin/code/lens-platform-ws1/.venv/bin/python3
+#!/home/penguin/code/lens-platform/ws3/.venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
