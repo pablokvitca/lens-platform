@@ -10,10 +10,14 @@ import { useMemo } from "react";
 import type { StageInfo, ModuleStatus } from "../../types/course";
 import { StageIcon } from "../module/StageProgressBar";
 import {
-  getHighestCompleted,
   getCircleFillClasses,
   getRingClasses,
 } from "../../utils/stageProgress";
+import {
+  buildBranchPaths,
+  computeBranchStates,
+  computeLayoutColors,
+} from "../../utils/branchColors";
 import { buildBranchLayout } from "../../utils/branchLayout";
 
 type ModuleOverviewProps = {
@@ -42,30 +46,23 @@ export default function ModuleOverview({
   completedLenses,
   totalLenses,
 }: ModuleOverviewProps) {
-  const highestCompleted = getHighestCompleted(completedStages);
   const layout = useMemo(() => buildBranchLayout(stages), [stages]);
 
-  // Progress line color boundaries
-  const viewingIsAdjacent = completedStages.has(currentSectionIndex - 1);
-  const blueEndIndex =
-    viewingIsAdjacent && currentSectionIndex > highestCompleted
-      ? currentSectionIndex
-      : highestCompleted;
+  // Branch subscription color model
+  const branchPaths = useMemo(
+    () => buildBranchPaths(stages.map((s) => ({ optional: s.optional }))),
+    [stages],
+  );
+  const branchStates = useMemo(
+    () => computeBranchStates(branchPaths, completedStages, currentSectionIndex),
+    [branchPaths, completedStages, currentSectionIndex],
+  );
+  const layoutColors = useMemo(
+    () => computeLayoutColors(layout, branchPaths, branchStates),
+    [layout, branchPaths, branchStates],
+  );
 
-  /** Determine trunk connector color for a given original stage index. */
-  function getLineColor(stageIndex: number): string {
-    if (stageIndex <= blueEndIndex) return "bg-blue-400";
-    if (
-      currentSectionIndex > highestCompleted &&
-      !completedStages.has(currentSectionIndex - 1) &&
-      stageIndex <= currentSectionIndex
-    )
-      return "bg-gray-400";
-    return "bg-gray-200";
-  }
-
-  // Index of the last trunk item in the layout — used to dash the
-  // bottom connector when only optional (branch) content follows.
+  // Index of the last trunk item in the layout
   const lastTrunkLi = (() => {
     for (let i = layout.length - 1; i >= 0; i--) {
       if (layout[i].kind === "trunk") return i;
@@ -79,47 +76,6 @@ export default function ModuleOverview({
     "bg-gray-400": "border-gray-400",
     "bg-gray-200": "border-gray-200",
   };
-
-  // Precompute connector colors for each layout item.
-  // Trunk items get incoming (top) and outgoing (bottom) colors.
-  // Branch groups get a pass-through color matching the next trunk's incoming
-  // color (the pass-through represents trunk continuing PAST the previous dot).
-  let prevTrunkIndex = -1;
-  const layoutColors = layout.map((item, li) => {
-    if (item.kind === "trunk") {
-      const ownColor = getLineColor(item.index);
-      const incomingColor =
-        prevTrunkIndex >= 0 ? getLineColor(prevTrunkIndex) : ownColor;
-      prevTrunkIndex = item.index;
-      return { kind: "trunk" as const, ownColor, incomingColor };
-    } else {
-      // Trunk pass-through: color of connector into the next trunk
-      let nextTrunkIndex = -1;
-      for (let j = li + 1; j < layout.length; j++) {
-        if (layout[j].kind === "trunk") {
-          nextTrunkIndex = layout[j].index;
-          break;
-        }
-      }
-      const passColor =
-        nextTrunkIndex >= 0 ? getLineColor(nextTrunkIndex) : "bg-gray-200";
-
-      // Branch-specific color: only reacts to branch items' own state
-      const hasCompleted = item.items.some((bi) =>
-        completedStages.has(bi.index),
-      );
-      const hasViewing = item.items.some(
-        (bi) => bi.index === currentSectionIndex,
-      );
-      const branchColor = hasCompleted
-        ? "bg-blue-400"
-        : hasViewing
-          ? "bg-gray-400"
-          : "bg-gray-200";
-
-      return { kind: "branch" as const, passColor, branchColor };
-    }
-  });
 
   /** Render a stage row (circle + content). Used by both trunk and branch items. */
   function renderStageRow(stage: StageInfo, index: number) {
@@ -244,18 +200,18 @@ export default function ModuleOverview({
                   {/* left-[0.875rem] = half of w-7 (14px) = center of circle within this wrapper */}
                   {!isFirst && (
                     <div
-                      className={`absolute left-[0.875rem] top-0 bottom-1/2 w-0.5 -translate-x-1/2 z-[1] ${colors.incomingColor}`}
+                      className={`absolute left-[0.875rem] top-0 bottom-1/2 w-0.5 -translate-x-1/2 z-[1] ${colors.connectorColor}`}
                     />
                   )}
                   {/* Bottom connector: from this circle center to next item */}
                   {!isLast && (
                     trailsIntoBranchOnly ? (
                       <div
-                        className={`absolute left-[0.875rem] top-1/2 bottom-0 -translate-x-1/2 z-[1] border-l-2 border-dotted ${borderColorMap[colors.ownColor] ?? "border-gray-200"}`}
+                        className={`absolute left-[0.875rem] top-1/2 bottom-0 -translate-x-1/2 z-[1] border-l-2 border-dotted ${borderColorMap[colors.outgoingColor] ?? "border-gray-200"}`}
                       />
                     ) : (
                       <div
-                        className={`absolute left-[0.875rem] top-1/2 bottom-0 w-0.5 -translate-x-1/2 z-[1] ${colors.ownColor}`}
+                        className={`absolute left-[0.875rem] top-1/2 bottom-0 w-0.5 -translate-x-1/2 z-[1] ${colors.outgoingColor}`}
                       />
                     )
                   )}

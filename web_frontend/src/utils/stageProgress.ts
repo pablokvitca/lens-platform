@@ -3,13 +3,6 @@
  * Used by both StageProgressBar (horizontal) and ModuleOverview (vertical).
  */
 
-/**
- * Get the highest completed stage index from a set of completed stages.
- */
-export function getHighestCompleted(completedStages: Set<number>): number {
-  return completedStages.size > 0 ? Math.max(...completedStages) : -1;
-}
-
 type CircleState = {
   isCompleted: boolean;
   isViewing: boolean;

@@ -6,10 +6,14 @@ import { buildBranchLayout } from "../../utils/branchLayout";
 import { triggerHaptic } from "@/utils/haptics";
 import { Tooltip } from "../Tooltip";
 import {
-  getHighestCompleted,
   getCircleFillClasses,
   getRingClasses,
 } from "../../utils/stageProgress";
+import {
+  buildBranchPaths,
+  computeBranchStates,
+  computeLayoutColors,
+} from "../../utils/branchColors";
 
 type StageProgressBarProps = {
   stages: Stage[];
@@ -109,22 +113,6 @@ export default function StageProgressBar({
   canGoNext,
   compact = false,
 }: StageProgressBarProps) {
-  // Calculate highest completed index for bar coloring
-  const highestCompleted = getHighestCompleted(completedStages);
-
-  // Bar color logic:
-  // - Blue up to highest completed
-  // - Blue to viewing if viewing is adjacent to a completed section
-  // - Dark gray to viewing if we skipped sections
-  // - Light gray beyond
-  const getBarColor = (index: number) => {
-    if (index <= highestCompleted) return "bg-blue-400";
-    if (index === currentSectionIndex && completedStages.has(index - 1))
-      return "bg-blue-400";
-    if (index <= currentSectionIndex) return "bg-gray-400";
-    return "bg-gray-200";
-  };
-
   const handleDotClick = (index: number) => {
     // Trigger haptic on any tap
     triggerHaptic(10);
@@ -146,41 +134,20 @@ export default function StageProgressBar({
   );
   const layout = useMemo(() => buildBranchLayout(layoutInput), [layoutInput]);
 
-  // Precompute colors for branch blocks. Two independent color channels:
-  // - passColor: trunk continuity line (follows trunk progress toward next trunk)
-  // - branchColor: SVG arc + dotted connectors (independent of trunk; only
-  //   darkens when viewing/completing items ON this branch)
-  const layoutColors = layout.map((item, li) => {
-    if (item.kind === "trunk") {
-      return { kind: "trunk" as const };
-    } else {
-      // Trunk pass-through: color of connector into the next trunk
-      let nextTrunkIndex = -1;
-      for (let j = li + 1; j < layout.length; j++) {
-        if (layout[j].kind === "trunk") {
-          nextTrunkIndex = layout[j].index;
-          break;
-        }
-      }
-      const passColor =
-        nextTrunkIndex >= 0 ? getBarColor(nextTrunkIndex) : "bg-gray-200";
-
-      // Branch-specific color: only reacts to branch items' own state
-      const hasCompleted = item.items.some((bi) =>
-        completedStages.has(bi.index),
-      );
-      const hasViewing = item.items.some(
-        (bi) => bi.index === currentSectionIndex,
-      );
-      const branchColor = hasCompleted
-        ? "bg-blue-400"
-        : hasViewing
-          ? "bg-gray-400"
-          : "bg-gray-200";
-
-      return { kind: "branch" as const, passColor, branchColor };
-    }
-  });
+  // Branch subscription color model
+  const branchPaths = useMemo(
+    () =>
+      buildBranchPaths(stages.map((s) => ({ optional: s.optional ?? false }))),
+    [stages],
+  );
+  const branchStates = useMemo(
+    () => computeBranchStates(branchPaths, completedStages, currentSectionIndex),
+    [branchPaths, completedStages, currentSectionIndex],
+  );
+  const layoutColors = useMemo(
+    () => computeLayoutColors(layout, branchPaths, branchStates),
+    [layout, branchPaths, branchStates],
+  );
 
   // Static color mappings for Tailwind CSS v4 scanner
   const branchColorMap: Record<string, { text: string; border: string }> = {
@@ -383,7 +350,9 @@ export default function StageProgressBar({
               {/* Connector line (except before first) */}
               {li > 0 && (
                 <div
-                  className={`h-0.5 ${compact ? "w-4" : "w-2 sm:w-4"} ${getBarColor(index)}`}
+                  className={`h-0.5 ${compact ? "w-4" : "w-2 sm:w-4"} ${
+                    layoutColors[li].kind === "trunk" ? layoutColors[li].connectorColor : "bg-gray-200"
+                  }`}
                 />
               )}
 
