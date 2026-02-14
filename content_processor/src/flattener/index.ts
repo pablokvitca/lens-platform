@@ -356,7 +356,8 @@ function flattenLearningOutcomeSection(
                 meta.title = articleFrontmatter.frontmatter.title as string;
               }
               if (articleFrontmatter.frontmatter.author) {
-                meta.author = articleFrontmatter.frontmatter.author as string;
+                const raw = articleFrontmatter.frontmatter.author;
+                meta.author = Array.isArray(raw) ? raw.join(', ') : String(raw);
               }
               if (articleFrontmatter.frontmatter.source_url) {
                 meta.sourceUrl = articleFrontmatter.frontmatter.source_url as string;
@@ -550,7 +551,8 @@ function flattenUncategorizedSection(
                 meta.title = articleFrontmatter.frontmatter.title as string;
               }
               if (articleFrontmatter.frontmatter.author) {
-                meta.author = articleFrontmatter.frontmatter.author as string;
+                const raw = articleFrontmatter.frontmatter.author;
+                meta.author = Array.isArray(raw) ? raw.join(', ') : String(raw);
               }
               if (articleFrontmatter.frontmatter.source_url) {
                 meta.sourceUrl = articleFrontmatter.frontmatter.source_url as string;
