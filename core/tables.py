@@ -426,3 +426,65 @@ chat_sessions = Table(
         name="valid_chat_content_type",
     ),
 )
+
+
+# =====================================================
+# 13. ASSESSMENT_RESPONSES
+# =====================================================
+assessment_responses = Table(
+    "assessment_responses",
+    metadata,
+    Column("response_id", Integer, primary_key=True, autoincrement=True),
+    Column("anonymous_token", UUID(as_uuid=True), nullable=True),
+    Column(
+        "user_id",
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=True,
+    ),
+    # What was answered
+    Column("question_id", Text, nullable=False),  # Content-derived ID (from markdown)
+    Column("module_slug", Text, nullable=False),  # Which module
+    Column(
+        "learning_outcome_id", Text, nullable=True
+    ),  # LO UUID if available, nullable for inline questions
+    Column(
+        "content_id", UUID(as_uuid=True), nullable=True
+    ),  # Lens/section UUID if available
+    # The answer
+    Column("answer_text", Text, nullable=False),
+    Column(
+        "answer_metadata", JSONB, server_default="{}", nullable=False
+    ),  # voice_used, time_taken_s, etc.
+    # Timestamps
+    Column("created_at", TIMESTAMP(timezone=True), server_default=func.now()),
+    # Indexes
+    Index("idx_assessment_responses_user_id", "user_id"),
+    Index("idx_assessment_responses_anon", "anonymous_token"),
+    Index("idx_assessment_responses_question", "question_id"),
+    Index("idx_assessment_responses_module", "module_slug"),
+)
+
+
+# =====================================================
+# 14. ASSESSMENT_SCORES
+# =====================================================
+assessment_scores = Table(
+    "assessment_scores",
+    metadata,
+    Column("score_id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "response_id",
+        Integer,
+        ForeignKey("assessment_responses.response_id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    # Score data
+    Column("score_data", JSONB, nullable=False),  # Flexible AI assessment results
+    Column("model_id", Text, nullable=True),  # Which LLM model scored this
+    Column("prompt_version", Text, nullable=True),  # Version tracking for scoring prompt
+    # Timestamps
+    Column("created_at", TIMESTAMP(timezone=True), server_default=func.now()),
+    # Indexes
+    Index("idx_assessment_scores_response_id", "response_id"),
+)

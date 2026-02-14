@@ -40,11 +40,11 @@ Phase 5: Motion & Polish (4 plans)
   2. Assessment score records can be stored as JSONB and queried alongside their responses
   3. Backend parses `## Test:` sections from Obsidian learning outcome content and returns structured test question data in the module API response
   4. Existing module content (lessons, articles, videos, chat) continues to work unchanged
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 06-01: Database schema and migrations for assessment tables
-- [ ] 06-02: API endpoints for assessment data and content parsing for test sections
+- [ ] 06-01-PLAN.md — Database schema (assessment_responses + assessment_scores tables), Alembic migration, and core/assessments.py CRUD functions
+- [ ] 06-02-PLAN.md — Content processor: Question segment type + Test section parsing + comment stripping; Assessment API endpoints (POST/GET responses)
 
 ### Phase 7: Answer Box
 **Goal**: Students can type or speak answers into a free-text input component that appears within module content
