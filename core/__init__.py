@@ -124,6 +124,14 @@ from .sync import (
 )
 from .notifications.scheduler import sync_meeting_reminders
 
+# Assessments (async functions)
+from .assessments import (
+    submit_response,
+    get_responses,
+    get_responses_for_question,
+    claim_assessment_responses,
+)
+
 __all__ = [
     # Database (SQLAlchemy)
     "get_connection",
@@ -218,4 +226,9 @@ __all__ = [
     "sync_all_group_rsvps",
     "sync_after_group_change",
     "sync_meeting_reminders",
+    # Assessments
+    "submit_response",
+    "get_responses",
+    "get_responses_for_question",
+    "claim_assessment_responses",
 ]
