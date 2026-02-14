@@ -29,7 +29,7 @@ export interface Course {
 }
 
 export interface Section {
-  type: 'page' | 'lens-video' | 'lens-article';
+  type: 'page' | 'lens-video' | 'lens-article' | 'test';
   meta: SectionMeta;
   segments: Segment[];
   optional?: boolean;
@@ -94,7 +94,17 @@ export interface VideoExcerptSegment {
   optional?: boolean;
 }
 
-export type Segment = TextSegment | ChatSegment | ArticleExcerptSegment | VideoExcerptSegment;
+export interface QuestionSegment {
+  type: 'question';
+  userInstruction: string;
+  assessmentPrompt?: string;
+  maxTime?: string;
+  maxChars?: number;
+  enforceVoice?: boolean;
+  optional?: boolean;
+}
+
+export type Segment = TextSegment | ChatSegment | ArticleExcerptSegment | VideoExcerptSegment | QuestionSegment;
 
 import { flattenModule } from './flattener/index.js';
 import { parseModule } from './parser/module.js';

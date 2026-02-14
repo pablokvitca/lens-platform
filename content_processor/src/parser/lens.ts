@@ -39,11 +39,22 @@ export interface ParsedVideoExcerptSegment {
   optional?: boolean;
 }
 
+export interface ParsedQuestionSegment {
+  type: 'question';
+  userInstruction: string;
+  assessmentPrompt?: string;
+  maxTime?: string;        // e.g., "3:00" or "none"
+  maxChars?: number;
+  enforceVoice?: boolean;
+  optional?: boolean;
+}
+
 export type ParsedLensSegment =
   | ParsedTextSegment
   | ParsedChatSegment
   | ParsedArticleExcerptSegment
-  | ParsedVideoExcerptSegment;
+  | ParsedVideoExcerptSegment
+  | ParsedQuestionSegment;
 
 export interface ParsedLensSection {
   type: string;         // 'text', 'lens-article', 'lens-video'
@@ -65,14 +76,14 @@ export interface LensParseResult {
 }
 
 // Valid segment types for lens H4 headers
-const LENS_SEGMENT_TYPES = new Set(['text', 'chat', 'article-excerpt', 'video-excerpt']);
+const LENS_SEGMENT_TYPES = new Set(['text', 'chat', 'article-excerpt', 'video-excerpt', 'question']);
 
 
 // Valid segment types per section output type
 const VALID_SEGMENTS_PER_SECTION: Record<string, Set<string>> = {
-  'page': new Set(['text', 'chat']),
-  'lens-article': new Set(['text', 'chat', 'article-excerpt']),
-  'lens-video': new Set(['text', 'chat', 'video-excerpt']),
+  'page': new Set(['text', 'chat', 'question']),
+  'lens-article': new Set(['text', 'chat', 'article-excerpt', 'question']),
+  'lens-video': new Set(['text', 'chat', 'video-excerpt', 'question']),
 };
 // H4 segment header pattern: #### <type> or #### <type>: <title>
 const SEGMENT_HEADER_PATTERN = /^####\s+([^:\s]+)(?::\s*(.*))?$/i;
@@ -91,7 +102,7 @@ interface RawSegment {
  * Parse H4 segments from a section body.
  * Segments are defined by `#### <type>` headers within a section.
  */
-function parseSegments(
+export function parseSegments(
   sectionBody: string,
   bodyStartLine: number,
   file: string
@@ -210,7 +221,7 @@ function parseFieldsIntoSegment(segment: RawSegment, lines: string[]): void {
 /**
  * Convert a raw segment to a typed ParsedLensSegment.
  */
-function convertSegment(
+export function convertSegment(
   raw: RawSegment,
   sectionType: string,
   file: string
@@ -367,6 +378,31 @@ function convertSegment(
       return { segment, errors };
     }
 
+    case 'question': {
+      const userInstruction = raw.fields['user-instruction'];
+      if (!userInstruction || userInstruction.trim() === '') {
+        errors.push({
+          file,
+          line: raw.line,
+          message: 'Question segment missing user-instruction:: field',
+          suggestion: "Add 'user-instruction:: Your question here'",
+          severity: 'error',
+        });
+        return { segment: null, errors };
+      }
+
+      const segment: ParsedQuestionSegment = {
+        type: 'question',
+        userInstruction,
+        assessmentPrompt: raw.fields['assessment-prompt'] || undefined,
+        maxTime: raw.fields['max-time'] || undefined,
+        maxChars: raw.fields['max-chars'] ? parseInt(raw.fields['max-chars'], 10) : undefined,
+        enforceVoice: raw.fields['enforce-voice']?.toLowerCase() === 'true' ? true : undefined,
+        optional: raw.fields.optional?.toLowerCase() === 'true' ? true : undefined,
+      };
+      return { segment, errors };
+    }
+
     default:
       // Unknown segment type - error already reported during parseSegments
       return { segment: null, errors };
@@ -412,6 +448,14 @@ function checkEmptySegment(raw: RawSegment, file: string): ContentError | null {
 }
 
 /**
+ * Strip Obsidian %% comments %% from content.
+ * Handles both inline (%% ... %% on same line) and block (multiline) comments.
+ */
+export function stripObsidianComments(content: string): string {
+  return content.replace(/%%.*?%%/gs, '');
+}
+
+/**
  * Parse a lens file into structured lens data.
  *
  * Lens files use:
@@ -420,6 +464,9 @@ function checkEmptySegment(raw: RawSegment, file: string): ContentError | null {
  */
 export function parseLens(content: string, file: string): LensParseResult {
   const errors: ContentError[] = [];
+
+  // Strip Obsidian comments before parsing
+  content = stripObsidianComments(content);
 
   // Step 1: Parse frontmatter and validate id field
   const frontmatterResult = parseFrontmatter(content, file);

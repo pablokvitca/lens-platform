@@ -7,6 +7,7 @@ import type {
   ChatSegment,
   ArticleExcerptSegment,
   VideoExcerptSegment,
+  QuestionSegment,
   ContentError,
   SectionMeta,
 } from '../index.js';
@@ -436,6 +437,46 @@ function flattenLearningOutcomeSection(
     };
 
     sections.push(resultSection);
+  }
+
+  // After lens processing, add test section if present with inline segments
+  if (lo.test && lo.test.segments.length > 0) {
+    const testSegments: Segment[] = [];
+    for (const parsedSegment of lo.test.segments) {
+      // For test sections with question/chat/text segments, no source file resolution needed
+      // Create a minimal stub lensSection since these segment types don't need it
+      const stubLensSection: ParsedLensSection = {
+        type: 'page',
+        title: 'Test',
+        segments: [],
+        line: 0,
+      };
+      const segmentResult = convertSegment(
+        parsedSegment,
+        stubLensSection,
+        loPath,
+        files,
+        visitedPaths,
+        tierMap
+      );
+      errors.push(...segmentResult.errors);
+      if (segmentResult.segment) {
+        testSegments.push(segmentResult.segment);
+      }
+    }
+
+    if (testSegments.length > 0) {
+      sections.push({
+        type: 'test',
+        meta: { title: 'Test' },
+        segments: testSegments,
+        optional: false,
+        contentId: null,
+        learningOutcomeId: lo.id ?? null,
+        learningOutcomeName: loPath.split('/').pop()?.replace(/\.md$/i, '') ?? null,
+        videoId: null,
+      });
+    }
   }
 
   return { sections, errors };
@@ -1010,6 +1051,19 @@ function convertSegment(
       if (parsedSegment.optional) {
         segment.optional = true;
       }
+      return { segment, errors };
+    }
+
+    case 'question': {
+      const segment: QuestionSegment = {
+        type: 'question',
+        userInstruction: parsedSegment.userInstruction,
+      };
+      if (parsedSegment.assessmentPrompt) segment.assessmentPrompt = parsedSegment.assessmentPrompt;
+      if (parsedSegment.maxTime) segment.maxTime = parsedSegment.maxTime;
+      if (parsedSegment.maxChars !== undefined) segment.maxChars = parsedSegment.maxChars;
+      if (parsedSegment.enforceVoice) segment.enforceVoice = true;
+      if (parsedSegment.optional) segment.optional = true;
       return { segment, errors };
     }
 

@@ -28,7 +28,7 @@ const ALL_STRUCTURAL_TYPES = new Set([
   // Section types
   'learning outcome', 'page', 'uncategorized', 'lens', 'test', 'module', 'meeting', 'article', 'video',
   // Segment types
-  'text', 'chat', 'article-excerpt', 'video-excerpt',
+  'text', 'chat', 'article-excerpt', 'video-excerpt', 'question',
 ]);
 
 // Fields that commonly contain markdown with headings
