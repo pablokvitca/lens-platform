@@ -162,7 +162,7 @@ export function parseSections(
   return { sections, errors };
 }
 
-const FIELD_PATTERN = /^(\w+)::\s*(.*)$/;
+const FIELD_PATTERN = /^([\w-]+)::\s*(.*)$/;
 
 interface ParseFieldsResult {
   warnings: ContentError[];

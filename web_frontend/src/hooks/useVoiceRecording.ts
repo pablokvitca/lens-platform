@@ -87,10 +87,11 @@ export function useVoiceRecording(
     };
   }, []);
 
-  // Clear error message after 3 seconds
+  // Clear error message after timeout (longer for persistent issues)
+  const errorTimeoutRef = useRef<number>(3000);
   useEffect(() => {
     if (errorMessage) {
-      const timer = setTimeout(() => setErrorMessage(null), 3000);
+      const timer = setTimeout(() => setErrorMessage(null), errorTimeoutRef.current);
       return () => clearTimeout(timer);
     }
   }, [errorMessage]);
@@ -220,8 +221,24 @@ export function useVoiceRecording(
     }
   }, [MIN_RECORDING_TIME, cleanupRecording]);
 
+  const setError = useCallback((msg: string, timeout = 3000) => {
+    errorTimeoutRef.current = timeout;
+    setErrorMessage(msg);
+    onErrorRef.current?.(msg);
+  }, []);
+
   const startRecording = useCallback(async () => {
     setErrorMessage(null);
+
+    // Guard: secure context required for getUserMedia
+    if (!window.isSecureContext) {
+      setError("Voice recording requires HTTPS", 8000);
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError("Voice recording is not supported in this browser", 8000);
+      return;
+    }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -271,17 +288,24 @@ export function useVoiceRecording(
 
       animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
     } catch (err) {
+      // Clean up stream if getUserMedia succeeded but later setup failed
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      cleanupRecording();
+
       if (err instanceof Error && err.name === "NotAllowedError") {
-        const msg = "Microphone access required";
-        setErrorMessage(msg);
-        onErrorRef.current?.(msg);
+        setError("Microphone permission denied — allow access and try again");
+      } else if (err instanceof Error && err.name === "NotFoundError") {
+        setError("No microphone found");
+      } else if (err instanceof Error && err.name === "NotReadableError") {
+        setError("Microphone is in use by another application");
       } else {
-        const msg = "Could not access microphone";
-        setErrorMessage(msg);
-        onErrorRef.current?.(msg);
+        setError("Could not access microphone");
       }
     }
-  }, [MAX_RECORDING_TIME, WARNING_TIME, stopRecording, updateAudioLevel]);
+  }, [MAX_RECORDING_TIME, WARNING_TIME, stopRecording, updateAudioLevel, cleanupRecording, setError]);
 
   const handleMicClick = useCallback(() => {
     if (recordingState === "idle") {

@@ -89,7 +89,7 @@ const VALID_SEGMENTS_PER_SECTION: Record<string, Set<string>> = {
 const SEGMENT_HEADER_PATTERN = /^####\s+([^:\s]+)(?::\s*(.*))?$/i;
 
 // Field pattern: fieldname:: value
-const FIELD_PATTERN = /^(\w+)::\s*(.*)$/;
+const FIELD_PATTERN = /^([\w-]+)::\s*(.*)$/;
 
 interface RawSegment {
   type: string;
@@ -151,7 +151,7 @@ export function parseSegments(
       currentFieldLines = [];
     } else if (currentSegment) {
       // Check for single-colon field that should be double-colon
-      const singleColonMatch = line.match(/^(\w+):\s+(.*)$/);
+      const singleColonMatch = line.match(/^([\w-]+):\s+(.*)$/);
       if (singleColonMatch && !line.match(/^https?:/) && !FIELD_PATTERN.test(line)) {
         errors.push({
           file,

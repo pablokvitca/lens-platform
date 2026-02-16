@@ -70,12 +70,14 @@ export default function AnswerBox({
     },
   });
 
-  // Auto-expand textarea
+  // Auto-expand textarea (preserve scroll position to prevent viewport jumping)
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
-      textarea.style.height = "auto";
-      textarea.style.height = `${textarea.scrollHeight}px`;
+      const scrollY = window.scrollY;
+      textarea.style.height = "0";
+      textarea.style.height = `${Math.max(textarea.scrollHeight, 120)}px`;
+      window.scrollTo(0, scrollY);
     }
   }, [text]);
 
@@ -132,7 +134,7 @@ export default function AnswerBox({
                 ref={textareaRef}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                className="w-full border border-stone-200 rounded-lg px-4 py-3 pr-12 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed text-stone-800 placeholder:text-stone-300 bg-white"
+                className="w-full border border-stone-200 rounded-lg px-4 py-3 pr-12 resize-none overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed text-stone-800 placeholder:text-stone-300 bg-white"
                 placeholder={
                   recordingState === "transcribing"
                     ? "Transcribing..."
