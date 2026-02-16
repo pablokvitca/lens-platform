@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** Students can engage with course content and demonstrate understanding — through reading, discussion, and assessment — while the platform collects data to improve both teaching and measurement.
-**Current focus:** v2.0 Tests & Answer Boxes — Phase 7 complete, Phase 8 next
+**Current focus:** v2.0 Tests & Answer Boxes — Phase 8 Plan 01 complete, Plan 02 next
 
 ## Current Position
 
-Phase: 7 of 9 (Answer Box) — COMPLETE
-Plan: 2 of 2 in current phase
-Status: Complete
-Last activity: 2026-02-16 — Completed Phase 7 (Answer Box)
+Phase: 8 of 9 (Test Sections) — IN PROGRESS
+Plan: 1 of 2 in current phase
+Status: In Progress
+Last activity: 2026-02-16 — Completed 08-01 (Test Section UI)
 
-Progress: [==================.......] 75% (18/24 plans across all milestones)
+Progress: [===================......] 79% (19/24 plans across all milestones)
 
 ## Performance Metrics
 
@@ -43,6 +43,7 @@ Progress: [==================.......] 75% (18/24 plans across all milestones)
 | 6. Data Foundation | 02 | 5 min | 2 | 10 |
 | 7. Answer Box | 01 | 11 min | 3 | 12 |
 | 7. Answer Box | 02 | manual | 3 | 5 |
+| 8. Test Sections | 01 | 9 min | 3 | 11 |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ v2.0 decisions:
 - Ownership-checked PATCH with OR condition (user_id OR anonymous_token)
 - FIELD_PATTERN regex must use [\w-]+ to support hyphenated field names
 - Voice recording requires secure context guard (isSecureContext check before getUserMedia)
+- AnswerBox gets optional onComplete callback for parent notification (used by TestSection)
+- Test stage type uses type assertion in progress bar (Stage union doesn't include 'test')
+- isActive is false when testState === 'completed' so all questions show collapsed
 
 ### Pending Todos
 
@@ -83,5 +87,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-16
-Stopped at: Completed Phase 7 (Answer Box)
+Stopped at: Completed 08-01-PLAN.md (Test Section UI)
 Resume file: None
