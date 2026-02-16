@@ -1,5 +1,6 @@
 // src/parser/sections.ts
 import type { ContentError } from '../index.js';
+import { ALL_KNOWN_FIELDS } from '../content-schema.js';
 import { levenshtein } from '../validator/field-typos.js';
 
 export interface ParsedSection {
@@ -245,8 +246,9 @@ function parseFields(section: ParsedSection, file: string): ParseFieldsResult {
       currentValue.push(line);
     } else {
       // Not inside a field — check for single-colon that should be double-colon
+      // Only suggest field:: if the word is a known field name
       const singleColonMatch = line.match(/^(\w+):\s+(.*)$/);
-      if (singleColonMatch && !line.match(/^https?:/)) {
+      if (singleColonMatch && !line.match(/^https?:/) && ALL_KNOWN_FIELDS.includes(singleColonMatch[1])) {
         warnings.push({
           file,
           line: lineNum,

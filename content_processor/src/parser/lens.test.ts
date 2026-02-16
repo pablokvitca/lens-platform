@@ -1085,8 +1085,9 @@ content:: Hello.
     });
   });
 
-  it('warns when single colon is used instead of :: in segment fields', () => {
-    const content = `---
+  describe('single-colon field detection in segments', () => {
+    it('warns when known field uses single colon instead of :: in segment', () => {
+      const content = `---
 id: test-id
 ---
 
@@ -1096,13 +1097,35 @@ id: test-id
 content: This uses single colon.
 `;
 
-    const result = parseLens(content, 'Lenses/test.md');
+      const result = parseLens(content, 'Lenses/test.md');
 
-    expect(result.errors.some(e =>
-      e.severity === 'warning' &&
-      e.message.includes('content') &&
-      e.message.includes('::')
-    )).toBe(true);
+      expect(result.errors.some(e =>
+        e.severity === 'warning' &&
+        e.message.includes('content') &&
+        e.message.includes('::')
+      )).toBe(true);
+    });
+
+    it('does NOT warn for unknown words with single colon in segment (just markdown text)', () => {
+      const content = `---
+id: test-id
+---
+
+### Page: Test
+
+#### Text
+content::
+Summary: This is a summary of the topic.
+`;
+
+      const result = parseLens(content, 'Lenses/test.md');
+
+      const summaryWarnings = result.errors.filter(e =>
+        e.severity === 'warning' &&
+        e.message.includes("'Summary:'")
+      );
+      expect(summaryWarnings).toHaveLength(0);
+    });
   });
 
   describe('segment/section type mismatch', () => {

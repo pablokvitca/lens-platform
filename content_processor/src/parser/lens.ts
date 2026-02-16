@@ -1,5 +1,6 @@
 // src/parser/lens.ts
 import type { ContentError } from '../index.js';
+import { ALL_KNOWN_FIELDS } from '../content-schema.js';
 import { parseFrontmatter } from './frontmatter.js';
 import { parseSections, LENS_SECTION_TYPES, LENS_OUTPUT_TYPE } from './sections.js';
 import { validateSegmentFields } from '../validator/segment-fields.js';
@@ -141,7 +142,7 @@ function parseSegments(
     } else if (currentSegment) {
       // Check for single-colon field that should be double-colon
       const singleColonMatch = line.match(/^(\w+):\s+(.*)$/);
-      if (singleColonMatch && !line.match(/^https?:/) && !FIELD_PATTERN.test(line)) {
+      if (singleColonMatch && !line.match(/^https?:/) && !FIELD_PATTERN.test(line) && ALL_KNOWN_FIELDS.includes(singleColonMatch[1])) {
         errors.push({
           file,
           line: lineNum,
