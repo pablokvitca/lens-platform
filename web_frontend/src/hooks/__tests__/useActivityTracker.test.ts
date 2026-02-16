@@ -72,6 +72,23 @@ describe("useActivityTracker", () => {
     expect(fm.callsTo("/api/progress/time").length).toBe(callsAfterTimeout);
   });
 
+  it("remains active at exactly the inactivity timeout boundary", async () => {
+    renderHook(() => useActivityTracker(defaultOptions));
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Advance to 160,000ms (8 intervals fired, all active)
+    await vi.advanceTimersByTimeAsync(160_000);
+    const callsBefore = fm.callsTo("/api/progress/time").length;
+
+    // Advance to exactly 180,000ms — the interval fires with
+    // timeSinceActivity = 180,000 = inactivityTimeout
+    // With >: 180,000 > 180,000 is false → still active → heartbeat fires
+    // With >=: 180,000 >= 180,000 is true → inactive → NO heartbeat
+    await vi.advanceTimersByTimeAsync(20_000);
+
+    expect(fm.callsTo("/api/progress/time").length).toBeGreaterThan(callsBefore);
+  });
+
   it("activity events reset the inactivity timer", async () => {
     renderHook(() => useActivityTracker(defaultOptions));
     await vi.advanceTimersByTimeAsync(0);
@@ -111,6 +128,27 @@ describe("useActivityTracker", () => {
     );
   });
 
+  it("does not send beacon when user is inactive", async () => {
+    renderHook(() => useActivityTracker(defaultOptions));
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Go inactive: advance past timeout + one full interval so the interval
+    // callback sets isActiveRef.current = false
+    // At t=200,000ms: timeSinceActivity = 200,000 > 180,000 → inactive
+    await vi.advanceTimersByTimeAsync(200_001);
+
+    sendBeaconMock.mockClear();
+
+    Object.defineProperty(document, "hidden", {
+      value: true,
+      configurable: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    // sendBeacon() should return early because isActiveRef.current is false
+    expect(sendBeaconMock).not.toHaveBeenCalled();
+  });
+
   it("sends beacon on unmount", async () => {
     const { unmount } = renderHook(() =>
       useActivityTracker(defaultOptions),
@@ -120,6 +158,22 @@ describe("useActivityTracker", () => {
     unmount();
 
     expect(sendBeaconMock).toHaveBeenCalled();
+  });
+
+  it("clears heartbeat interval on unmount", async () => {
+    const { unmount } = renderHook(() =>
+      useActivityTracker(defaultOptions),
+    );
+    await vi.advanceTimersByTimeAsync(0);
+
+    const callsBeforeUnmount = fm.callsTo("/api/progress/time").length;
+
+    unmount();
+
+    // Advance by several heartbeat intervals — no new heartbeats should fire
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(fm.callsTo("/api/progress/time").length).toBe(callsBeforeUnmount);
   });
 
   it("does nothing when enabled: false", async () => {
@@ -142,6 +196,25 @@ describe("useActivityTracker", () => {
       expect.stringContaining("/api/progress/time"),
       expect.any(String),
     );
+  });
+
+  it("stops heartbeats after visibility hidden", async () => {
+    renderHook(() => useActivityTracker(defaultOptions));
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Trigger visibility hidden — should set isActiveRef.current = false
+    Object.defineProperty(document, "hidden", {
+      value: true,
+      configurable: true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    const callsAfterHidden = fm.callsTo("/api/progress/time").length;
+
+    // Next heartbeat interval — should NOT fire because isActiveRef.current is false
+    await vi.advanceTimersByTimeAsync(20_000);
+
+    expect(fm.callsTo("/api/progress/time").length).toBe(callsAfterHidden);
   });
 
   it("appends anonymous_token to beacon URL when not authenticated", async () => {

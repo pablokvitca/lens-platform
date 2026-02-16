@@ -35,6 +35,10 @@ describe("formatDuration", () => {
     expect(formatDuration(423)).toBe("7 min");
   });
 
+  it("rounds up at half-minute boundary (330s = 5.5 min → 6 min)", () => {
+    expect(formatDuration(330)).toBe("6 min");
+  });
+
   it("formats hours and minutes", () => {
     expect(formatDuration(3665)).toBe("1 hr 1 min");
   });

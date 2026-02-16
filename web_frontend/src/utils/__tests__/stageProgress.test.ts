@@ -18,6 +18,21 @@ describe("getCircleFillClasses", () => {
     ).toBe("bg-blue-500 text-white hover:bg-blue-600");
   });
 
+  it("completed takes priority over viewing, no hover", () => {
+    expect(
+      getCircleFillClasses({ isCompleted: true, isViewing: true, isOptional: false }),
+    ).toBe("bg-blue-500 text-white");
+  });
+
+  it("completed takes priority over viewing, with hover", () => {
+    expect(
+      getCircleFillClasses(
+        { isCompleted: true, isViewing: true, isOptional: false },
+        { includeHover: true },
+      ),
+    ).toBe("bg-blue-500 text-white hover:bg-blue-600");
+  });
+
   it("viewing, not completed, no hover", () => {
     expect(
       getCircleFillClasses({ isCompleted: false, isViewing: true, isOptional: false }),

@@ -231,4 +231,60 @@ describe("fetchWithTimeout (via getModule)", () => {
     vi.useRealTimers();
     promise.catch(() => {});
   });
+
+  it("converts AbortError to RequestTimeoutError on timeout", async () => {
+    vi.useFakeTimers();
+
+    fm.mock.mockImplementation(
+      (_url: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            const err = new Error("The operation was aborted.");
+            err.name = "AbortError";
+            reject(err);
+          });
+        }),
+    );
+
+    const result = getModule("test-slug").then(
+      () => {
+        throw new Error("should have rejected");
+      },
+      (err: unknown) => err,
+    );
+
+    await vi.advanceTimersByTimeAsync(10_001);
+
+    const err = await result;
+    expect(err).toBeInstanceOf(RequestTimeoutError);
+
+    vi.useRealTimers();
+  });
+});
+
+describe("transcribeAudio timeout", () => {
+  it("uses 30s timeout, not the default 10s", async () => {
+    vi.useFakeTimers();
+
+    let capturedSignal: AbortSignal | undefined;
+    fm.mock.mockImplementation(
+      (_url: string | URL | Request, init?: RequestInit) => {
+        capturedSignal = init?.signal ?? undefined;
+        return new Promise<Response>(() => {});
+      },
+    );
+
+    const promise = transcribeAudio(new Blob(["audio"]));
+
+    // At 10s (default timeout) — should NOT be aborted
+    vi.advanceTimersByTime(10_001);
+    expect(capturedSignal!.aborted).toBe(false);
+
+    // At 30s — should be aborted
+    vi.advanceTimersByTime(20_000);
+    expect(capturedSignal!.aborted).toBe(true);
+
+    vi.useRealTimers();
+    promise.catch(() => {});
+  });
 });

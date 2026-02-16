@@ -90,6 +90,20 @@ describe("extractHeadings", () => {
     const result = extractHeadings("## Title", seenIds);
     expect(result[0].id).toBe("title-1");
   });
+
+  it("trims whitespace from markdown heading text", () => {
+    const result = extractHeadings("## Hello World  ");
+    expect(result).toEqual([
+      { id: "hello-world", text: "Hello World", level: 2 },
+    ]);
+  });
+
+  it("trims whitespace from HTML heading text", () => {
+    const result = extractHeadings("<h2> Overview </h2>");
+    expect(result).toEqual([
+      { id: "overview", text: "Overview", level: 2 },
+    ]);
+  });
 });
 
 describe("extractAllHeadings", () => {
