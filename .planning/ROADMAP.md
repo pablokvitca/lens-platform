@@ -26,7 +26,7 @@ Phase 5: Motion & Polish (4 plans)
 
 - [x] **Phase 6: Data Foundation** - Database tables, API endpoints, and content parsing for tests
 - [x] **Phase 7: Answer Box** - Free-text input component with voice support
-- [ ] **Phase 8: Test Sections** - Grouped assessment questions with test-mode UX
+- [x] **Phase 8: Test Sections** - Grouped assessment questions with test-mode UX
 - [ ] **Phase 9: AI Assessment** - LLM-powered scoring with rubrics and mode selection
 
 ## Phase Details
@@ -72,8 +72,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — TestSection/TestQuestionCard components, type system updates, Module.tsx integration (Begin screen, sequential reveal, collapse, timer, resume, auto-completion)
-- [ ] 08-02-PLAN.md — Content hiding: testModeActive state, navigation restrictions, progress bar dimming, drawer dimming, human verification
+- [x] 08-01-PLAN.md — TestSection/TestQuestionCard components, type system updates, Module.tsx integration (Begin screen, sequential reveal, collapse, timer, resume, auto-completion)
+- [x] 08-02-PLAN.md — Content hiding: testModeActive state, navigation restrictions, progress bar dimming, drawer dimming, human verification
 
 ### Phase 9: AI Assessment
 **Goal**: The platform automatically scores student answers using AI and stores results internally for learning outcome measurement
@@ -103,5 +103,5 @@ Plans:
 | 5. Motion & Polish | v1.0 | 4/4 | Complete | 2026-01-22 |
 | 6. Data Foundation | v2.0 | 2/2 | Complete | 2026-02-14 |
 | 7. Answer Box | v2.0 | 2/2 | Complete | 2026-02-16 |
-| 8. Test Sections | v2.0 | 0/2 | Not started | - |
+| 8. Test Sections | v2.0 | 2/2 | Complete | 2026-02-16 |
 | 9. AI Assessment | v2.0 | 0/2 | Not started | - |
