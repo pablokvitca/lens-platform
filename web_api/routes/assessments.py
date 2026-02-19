@@ -19,6 +19,7 @@ from core.assessments import (
     update_response,
 )
 from core.database import get_connection, get_transaction
+from core.scoring import enqueue_scoring
 from web_api.auth import get_user_or_anonymous
 
 router = APIRouter(prefix="/api/assessments", tags=["assessments"])
@@ -180,6 +181,18 @@ async def update_assessment_response(
 
     if not row:
         raise HTTPException(404, "Response not found")
+
+    # Trigger AI scoring when response is completed (not on draft saves)
+    if body.completed_at and body.completed_at not in ("", "null"):
+        enqueue_scoring(
+            response_id=row["response_id"],
+            question_context={
+                "question_id": row["question_id"],
+                "module_slug": row["module_slug"],
+                "learning_outcome_id": row.get("learning_outcome_id"),
+                "answer_text": row["answer_text"],
+            },
+        )
 
     created_at = row["created_at"]
     if isinstance(created_at, datetime):
