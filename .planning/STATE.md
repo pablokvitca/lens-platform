@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** Students can engage with course content and demonstrate understanding — through reading, discussion, and assessment — while the platform collects data to improve both teaching and measurement.
-**Current focus:** v2.0 Tests & Answer Boxes — Phase 9 in progress (AI Assessment)
+**Current focus:** v2.0 Tests & Answer Boxes — Phase 9 complete (AI Assessment)
 
 ## Current Position
 
 Phase: 9 of 9 (AI Assessment)
-Plan: 1 of 2 in current phase
-Status: In Progress
-Last activity: 2026-02-19 — Completed 09-01 (AI Scoring Module)
+Plan: 2 of 2 in current phase
+Status: Complete
+Last activity: 2026-02-19 — Completed 09-02 (Scoring Trigger Integration)
 
-Progress: [=====================....] 88% (21/24 plans across all milestones)
+Progress: [=========================] 100% (22/24 plans across all milestones)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21 (13 v1.0 + 8 v2.0)
+- Total plans completed: 22 (13 v1.0 + 9 v2.0)
 - Average duration: ~45 min (v1.0 estimate)
-- Total execution time: ~10 hours (v1.0) + 31 min (v2.0)
+- Total execution time: ~10 hours (v1.0) + 34 min (v2.0)
 
 **By Phase (v1.0):**
 
@@ -46,6 +46,7 @@ Progress: [=====================....] 88% (21/24 plans across all milestones)
 | 8. Test Sections | 01 | 9 min | 3 | 11 |
 | 8. Test Sections | 02 | 6 min | 3 | 6 |
 | 9. AI Assessment | 01 | 6 min | 2 | 4 |
+| 9. AI Assessment | 02 | 3 min | 2 | 2 |
 
 ## Accumulated Context
 
@@ -82,6 +83,8 @@ v2.0 decisions:
 - Socratic vs assessment mode determined by section type (test = assessment, all others = socratic)
 - SCORING_PROVIDER env var for independent model selection, defaults to DEFAULT_PROVIDER
 - Background scoring tasks tracked in module-level set to prevent garbage collection
+- Scoring trigger checks body.completed_at (request intent), not row state, to avoid re-triggering
+- enqueue_scoring called after 404 check to ensure row exists before scoring begins
 
 ### Pending Todos
 
@@ -95,5 +98,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-19
-Stopped at: Completed 09-01-PLAN.md (AI Scoring Module)
+Stopped at: Completed 09-02-PLAN.md (Scoring Trigger Integration) -- Phase 9 complete
 Resume file: None
