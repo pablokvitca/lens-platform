@@ -76,3 +76,40 @@ async def stream_chat(
                     yield {"type": "tool_use", "name": current_tool_name}
 
     yield {"type": "done"}
+
+
+async def complete(
+    messages: list[dict],
+    system: str,
+    response_format: dict | None = None,
+    provider: str | None = None,
+    max_tokens: int = 1024,
+) -> str:
+    """
+    Non-streaming completion for structured responses (e.g., scoring).
+
+    Args:
+        messages: List of {"role": "user"|"assistant", "content": str}
+        system: System prompt
+        response_format: Optional JSON schema for structured output
+        provider: Model string (uses DEFAULT_PROVIDER if None)
+        max_tokens: Maximum tokens in response
+
+    Returns:
+        Full response content as string
+    """
+    model = provider or DEFAULT_PROVIDER
+
+    # LiteLLM uses OpenAI-style messages with system as a message
+    llm_messages = [{"role": "system", "content": system}] + messages
+
+    kwargs = {
+        "model": model,
+        "messages": llm_messages,
+        "max_tokens": max_tokens,
+    }
+    if response_format:
+        kwargs["response_format"] = response_format
+
+    response = await acompletion(**kwargs)
+    return response.choices[0].message.content

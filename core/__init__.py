@@ -133,6 +133,9 @@ from .assessments import (
     claim_assessment_responses,
 )
 
+# Scoring (async background task)
+from .scoring import enqueue_scoring
+
 __all__ = [
     # Database (SQLAlchemy)
     "get_connection",
@@ -233,4 +236,6 @@ __all__ = [
     "get_responses",
     "get_responses_for_question",
     "claim_assessment_responses",
+    # Scoring
+    "enqueue_scoring",
 ]
