@@ -3,7 +3,7 @@
 ## Milestones
 
 - v1.0 Mobile Responsiveness - Phases 1-5 (shipped 2026-01-22)
-- v2.0 Tests & Answer Boxes - Phases 6-9 (in progress)
+- v2.0 Tests & Answer Boxes - Phases 6-11
 
 ## Phases
 
@@ -27,7 +27,9 @@ Phase 5: Motion & Polish (4 plans)
 - [x] **Phase 6: Data Foundation** - Database tables, API endpoints, and content parsing for tests
 - [x] **Phase 7: Answer Box** - Free-text input component with voice support
 - [x] **Phase 8: Test Sections** - Grouped assessment questions with test-mode UX
-- [ ] **Phase 9: AI Assessment** - LLM-powered scoring with rubrics and mode selection
+- [x] **Phase 9: AI Assessment** - LLM-powered scoring with rubrics and mode selection
+- [ ] **Phase 10: Score Retrieval API** - GET endpoint completing the assessment_scores CRUD layer
+- [ ] **Phase 11: Answer Feedback Chat** - AI feedback conversation after answer submission
 
 ## Phase Details
 
@@ -87,12 +89,12 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 09-01-PLAN.md — Core scoring module (core/scoring.py) with LLM structured output, prompt building, socratic/assessment mode, question resolution from content cache, and unit tests
-- [ ] 09-02-PLAN.md — Wire scoring trigger into PATCH endpoint for fire-and-forget background scoring on answer completion
+- [x] 09-01-PLAN.md — Core scoring module (core/scoring.py) with LLM structured output, prompt building, socratic/assessment mode, question resolution from content cache, and unit tests
+- [x] 09-02-PLAN.md — Wire scoring trigger into PATCH endpoint for fire-and-forget background scoring on answer completion
 
 ## Progress
 
-**Execution Order:** 6 -> 7 -> 8 -> 9
+**Execution Order:** 6 -> 7 -> 8 -> 9 -> 10 -> 11
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -104,4 +106,34 @@ Plans:
 | 6. Data Foundation | v2.0 | 2/2 | Complete | 2026-02-14 |
 | 7. Answer Box | v2.0 | 2/2 | Complete | 2026-02-16 |
 | 8. Test Sections | v2.0 | 2/2 | Complete | 2026-02-16 |
-| 9. AI Assessment | v2.0 | 0/2 | Not started | - |
+| 9. AI Assessment | v2.0 | 2/2 | Complete | 2026-02-19 |
+| 10. Score Retrieval API | v2.0 | 0/1 | In Progress | — |
+| 11. Answer Feedback Chat | v2.0 | 0/0 | Not planned | — |
+
+### Phase 10: Score Retrieval API
+**Goal**: Assessment scores can be read back from the database via API, completing the CRUD layer for the assessment_scores table
+**Depends on**: Phase 9 (needs scores written to assessment_scores table)
+**Requirements**: SR-01
+**Success Criteria** (what must be TRUE):
+  1. GET /api/assessments/scores returns score data (overall_score, reasoning, dimensions, key_observations) plus metadata (model_id, prompt_version, created_at) for a given response_id
+  2. Endpoint follows existing auth patterns (user can only read scores for their own responses)
+**Plans**: 1 plan
+
+Plans:
+- [ ] 10-01-PLAN.md — TDD: Core query function (get_scores_for_response with ownership JOIN) + GET /scores endpoint + Pydantic models + 4 tests
+
+### Phase 11: Answer Feedback Chat
+**Goal**: After submitting an answer, students can receive AI feedback and have a conversation about their response, controlled by a per-question content field
+**Depends on**: Phase 7 (AnswerBox component and completion flow), Phase 9 (scoring context and prompt infrastructure)
+**Requirements**: FB-01, FB-02, FB-03, FB-04
+**Success Criteria** (what must be TRUE):
+  1. Content authors can enable feedback per question via a field in the question segment markdown (e.g., `feedback:: true`)
+  2. After clicking Finish on a feedback-enabled question, a chat interface appears below the completed answer
+  3. The AI sends an initial feedback message based on the question, learning outcome, and student's answer (streamed via existing SSE infrastructure)
+  4. Student can reply and have a multi-turn conversation with the AI about their answer
+  5. Feedback conversation is persisted using the existing conversation history storage and restored on return
+  6. Same component works for questions in both lesson sections and test sections
+**Plans**: 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 11 to break down)

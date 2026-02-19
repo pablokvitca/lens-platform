@@ -5,7 +5,7 @@
 
 ## v1 Requirements
 
-Requirements for the Tests & Answer Boxes milestone. Each maps to roadmap phases 6-9.
+Requirements for the Tests & Answer Boxes milestone. Each maps to roadmap phases 6-11.
 
 ### Answer Box
 
@@ -15,23 +15,34 @@ Requirements for the Tests & Answer Boxes milestone. Each maps to roadmap phases
 
 ### Test Section
 
-- [ ] **TS-01**: Backend parses `## Test:` sections from Obsidian learning outcome templates into structured test data
-- [ ] **TS-02**: Test section renders as a distinct section type in the module viewer with its own progress marker
-- [ ] **TS-03**: Test sections group multiple answer boxes as assessment questions tied to learning outcomes
-- [ ] **TS-04**: Test sections appear at the end of the module after all lesson content
+- [x] **TS-01**: Backend parses `## Test:` sections from Obsidian learning outcome templates into structured test data
+- [x] **TS-02**: Test section renders as a distinct section type in the module viewer with its own progress marker
+- [x] **TS-03**: Test sections group multiple answer boxes as assessment questions tied to learning outcomes
+- [x] **TS-04**: Test sections appear at the end of the module after all lesson content
 
 ### AI Assessment
 
-- [ ] **AI-01**: AI scores free-text answers using LiteLLM, producing structured feedback
-- [ ] **AI-02**: Per-question scoring uses rubric derived from the learning outcome definition
-- [ ] **AI-03**: Socratic (helping learn) vs assessment (measuring learning) mode configurable per question
-- [ ] **AI-04**: AI scores stored internally and not exposed to students in the UI
+- [x] **AI-01**: AI scores free-text answers using LiteLLM, producing structured feedback
+- [x] **AI-02**: Per-question scoring uses rubric derived from the learning outcome definition
+- [x] **AI-03**: Socratic (helping learn) vs assessment (measuring learning) mode configurable per question
+- [x] **AI-04**: AI scores stored internally and not exposed to students in the UI
 
 ### Data Storage
 
-- [ ] **DS-01**: Database tables for assessment responses (user answers linked to question, module, and learning outcome)
-- [ ] **DS-02**: Database tables for assessment scores (AI-generated, JSONB format for schema flexibility)
-- [ ] **DS-03**: API endpoints for submitting answers and retrieving assessment data (responses and scores)
+- [x] **DS-01**: Database tables for assessment responses (user answers linked to question, module, and learning outcome)
+- [x] **DS-02**: Database tables for assessment scores (AI-generated, JSONB format for schema flexibility)
+- [x] **DS-03**: API endpoints for submitting answers and retrieving assessment data (responses and scores)
+
+### Score Retrieval
+
+- [ ] **SR-01**: API endpoint for reading assessment scores by response_id (completes CRUD layer for assessment_scores)
+
+### Answer Feedback
+
+- [ ] **FB-01**: Content authors can enable AI feedback per question via a field in the question segment markdown
+- [ ] **FB-02**: After submitting a feedback-enabled answer, a chat interface appears below the completed answer with AI-generated initial feedback
+- [ ] **FB-03**: Student can have a multi-turn conversation with the AI about their answer
+- [ ] **FB-04**: Feedback conversation is persisted using existing conversation history storage and restored on return
 
 ## v2 Requirements
 
@@ -85,15 +96,20 @@ Explicitly excluded. Documented to prevent scope creep.
 | AB-01 | Phase 7 | Complete |
 | AB-02 | Phase 7 | Complete |
 | AB-03 | Phase 7 | Complete |
-| TS-02 | Phase 8 | Pending |
-| TS-03 | Phase 8 | Pending |
-| TS-04 | Phase 8 | Pending |
-| AI-01 | Phase 9 | Pending |
-| AI-02 | Phase 9 | Pending |
-| AI-03 | Phase 9 | Pending |
-| AI-04 | Phase 9 | Pending |
+| TS-02 | Phase 8 | Complete |
+| TS-03 | Phase 8 | Complete |
+| TS-04 | Phase 8 | Complete |
+| AI-01 | Phase 9 | Complete |
+| AI-02 | Phase 9 | Complete |
+| AI-03 | Phase 9 | Complete |
+| AI-04 | Phase 9 | Complete |
+| SR-01 | Phase 10 | Pending |
+| FB-01 | Phase 11 | Pending |
+| FB-02 | Phase 11 | Pending |
+| FB-03 | Phase 11 | Pending |
+| FB-04 | Phase 11 | Pending |
 
 **Coverage:**
-- v1 requirements: 14 total
-- Mapped to phases: 14
+- v1 requirements: 19 total
+- Mapped to phases: 19
 - Orphaned: 0

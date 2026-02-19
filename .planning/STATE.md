@@ -5,14 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** Students can engage with course content and demonstrate understanding — through reading, discussion, and assessment — while the platform collects data to improve both teaching and measurement.
-**Current focus:** v2.0 Tests & Answer Boxes — Phase 9 complete (AI Assessment)
+**Current focus:** v2.0 Tests & Answer Boxes — Phases 10-11 added (Score Retrieval + Answer Feedback)
 
 ## Current Position
 
-Phase: 9 of 9 (AI Assessment)
-Plan: 2 of 2 in current phase
-Status: Complete
-Last activity: 2026-02-19 — Completed 09-02 (Scoring Trigger Integration)
+Phase: 10 of 11 (Score Retrieval API)
+Plan: 0 of 0 in current phase
+Status: Not planned
+Last activity: 2026-02-20 — Added Phases 10-11 to v2.0 milestone
 
 Progress: [=========================] 100% (22/24 plans across all milestones)
 
@@ -90,6 +90,11 @@ v2.0 decisions:
 
 1 todo in `.planning/todos/pending/`:
 - Collapse references section on mobile
+
+### Roadmap Evolution
+
+- Phase 10 added: Score Retrieval API — GET endpoint completing assessment_scores CRUD layer
+- Phase 11 added: Answer Feedback Chat — AI feedback conversation after answer submission
 
 ### Blockers/Concerns
 
