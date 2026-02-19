@@ -594,6 +594,8 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
             assistantContent += chunk.content;
             setStreamingContent(assistantContent);
             triggerChatActivity(); // Keep user active while AI response streams
+          } else if (chunk.type === "error") {
+            throw new Error(chunk.message || "Chat failed");
           }
         }
 

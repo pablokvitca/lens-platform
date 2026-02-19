@@ -12,7 +12,7 @@ from litellm import acompletion
 
 
 # Default provider - can be overridden per-call or via environment
-DEFAULT_PROVIDER = os.environ.get("LLM_PROVIDER", "anthropic/claude-sonnet-4-20250514")
+DEFAULT_PROVIDER = os.environ.get("LLM_PROVIDER", "anthropic/claude-sonnet-4-6")
 
 
 async def stream_chat(
