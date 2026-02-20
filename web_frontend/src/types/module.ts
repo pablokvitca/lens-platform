@@ -157,6 +157,7 @@ export type TestSection = {
   meta: { title: string | null };
   segments: ModuleSegment[];
   optional: boolean;
+  feedback?: boolean;
 };
 
 // Union of all section types
