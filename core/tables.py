@@ -422,7 +422,7 @@ chat_sessions = Table(
         postgresql_where=text("user_id IS NOT NULL AND archived_at IS NULL"),
     ),
     CheckConstraint(
-        "content_type IS NULL OR content_type IN ('module', 'lo', 'lens', 'test')",
+        "content_type IS NULL OR content_type IN ('module', 'lo', 'lens', 'test', 'feedback')",
         name="valid_chat_content_type",
     ),
 )
