@@ -112,6 +112,14 @@ from .group_joining import (
     get_user_group_info,
 )
 
+# Guest visits
+from .guest_visits import (
+    find_alternative_meetings,
+    create_guest_visit,
+    cancel_guest_visit,
+    get_user_guest_visits,
+)
+
 # Sync operations (sync functions for group membership changes)
 from .sync import (
     sync_group,
@@ -209,6 +217,11 @@ __all__ = [
     "get_user_current_group",
     "join_group",
     "get_user_group_info",
+    # Guest visits
+    "find_alternative_meetings",
+    "create_guest_visit",
+    "cancel_guest_visit",
+    "get_user_guest_visits",
     # Sync operations
     "sync_group",
     "sync_group_discord_permissions",
