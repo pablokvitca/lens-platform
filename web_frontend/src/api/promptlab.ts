@@ -73,12 +73,22 @@ export async function* regenerateResponse(
   messages: FixtureMessage[],
   systemPrompt: string,
   enableThinking: boolean,
+  effort?: string,
+  model?: string,
 ): AsyncGenerator<StreamEvent> {
+  const body: Record<string, unknown> = {
+    messages,
+    systemPrompt,
+    enableThinking,
+  };
+  if (effort) body.effort = effort;
+  if (model) body.model = model;
+
   const res = await fetchWithRefresh(`${API_BASE}/api/promptlab/regenerate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ messages, systemPrompt, enableThinking }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) throw new Error("Failed to regenerate response");
@@ -114,12 +124,22 @@ export async function* continueConversation(
   messages: FixtureMessage[],
   systemPrompt: string,
   enableThinking: boolean,
+  effort?: string,
+  model?: string,
 ): AsyncGenerator<StreamEvent> {
+  const body: Record<string, unknown> = {
+    messages,
+    systemPrompt,
+    enableThinking,
+  };
+  if (effort) body.effort = effort;
+  if (model) body.model = model;
+
   const res = await fetchWithRefresh(`${API_BASE}/api/promptlab/continue`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ messages, systemPrompt, enableThinking }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) throw new Error("Failed to continue conversation");

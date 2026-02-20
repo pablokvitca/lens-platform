@@ -7,10 +7,12 @@ Endpoints:
 """
 
 import json
+import logging
 import sys
 from pathlib import Path
 from uuid import UUID
 
+import sentry_sdk
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -25,6 +27,8 @@ from core.modules.context import gather_section_context
 from core.modules.loader import load_flattened_module
 from core.modules.types import ChatStage
 from web_api.auth import get_user_or_anonymous
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["module"])
 
@@ -113,6 +117,8 @@ async def event_generator(
                 assistant_content += chunk.get("content", "")
             yield f"data: {json.dumps(chunk)}\n\n"
     except Exception as e:
+        logger.error("Chat LLM error: %s", e)
+        sentry_sdk.capture_exception(e)
         yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
         return

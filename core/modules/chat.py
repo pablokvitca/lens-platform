@@ -185,6 +185,5 @@ async def send_module_message(
         system=system,
         tools=tools,
         provider=provider,
-        max_tokens=1024,
     ):
         yield event

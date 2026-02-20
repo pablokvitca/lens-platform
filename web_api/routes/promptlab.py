@@ -59,13 +59,17 @@ async def get_facilitator_user(user: dict = Depends(get_current_user)) -> dict:
 class RegenerateRequest(BaseModel):
     messages: list[dict]  # Conversation up to the point to regenerate
     systemPrompt: str  # Full edited system prompt
-    enableThinking: bool = False  # Whether to include CoT
+    enableThinking: bool = True  # Whether to include CoT (default matches normal chat)
+    effort: str = "low"  # Thinking effort: "low", "medium", or "high"
+    model: str | None = None  # Optional model override (e.g. "anthropic/claude-sonnet-4-6")
 
 
 class ContinueRequest(BaseModel):
     messages: list[dict]  # Full conversation including the follow-up user message
     systemPrompt: str  # Current system prompt
-    enableThinking: bool = False
+    enableThinking: bool = True
+    effort: str = "low"
+    model: str | None = None
 
 
 # --- Endpoints ---
@@ -121,6 +125,8 @@ async def regenerate(
                 messages=request.messages,
                 system_prompt=request.systemPrompt,
                 enable_thinking=request.enableThinking,
+                effort=request.effort,
+                provider=request.model,
             ):
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:
@@ -157,6 +163,8 @@ async def continue_chat(
                 messages=request.messages,
                 system_prompt=request.systemPrompt,
                 enable_thinking=request.enableThinking,
+                effort=request.effort,
+                provider=request.model,
             ):
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:

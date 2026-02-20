@@ -58,6 +58,10 @@ export default function PromptLab() {
   const [hasRegenerated, setHasRegenerated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // LLM config state (defaults match normal chat)
+  const [enableThinking, setEnableThinking] = useState(true);
+  const [effort, setEffort] = useState<"low" | "medium" | "high">("low");
+
   // Ref for aborting in-flight requests (not implemented in API client yet,
   // but useful for preventing stale updates on fixture change)
   const streamAbortRef = useRef(false);
@@ -129,7 +133,8 @@ export default function PromptLab() {
       for await (const event of regenerateResponse(
         messagesToSend,
         systemPrompt,
-        true,
+        enableThinking,
+        effort,
       )) {
         if (streamAbortRef.current) break;
 
@@ -140,6 +145,7 @@ export default function PromptLab() {
           accumulatedContent += event.content;
           setStreamingContent(accumulatedContent);
         } else if (event.type === "error") {
+          console.error("Regeneration error:", event.message);
           setError(event.message ?? "An error occurred during regeneration");
         } else if (event.type === "done") {
           // Finalize: replace from selectedMessageIndex onward with regenerated message
@@ -169,7 +175,7 @@ export default function PromptLab() {
       setStreamingContent("");
       setStreamingThinking("");
     }
-  }, [selectedMessageIndex, messages, systemPrompt]);
+  }, [selectedMessageIndex, messages, systemPrompt, enableThinking, effort]);
 
   const handleSendFollowUp = useCallback(
     async (message: string) => {
@@ -199,7 +205,8 @@ export default function PromptLab() {
         for await (const event of continueConversation(
           allMessages,
           systemPrompt,
-          true,
+          enableThinking,
+          effort,
         )) {
           if (streamAbortRef.current) break;
 
@@ -210,6 +217,7 @@ export default function PromptLab() {
             accumulatedContent += event.content;
             setStreamingContent(accumulatedContent);
           } else if (event.type === "error") {
+            console.error("Continuation error:", event.message);
             setError(
               event.message ?? "An error occurred during continuation",
             );
@@ -237,7 +245,7 @@ export default function PromptLab() {
         setStreamingThinking("");
       }
     },
-    [messages, systemPrompt],
+    [messages, systemPrompt, enableThinking, effort],
   );
 
   const handleResetPrompt = useCallback(() => {
@@ -310,9 +318,45 @@ export default function PromptLab() {
           {fixture.name}
         </h1>
         {error && (
-          <span className="ml-auto text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
-            {error}
+          <span className="ml-auto text-xs text-red-600 bg-red-50 px-2 py-1 rounded flex items-center gap-1">
+            {error.length > 100 ? "Request failed. Check console for details." : error}
+            <button
+              onClick={() => setError(null)}
+              className="text-red-400 hover:text-red-600 ml-1"
+              aria-label="Dismiss error"
+            >
+              &times;
+            </button>
           </span>
+        )}
+      </div>
+
+      {/* LLM config toolbar */}
+      <div className="flex items-center gap-4 py-1.5 shrink-0 text-xs text-slate-600">
+        <label className="flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={enableThinking}
+            onChange={(e) => setEnableThinking(e.target.checked)}
+            className="rounded border-slate-300"
+          />
+          Reasoning
+        </label>
+        {enableThinking && (
+          <label className="flex items-center gap-1.5">
+            Effort
+            <select
+              value={effort}
+              onChange={(e) =>
+                setEffort(e.target.value as "low" | "medium" | "high")
+              }
+              className="border border-slate-300 rounded px-1.5 py-0.5 text-xs bg-white"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </label>
         )}
       </div>
 
