@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 ## Current Position
 
 Phase: 6 of 7 (Chat Evaluation)
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Executing
-Last activity: 2026-02-20 — Completed 06-03 Prompt Lab frontend page & fixture browser
+Last activity: 2026-02-20 — Completed 06-04 Prompt Lab interactive UI
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Milestone Summary
 
@@ -27,15 +27,15 @@ Progress: [██████░░░░] 60%
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (v3.0)
+- Total plans completed: 4 (v3.0)
 - Average duration: 6min
-- Total execution time: 18min
+- Total execution time: 22min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 06-chat-evaluation | 3/5 | 18min | 6min |
+| 06-chat-evaluation | 4/5 | 22min | 6min |
 
 ## Accumulated Context
 
@@ -52,6 +52,9 @@ Progress: [██████░░░░] 60%
 - X-Accel-Buffering: no header on SSE responses for reverse proxy compatibility
 - FixtureBrowser uses select dropdown for module filtering (not text search)
 - PromptLab view placeholder shows fixture info when selected (Plan 04 replaces with full UI)
+- API client systemPrompt param is string (not object) matching backend RegenerateRequest schema
+- System prompt assembled in view from fixture parts (base + instructions + previousContent)
+- Follow-up messages marked isRegenerated:true since they are Prompt Lab generations
 
 ### Pending Todos
 
@@ -65,5 +68,5 @@ Progress: [██████░░░░] 60%
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 06-03-PLAN.md
+Stopped at: Completed 06-04-PLAN.md
 Resume file: None
