@@ -28,7 +28,7 @@ Phase 5: Motion & Polish (4 plans)
 - [x] **Phase 7: Answer Box** - Free-text input component with voice support
 - [x] **Phase 8: Test Sections** - Grouped assessment questions with test-mode UX
 - [x] **Phase 9: AI Assessment** - LLM-powered scoring with rubrics and mode selection
-- [ ] **Phase 10: Score Retrieval API** - GET endpoint completing the assessment_scores CRUD layer
+- [x] **Phase 10: Score Retrieval API** - GET endpoint completing the assessment_scores CRUD layer
 - [ ] **Phase 11: Answer Feedback Chat** - AI feedback conversation after answer submission
 
 ## Phase Details
@@ -107,7 +107,7 @@ Plans:
 | 7. Answer Box | v2.0 | 2/2 | Complete | 2026-02-16 |
 | 8. Test Sections | v2.0 | 2/2 | Complete | 2026-02-16 |
 | 9. AI Assessment | v2.0 | 2/2 | Complete | 2026-02-19 |
-| 10. Score Retrieval API | v2.0 | 0/1 | In Progress | — |
+| 10. Score Retrieval API | v2.0 | 1/1 | Complete | 2026-02-20 |
 | 11. Answer Feedback Chat | v2.0 | 0/0 | Not planned | — |
 
 ### Phase 10: Score Retrieval API
@@ -120,7 +120,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 10-01-PLAN.md — TDD: Core query function (get_scores_for_response with ownership JOIN) + GET /scores endpoint + Pydantic models + 4 tests
+- [x] 10-01-PLAN.md — TDD: Core query function (get_scores_for_response with ownership JOIN) + GET /scores endpoint + Pydantic models + 4 tests
 
 ### Phase 11: Answer Feedback Chat
 **Goal**: After submitting an answer, students can receive AI feedback and have a conversation about their response, controlled by a per-question content field
