@@ -739,6 +739,26 @@ instructions:: Discuss what you learned from the material above.
     expect(chatSeg.instructions).toContain('Discuss');
   });
 
+  it('uses specific error from parseWikilink instead of generic "Invalid wikilink format"', () => {
+    const files = new Map([
+      ['modules/bad-path.md', `---
+slug: bad-path
+title: Bad Path
+---
+
+# Learning Outcome: Bad
+source:: [[../../Learning Outcomes/lo1.md|Too Many Dots]]
+`],
+    ]);
+
+    const result = flattenModule('modules/bad-path.md', files);
+
+    expect(result.errors.length).toBeGreaterThan(0);
+    // Should use the specific error from parseWikilink, not "Invalid wikilink format"
+    expect(result.errors[0].message).not.toContain('Invalid wikilink format');
+    expect(result.errors[0].message).toContain("too many '../'");
+  });
+
   it('detects circular reference and returns error', () => {
     // Create a cycle: Module -> LO-A -> Lens-B -> (references back to LO-A)
     // The lens has an article section that points back to the LO file

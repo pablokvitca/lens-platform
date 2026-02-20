@@ -212,7 +212,9 @@ function flattenLearningOutcomeSection(
     errors.push({
       file: modulePath,
       line: section.line,
-      message: `Invalid wikilink format: ${source}`,
+      message: wikilink?.error
+        ? `${wikilink.error}: ${source}`
+        : `Invalid wikilink format: ${source}`,
       suggestion,
       severity: 'error',
     });

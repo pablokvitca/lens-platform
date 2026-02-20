@@ -106,7 +106,9 @@ export function parseLearningOutcome(content: string, file: string): LearningOut
         errors.push({
           file,
           line: section.line,
-          message: `Invalid wikilink format in source:: field: ${source}`,
+          message: wikilink?.error
+            ? `${wikilink.error} in source:: field: ${source}`
+            : `Invalid wikilink format in source:: field: ${source}`,
           suggestion,
           severity: 'error',
         });
@@ -149,7 +151,9 @@ export function parseLearningOutcome(content: string, file: string): LearningOut
         errors.push({
           file,
           line: section.line,
-          message: `Invalid wikilink format in source:: field: ${source}`,
+          message: wikilink?.error
+            ? `${wikilink.error} in source:: field: ${source}`
+            : `Invalid wikilink format in source:: field: ${source}`,
           suggestion,
           severity: 'error',
         });
