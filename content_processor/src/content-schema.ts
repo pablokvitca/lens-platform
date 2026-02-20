@@ -48,8 +48,8 @@ export const SEGMENT_SCHEMAS: Record<string, SegmentTypeSchema> = {
   'video-excerpt': segmentSchema(['to'], ['from', 'optional'], ['optional']),
   'question': segmentSchema(
     ['user-instruction'],
-    ['assessment-prompt', 'max-time', 'max-chars', 'enforce-voice', 'optional'],
-    ['enforce-voice', 'optional'],
+    ['assessment-prompt', 'max-time', 'max-chars', 'enforce-voice', 'optional', 'feedback'],
+    ['enforce-voice', 'optional', 'feedback'],
   ),
 };
 

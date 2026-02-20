@@ -108,7 +108,7 @@ Plans:
 | 8. Test Sections | v2.0 | 2/2 | Complete | 2026-02-16 |
 | 9. AI Assessment | v2.0 | 2/2 | Complete | 2026-02-19 |
 | 10. Score Retrieval API | v2.0 | 1/1 | Complete | 2026-02-20 |
-| 11. Answer Feedback Chat | v2.0 | 0/0 | Not planned | — |
+| 11. Answer Feedback Chat | v2.0 | 0/3 | Planned | — |
 
 ### Phase 10: Score Retrieval API
 **Goal**: Assessment scores can be read back from the database via API, completing the CRUD layer for the assessment_scores table
@@ -133,7 +133,9 @@ Plans:
   4. Student can reply and have a multi-turn conversation with the AI about their answer
   5. Feedback conversation is persisted using the existing conversation history storage and restored on return
   6. Same component works for questions in both lesson sections and test sections
-**Plans**: 0 plans
+**Plans**: 3 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 11 to break down)
+- [ ] 11-01-PLAN.md — Content pipeline: feedback boolean field through content-schema, parser, flattener, and frontend types
+- [ ] 11-02-PLAN.md — TDD: Backend feedback module (prompt builder + SSE endpoint + DB constraint migration) with tests first
+- [ ] 11-03-PLAN.md — FeedbackChat component + AnswerBox integration + session lifecycle + human verification

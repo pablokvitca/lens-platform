@@ -47,6 +47,7 @@ export interface ParsedQuestionSegment {
   maxChars?: number;
   enforceVoice?: boolean;
   optional?: boolean;
+  feedback?: boolean;
 }
 
 export type ParsedLensSegment =
@@ -399,6 +400,7 @@ export function convertSegment(
         maxChars: raw.fields['max-chars'] ? parseInt(raw.fields['max-chars'], 10) : undefined,
         enforceVoice: raw.fields['enforce-voice']?.toLowerCase() === 'true' ? true : undefined,
         optional: raw.fields.optional?.toLowerCase() === 'true' ? true : undefined,
+        feedback: raw.fields['feedback']?.toLowerCase() === 'true' ? true : undefined,
       };
       return { segment, errors };
     }

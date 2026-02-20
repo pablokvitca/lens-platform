@@ -44,6 +44,7 @@ export type QuestionSegment = {
   maxChars?: number;
   enforceVoice?: boolean;
   optional?: boolean;
+  feedback?: boolean;
 };
 
 export type ModuleSegment =

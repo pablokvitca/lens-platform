@@ -102,6 +102,7 @@ export interface QuestionSegment {
   maxChars?: number;
   enforceVoice?: boolean;
   optional?: boolean;
+  feedback?: boolean;
 }
 
 export type Segment = TextSegment | ChatSegment | ArticleExcerptSegment | VideoExcerptSegment | QuestionSegment;

@@ -1064,6 +1064,7 @@ function convertSegment(
       if (parsedSegment.maxChars !== undefined) segment.maxChars = parsedSegment.maxChars;
       if (parsedSegment.enforceVoice) segment.enforceVoice = true;
       if (parsedSegment.optional) segment.optional = true;
+      if (parsedSegment.feedback) segment.feedback = true;
       return { segment, errors };
     }
 
