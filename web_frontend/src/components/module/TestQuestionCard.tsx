@@ -72,8 +72,8 @@ export default function TestQuestionCard({
     return null;
   }
 
-  // Completed and not active - collapsed state
-  if (isCompleted && !isActive) {
+  // Completed and not active - collapsed state (unless feedback enabled)
+  if (isCompleted && !isActive && !question.feedback) {
     return (
       <div className="py-3 px-4 flex items-center gap-3 text-stone-500">
         <div className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 shrink-0">
