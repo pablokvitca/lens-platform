@@ -71,7 +71,7 @@ export async function loadFixture(name: string): Promise<Fixture> {
  */
 export async function* regenerateResponse(
   messages: FixtureMessage[],
-  systemPrompt: FixtureSystemPrompt,
+  systemPrompt: string,
   enableThinking: boolean,
 ): AsyncGenerator<StreamEvent> {
   const res = await fetchWithRefresh(`${API_BASE}/api/promptlab/regenerate`, {
@@ -112,7 +112,7 @@ export async function* regenerateResponse(
  */
 export async function* continueConversation(
   messages: FixtureMessage[],
-  systemPrompt: FixtureSystemPrompt,
+  systemPrompt: string,
   enableThinking: boolean,
 ): AsyncGenerator<StreamEvent> {
   const res = await fetchWithRefresh(`${API_BASE}/api/promptlab/continue`, {
