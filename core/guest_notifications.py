@@ -63,5 +63,5 @@ async def notify_guest_role_changes(group_id: int, sync_result: dict) -> None:
             name = guest_info.get(discord_id, "A guest")
             await send_channel_message(
                 text_channel_id,
-                f"{name} joined as a guest for last week's meeting and will now be removed from this group channel again.",
+                f"{name} joined as a guest for last week's meeting and will now be removed from this channel again.",
             )

@@ -106,7 +106,26 @@ async def create_guest_visit_endpoint(
     host_group_id = result["host_group_id"]
     host_meeting_id = result["host_meeting_id"]
     host_scheduled_at = result["host_scheduled_at"]
+    home_group_id = result["home_group_id"]
     email = db_user.get("email")
+    guest_name = db_user.get("nickname") or db_user.get("discord_username") or "A member"
+
+    # Notify home group that this member is visiting another group
+    try:
+        async with get_connection() as conn:
+            group_result = await conn.execute(
+                select(groups.c.discord_text_channel_id).where(
+                    groups.c.group_id == home_group_id
+                )
+            )
+            group_row = group_result.mappings().first()
+            if group_row and group_row.get("discord_text_channel_id"):
+                await send_channel_message(
+                    group_row["discord_text_channel_id"],
+                    f"{guest_name} is joining another group for this week's meeting because they can't attend this one.",
+                )
+    except Exception:
+        logger.exception("Failed to send home group departure message")
 
     try:
         sync_result = await sync_group_discord_permissions(host_group_id)
@@ -167,7 +186,7 @@ async def delete_guest_visit_endpoint(
             if group_row and group_row.get("discord_text_channel_id"):
                 await send_channel_message(
                     group_row["discord_text_channel_id"],
-                    f"{guest_name}'s guest visit has been cancelled. They will be removed from this group channel again.",
+                    f"{guest_name}'s guest visit has been cancelled. They will be removed from this channel again.",
                 )
     except Exception:
         logger.exception("Failed to send guest departure message")

@@ -91,7 +91,7 @@ class TestNotifyGuestRoleChanges:
 
                 mock_send.assert_called_once_with(
                     "999888777",
-                    "Bob joined as a guest for last week's meeting and will now be removed from this group channel again.",
+                    "Bob joined as a guest for last week's meeting and will now be removed from this channel again.",
                 )
 
     @pytest.mark.asyncio
