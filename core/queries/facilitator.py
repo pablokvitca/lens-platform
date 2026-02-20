@@ -110,6 +110,7 @@ async def get_group_members_with_progress(
             & (meetings.c.scheduled_at < func.now())
             & (attendances.c.user_id == groups_users.c.user_id)
             & (attendances.c.checked_in_at.isnot(None))
+            & (attendances.c.is_guest.is_(False))
         )
         .correlate(groups_users)
         .scalar_subquery()
@@ -217,7 +218,8 @@ async def get_user_meeting_attendance(
         .outerjoin(
             attendances,
             (meetings.c.meeting_id == attendances.c.meeting_id)
-            & (attendances.c.user_id == user_id),
+            & (attendances.c.user_id == user_id)
+            & (attendances.c.is_guest.is_(False)),
         )
         .where(meetings.c.group_id == group_id)
         .order_by(meetings.c.scheduled_at)
@@ -300,7 +302,10 @@ async def get_group_completion_data(
                 attendances.c.meeting_id,
                 attendances.c.checked_in_at,
                 attendances.c.rsvp_status,
-            ).where(attendances.c.meeting_id.in_([r.meeting_id for r in all_mtg_rows]))
+            ).where(
+                attendances.c.meeting_id.in_([r.meeting_id for r in all_mtg_rows])
+                & (attendances.c.is_guest.is_(False))
+            )
         )
         for row in att_result:
             mnum = all_meeting_id_to_num.get(row.meeting_id)
