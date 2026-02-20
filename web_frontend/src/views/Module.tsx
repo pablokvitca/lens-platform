@@ -1275,15 +1275,50 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                 </>
               ) : section.type === "test" ? (
                 // v2 Test section: grouped assessment questions
-                <TestSection
-                  section={section}
-                  moduleSlug={moduleId}
-                  sectionIndex={sectionIndex}
-                  isAuthenticated={isAuthenticated}
-                  onTestStart={() => setTestModeActive(true)}
-                  onTestComplete={() => setTestModeActive(false)}
-                  onMarkComplete={(response) => handleMarkComplete(sectionIndex, response)}
-                />
+                (() => {
+                  const feedbackKey = `test-${sectionIndex}`;
+                  return (
+                    <>
+                      <TestSection
+                        section={section}
+                        moduleSlug={moduleId}
+                        sectionIndex={sectionIndex}
+                        isAuthenticated={isAuthenticated}
+                        onTestStart={() => setTestModeActive(true)}
+                        onTestComplete={() => setTestModeActive(false)}
+                        onMarkComplete={(response) => handleMarkComplete(sectionIndex, response)}
+                        onFeedbackTrigger={
+                          section.feedback
+                            ? (questionsAndAnswers) => {
+                                setActiveFeedbackKey(feedbackKey);
+                                const lines = questionsAndAnswers.map(
+                                  (qa, i) =>
+                                    `Question ${i + 1}: "${qa.question}"\nMy answer: "${qa.answer}"`,
+                                );
+                                handleSendMessage(
+                                  `I just completed a test. Here are the questions and my answers:\n\n${lines.join("\n\n")}\n\nCan you give me feedback on my answers?`,
+                                  sectionIndex,
+                                  0,
+                                );
+                              }
+                            : undefined
+                        }
+                      />
+                      {section.feedback && activeFeedbackKey === feedbackKey && (
+                        <NarrativeChatSection
+                          messages={messages}
+                          pendingMessage={pendingMessage}
+                          streamingContent={streamingContent}
+                          isLoading={isLoading}
+                          onSendMessage={(content) =>
+                            handleSendMessage(content, sectionIndex, 0)
+                          }
+                          onRetryMessage={handleRetryMessage}
+                        />
+                      )}
+                    </>
+                  );
+                })()
               ) : (
                 // v1 Video section and fallback
                 <>
