@@ -261,6 +261,7 @@ attendances = Table(
     Column("rsvp_status", rsvp_status_enum, server_default="pending"),
     Column("rsvp_at", TIMESTAMP(timezone=True)),
     Column("checked_in_at", TIMESTAMP(timezone=True)),
+    Column("is_guest", Boolean, server_default=text("false"), nullable=False),
     Column("created_at", TIMESTAMP(timezone=True), server_default=func.now()),
     Index("idx_attendances_meeting_id", "meeting_id"),
     Index("idx_attendances_user_id", "user_id"),
