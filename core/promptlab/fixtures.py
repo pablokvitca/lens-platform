@@ -13,14 +13,14 @@ from typing import TypedDict
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
-class FixtureSystemPrompt(TypedDict):
-    base: str
-    instructions: str
-
-
 class FixtureMessage(TypedDict):
     role: str  # "user" or "assistant"
     content: str
+
+
+class FixtureConversation(TypedDict):
+    label: str
+    messages: list[FixtureMessage]
 
 
 class FixtureSummary(TypedDict):
@@ -33,9 +33,9 @@ class Fixture(TypedDict):
     name: str
     module: str
     description: str
-    systemPrompt: FixtureSystemPrompt
-    previousContent: str
-    messages: list[FixtureMessage]
+    instructions: str
+    context: str
+    conversations: list[FixtureConversation]
 
 
 def list_fixtures() -> list[FixtureSummary]:
@@ -82,14 +82,19 @@ def load_fixture(name: str) -> Fixture | None:
                     name=data["name"],
                     module=data["module"],
                     description=data["description"],
-                    systemPrompt=FixtureSystemPrompt(
-                        base=data["systemPrompt"]["base"],
-                        instructions=data["systemPrompt"]["instructions"],
-                    ),
-                    previousContent=data["previousContent"],
-                    messages=[
-                        FixtureMessage(role=m["role"], content=m["content"])
-                        for m in data["messages"]
+                    instructions=data["instructions"],
+                    context=data["context"],
+                    conversations=[
+                        FixtureConversation(
+                            label=c["label"],
+                            messages=[
+                                FixtureMessage(
+                                    role=m["role"], content=m["content"]
+                                )
+                                for m in c["messages"]
+                            ],
+                        )
+                        for c in data["conversations"]
                     ],
                 )
         except (json.JSONDecodeError, KeyError) as e:
