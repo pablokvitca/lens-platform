@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 ## Current Position
 
 Phase: 11 of 11 (Answer Feedback Chat)
-Plan: 1 of 3 in current phase
-Status: Plan 11-01 complete
-Last activity: 2026-02-20 — Completed 11-01 Feedback Field Pipeline
+Plan: 2 of 3 in current phase
+Status: Plan 11-02 complete
+Last activity: 2026-02-20 — Completed 11-02 Backend Feedback Module (TDD)
 
-Progress: [========================= ] 96% (24/27 plans across all milestones)
+Progress: [========================== ] 96% (25/27 plans across all milestones)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 24 (13 v1.0 + 11 v2.0)
+- Total plans completed: 25 (13 v1.0 + 12 v2.0)
 - Average duration: ~45 min (v1.0 estimate)
-- Total execution time: ~10 hours (v1.0) + 38 min (v2.0)
+- Total execution time: ~10 hours (v1.0) + 46 min (v2.0)
 
 **By Phase (v1.0):**
 
@@ -49,6 +49,7 @@ Progress: [========================= ] 96% (24/27 plans across all milestones)
 | 9. AI Assessment | 02 | 3 min | 2 | 2 |
 | 10. Score Retrieval | 01 | 3 min | 2 | 3 |
 | 11. Answer Feedback | 01 | 1 min | 1 | 5 |
+| 11. Answer Feedback | 02 | 8 min | 3 | 8 |
 
 ## Accumulated Context
 
@@ -90,6 +91,10 @@ v2.0 decisions:
 - Score retrieval returns empty list (not 404) when no scores or wrong response_id -- no information leakage
 - JSONB fields extracted with .get() defaults so missing keys become None rather than errors
 - feedback field follows existing boolean field pattern (optional, undefined when not set, true when enabled)
+- UUID5(NAMESPACE_URL, questionId) for deterministic feedback session content_id derivation
+- Feedback prompt returns string (not tuple like scoring) -- simpler since messages come from chat session
+- Best-effort archive endpoint (always returns ok:true) -- idempotent, no error on missing session
+- Reuses _resolve_question_details from core/scoring.py for question context resolution
 
 ### Pending Todos
 
@@ -108,5 +113,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-20
-Stopped at: Completed 11-01-PLAN.md (Feedback Field Pipeline)
+Stopped at: Completed 11-02-PLAN.md (Backend Feedback Module TDD)
 Resume file: None
