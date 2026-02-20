@@ -23,6 +23,13 @@ class FixtureConversation(TypedDict):
     messages: list[FixtureMessage]
 
 
+class FixtureSection(TypedDict):
+    name: str
+    instructions: str
+    context: str
+    conversations: list[FixtureConversation]
+
+
 class FixtureSummary(TypedDict):
     name: str
     module: str
@@ -33,9 +40,20 @@ class Fixture(TypedDict):
     name: str
     module: str
     description: str
-    instructions: str
-    context: str
-    conversations: list[FixtureConversation]
+    sections: list[FixtureSection]
+
+
+def _parse_conversations(raw: list[dict]) -> list[FixtureConversation]:
+    return [
+        FixtureConversation(
+            label=c["label"],
+            messages=[
+                FixtureMessage(role=m["role"], content=m["content"])
+                for m in c["messages"]
+            ],
+        )
+        for c in raw
+    ]
 
 
 def list_fixtures() -> list[FixtureSummary]:
@@ -68,8 +86,13 @@ def list_fixtures() -> list[FixtureSummary]:
 def load_fixture(name: str) -> Fixture | None:
     """Load a specific fixture by name.
 
-    Iterates JSON files in FIXTURES_DIR and returns the first one where
-    the 'name' field matches. Returns None if not found.
+    Supports two JSON formats:
+
+    **Sectioned format** (new): has a top-level "sections" array, each with
+    name, instructions, context, and conversations.
+
+    **Flat format** (legacy): has top-level instructions, context, and
+    conversations. Normalized into a single section using the fixture name.
     """
     if not FIXTURES_DIR.exists():
         return None
@@ -77,26 +100,37 @@ def load_fixture(name: str) -> Fixture | None:
     for path in FIXTURES_DIR.glob("*.json"):
         try:
             data = json.loads(path.read_text())
-            if data.get("name") == name:
-                return Fixture(
-                    name=data["name"],
-                    module=data["module"],
-                    description=data["description"],
-                    instructions=data["instructions"],
-                    context=data["context"],
-                    conversations=[
-                        FixtureConversation(
-                            label=c["label"],
-                            messages=[
-                                FixtureMessage(
-                                    role=m["role"], content=m["content"]
-                                )
-                                for m in c["messages"]
-                            ],
-                        )
-                        for c in data["conversations"]
-                    ],
-                )
+            if data.get("name") != name:
+                continue
+
+            # Sectioned format
+            if "sections" in data:
+                sections = [
+                    FixtureSection(
+                        name=s["name"],
+                        instructions=s["instructions"],
+                        context=s["context"],
+                        conversations=_parse_conversations(s["conversations"]),
+                    )
+                    for s in data["sections"]
+                ]
+            else:
+                # Flat format — wrap in a single section
+                sections = [
+                    FixtureSection(
+                        name=data["name"],
+                        instructions=data["instructions"],
+                        context=data["context"],
+                        conversations=_parse_conversations(data["conversations"]),
+                    )
+                ]
+
+            return Fixture(
+                name=data["name"],
+                module=data["module"],
+                description=data["description"],
+                sections=sections,
+            )
         except (json.JSONDecodeError, KeyError) as e:
             print(f"Warning: skipping malformed fixture {path.name}: {e}")
 

@@ -5,6 +5,7 @@ import type { ConversationMessage } from "@/hooks/useConversationSlot";
 
 export interface ConversationColumnHandle {
   regenerate: () => Promise<void>;
+  regenerateLastAssistant: () => Promise<void>;
   autoSelectLastAssistant: () => void;
 }
 
@@ -35,6 +36,14 @@ const ConversationColumn = forwardRef<ConversationColumnHandle, ConversationColu
     useImperativeHandle(ref, () => ({
       regenerate: () =>
         slot.regenerate(systemPromptRef.current, enableThinkingRef.current, effortRef.current),
+      regenerateLastAssistant: () => {
+        const lastIdx = slot.messages.findLastIndex((m) => m.role === "assistant");
+        if (lastIdx < 0) return Promise.resolve();
+        slot.selectMessage(lastIdx);
+        return slot.regenerate(
+          systemPromptRef.current, enableThinkingRef.current, effortRef.current, lastIdx,
+        );
+      },
       autoSelectLastAssistant: () => {
         const lastIdx = slot.messages.findLastIndex((m) => m.role === "assistant");
         if (lastIdx >= 0) slot.selectMessage(lastIdx);

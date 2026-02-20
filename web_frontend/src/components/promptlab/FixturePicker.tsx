@@ -15,11 +15,12 @@ export default function FixturePicker({
   const [fixtures, setFixtures] = useState<FixtureSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingName, setLoadingName] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
     listFixtures()
       .then(setFixtures)
-      .catch(() => {})
+      .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -45,6 +46,8 @@ export default function FixturePicker({
       </div>
       {loading ? (
         <div className="p-3 text-xs text-slate-400">Loading...</div>
+      ) : fetchError ? (
+        <div className="p-3 text-xs text-red-500">Failed to load fixtures</div>
       ) : available.length === 0 ? (
         <div className="p-3 text-xs text-slate-400">All fixtures loaded</div>
       ) : (

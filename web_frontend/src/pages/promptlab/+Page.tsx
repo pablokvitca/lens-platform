@@ -3,7 +3,7 @@ import PromptLab from "@/views/PromptLab";
 
 export default function PromptLabPage() {
   return (
-    <Layout>
+    <Layout hideFooter>
       <PromptLab />
     </Layout>
   );

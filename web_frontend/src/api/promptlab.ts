@@ -23,13 +23,18 @@ export interface FixtureConversation {
   messages: FixtureMessage[];
 }
 
+export interface FixtureSection {
+  name: string;
+  instructions: string;
+  context: string;
+  conversations: FixtureConversation[];
+}
+
 export interface Fixture {
   name: string;
   module: string;
   description: string;
-  instructions: string;
-  context: string;
-  conversations: FixtureConversation[];
+  sections: FixtureSection[];
 }
 
 export interface StreamEvent {

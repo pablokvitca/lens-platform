@@ -35,7 +35,7 @@ export default function SystemPromptEditor({
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full resize-y p-3 font-mono text-xs text-slate-800 leading-relaxed border-none outline-none focus:ring-0 bg-white min-h-[4rem] max-h-[10rem]"
+        className="w-full max-w-[600px] resize-y p-3 text-xs text-slate-800 leading-relaxed border-none outline-none focus:ring-0 bg-white min-h-[7.5rem] max-h-[10rem]"
         spellCheck={false}
       />
     </div>

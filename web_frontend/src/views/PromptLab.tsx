@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import FixtureBrowser from "@/components/promptlab/FixtureBrowser";
 import SystemPromptEditor from "@/components/promptlab/SystemPromptEditor";
@@ -6,7 +6,13 @@ import StageGroup from "@/components/promptlab/StageGroup";
 import FixturePicker from "@/components/promptlab/FixturePicker";
 import type { ConversationColumnHandle } from "@/components/promptlab/ConversationColumn";
 import { DEFAULT_SYSTEM_PROMPT } from "@/utils/assemblePrompt";
-import type { Fixture } from "@/api/promptlab";
+import type { Fixture, FixtureSection } from "@/api/promptlab";
+
+/** A section loaded into the grid, tagged with its parent fixture name. */
+interface LoadedStage {
+  fixtureKey: string;
+  section: FixtureSection;
+}
 
 const MAX_CONCURRENT_REGENERATIONS = 10;
 
@@ -18,49 +24,67 @@ export default function PromptLab() {
   const [enableThinking, setEnableThinking] = useState(true);
   const [effort, setEffort] = useState<"low" | "medium" | "high">("low");
 
-  // Multi-fixture state
-  const [stages, setStages] = useState<Fixture[]>([]);
+  // Multi-fixture state — each fixture expands its sections into stages
+  const [stages, setStages] = useState<LoadedStage[]>([]);
+  const [loadedFixtureNames, setLoadedFixtureNames] = useState<string[]>([]);
   const [showPicker, setShowPicker] = useState(false);
 
   // Refs to all conversation columns for "Regenerate All"
   const columnRefsMap = useRef<Map<string, ConversationColumnHandle>>(new Map());
 
   const handleAddFixture = useCallback((fixture: Fixture) => {
+    setLoadedFixtureNames((prev) => {
+      if (prev.includes(fixture.name)) return prev;
+      return [...prev, fixture.name];
+    });
     setStages((prev) => {
-      if (prev.some((s) => s.name === fixture.name)) return prev;
-      return [...prev, fixture];
+      if (prev.some((s) => s.fixtureKey === fixture.name)) return prev;
+      const newStages: LoadedStage[] = fixture.sections.map((section) => ({
+        fixtureKey: fixture.name,
+        section,
+      }));
+      return [...prev, ...newStages];
     });
     setShowPicker(false);
   }, []);
 
-  const handleRemoveStage = useCallback((name: string) => {
-    setStages((prev) => prev.filter((s) => s.name !== name));
+  const handleRemoveStage = useCallback((stageKey: string) => {
+    setStages((prev) => {
+      const next = prev.filter((s) => `${s.fixtureKey}::${s.section.name}` !== stageKey);
+      // Also clean up loadedFixtureNames if no sections from that fixture remain
+      const remainingFixtures = new Set(next.map((s) => s.fixtureKey));
+      setLoadedFixtureNames((names) => names.filter((n) => remainingFixtures.has(n)));
+      return next;
+    });
   }, []);
 
   const handleBack = useCallback(() => {
     setStages([]);
     setSystemPrompt(DEFAULT_SYSTEM_PROMPT);
     setShowPicker(false);
+    columnRefsMap.current.clear();
   }, []);
 
   // Regenerate All summary state
   const [regenSummary, setRegenSummary] = useState<string | null>(null);
+
+  const regenSummaryTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Clean up auto-dismiss timeout on unmount
+  useEffect(() => () => {
+    if (regenSummaryTimeoutRef.current) clearTimeout(regenSummaryTimeoutRef.current);
+  }, []);
 
   const handleRegenerateAll = useCallback(async () => {
     const columns = Array.from(columnRefsMap.current.values());
     if (columns.length === 0) return;
 
     setRegenSummary(null);
-
-    // Auto-select last assistant message in each column
-    for (const col of columns) {
-      col.autoSelectLastAssistant();
-    }
-
-    // Small delay so selection state updates
-    await new Promise((r) => setTimeout(r, 50));
+    if (regenSummaryTimeoutRef.current) clearTimeout(regenSummaryTimeoutRef.current);
 
     // Fire regenerations with concurrency cap, track results
+    // Uses regenerateLastAssistant which atomically selects + regenerates
+    // (no stale-closure race from setTimeout)
     let succeeded = 0;
     let failed = 0;
     const total = columns.length;
@@ -70,7 +94,7 @@ export default function PromptLab() {
     while (queue.length > 0 || active.length > 0) {
       while (active.length < MAX_CONCURRENT_REGENERATIONS && queue.length > 0) {
         const col = queue.shift()!;
-        const p = col.regenerate()
+        const p = col.regenerateLastAssistant()
           .then(() => { succeeded++; })
           .catch(() => { failed++; })
           .finally(() => { active.splice(active.indexOf(p), 1); });
@@ -88,7 +112,7 @@ export default function PromptLab() {
       setRegenSummary(`Regenerated ${succeeded}/${total}`);
     }
     // Auto-dismiss after 5 seconds
-    setTimeout(() => setRegenSummary(null), 5000);
+    regenSummaryTimeoutRef.current = setTimeout(() => setRegenSummary(null), 5000);
   }, []);
 
   // --- Auth gates ---
@@ -199,7 +223,7 @@ export default function PromptLab() {
           </button>
           {showPicker && (
             <FixturePicker
-              loadedFixtureNames={stages.map((s) => s.name)}
+              loadedFixtureNames={loadedFixtureNames}
               onSelect={handleAddFixture}
               onClose={() => setShowPicker(false)}
             />
@@ -220,17 +244,21 @@ export default function PromptLab() {
       {/* Horizontal scroll grid of stage groups */}
       <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
         <div className="flex gap-3 h-full">
-          {stages.map((fixture) => (
-            <StageGroup
-              key={fixture.name}
-              fixture={fixture}
-              systemPrompt={systemPrompt}
-              enableThinking={enableThinking}
-              effort={effort}
-              onRemove={() => handleRemoveStage(fixture.name)}
-              columnRefs={columnRefsMap}
-            />
-          ))}
+          {stages.map((stage) => {
+            const key = `${stage.fixtureKey}::${stage.section.name}`;
+            return (
+              <StageGroup
+                key={key}
+                section={stage.section}
+                stageKey={key}
+                systemPrompt={systemPrompt}
+                enableThinking={enableThinking}
+                effort={effort}
+                onRemove={() => handleRemoveStage(key)}
+                columnRefs={columnRefsMap}
+              />
+            );
+          })}
         </div>
       </div>
     </div>

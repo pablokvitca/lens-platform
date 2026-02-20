@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   regenerateResponse,
   continueConversation,
@@ -29,6 +29,7 @@ export interface ConversationSlotActions {
     fullSystemPrompt: string,
     enableThinking: boolean,
     effort: string,
+    messageIndex?: number,
   ) => Promise<void>;
   sendFollowUp: (
     message: string,
@@ -52,6 +53,12 @@ export function useConversationSlot(
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef(false);
 
+  // Refs to avoid stale closures in async callbacks
+  const messagesRef = useRef(messages);
+  const selectedMessageIndexRef = useRef(selectedMessageIndex);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { selectedMessageIndexRef.current = selectedMessageIndex; }, [selectedMessageIndex]);
+
   const selectMessage = useCallback(
     (index: number) => {
       if (messages[index]?.role !== "assistant") return;
@@ -63,8 +70,12 @@ export function useConversationSlot(
   );
 
   const regenerate = useCallback(
-    async (fullSystemPrompt: string, enableThinking: boolean, effort: string) => {
-      if (selectedMessageIndex === null) return;
+    async (fullSystemPrompt: string, enableThinking: boolean, effort: string, messageIndex?: number) => {
+      // Use provided messageIndex (from Regenerate All) or fall back to current selection
+      const idx = messageIndex ?? selectedMessageIndexRef.current;
+      if (idx === null) return;
+
+      const currentMessages = messagesRef.current;
 
       setIsStreaming(true);
       setStreamingContent("");
@@ -74,9 +85,9 @@ export function useConversationSlot(
 
       let accContent = "";
       let accThinking = "";
-      const originalContent = messages[selectedMessageIndex].content;
-      const messagesToSend: FixtureMessage[] = messages
-        .slice(0, selectedMessageIndex)
+      const originalContent = currentMessages[idx]?.content ?? "";
+      const messagesToSend: FixtureMessage[] = currentMessages
+        .slice(0, idx)
         .map((m) => ({ role: m.role, content: m.content }));
 
       try {
@@ -107,7 +118,7 @@ export function useConversationSlot(
                 thinkingContent: accThinking || undefined,
               };
               setMessages((prev) => [
-                ...prev.slice(0, selectedMessageIndex),
+                ...prev.slice(0, idx),
                 regeneratedMessage,
               ]);
               setHasRegenerated(true);
@@ -123,7 +134,7 @@ export function useConversationSlot(
         setStreamingThinking("");
       }
     },
-    [selectedMessageIndex, messages],
+    [],
   );
 
   const sendFollowUp = useCallback(
@@ -141,7 +152,7 @@ export function useConversationSlot(
       let accThinking = "";
 
       const allMessages: FixtureMessage[] = [
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
+        ...messagesRef.current.map((m) => ({ role: m.role, content: m.content })),
         { role: "user" as const, content: message },
       ];
 
@@ -168,7 +179,6 @@ export function useConversationSlot(
               const assistantMessage: ConversationMessage = {
                 role: "assistant",
                 content: accContent,
-                isRegenerated: true,
                 thinkingContent: accThinking || undefined,
               };
               setMessages((prev) => [...prev, assistantMessage]);
@@ -183,7 +193,7 @@ export function useConversationSlot(
         setStreamingThinking("");
       }
     },
-    [messages],
+    [],
   );
 
   const dismissError = useCallback(() => setError(null), []);
