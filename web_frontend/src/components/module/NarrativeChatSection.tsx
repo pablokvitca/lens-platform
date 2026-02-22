@@ -96,6 +96,7 @@ type NarrativeChatSectionProps = {
   onSendMessage: (content: string) => void;
   onRetryMessage?: () => void;
   scrollToResponse?: boolean;
+  activated?: boolean;
 };
 
 /**
@@ -110,6 +111,7 @@ export default function NarrativeChatSection({
   onSendMessage,
   onRetryMessage,
   scrollToResponse,
+  activated,
 }: NarrativeChatSectionProps) {
   // Local state - component stays mounted so no need for parent sync
   const [input, setInput] = useState("");
@@ -171,12 +173,12 @@ export default function NarrativeChatSection({
     }
   }, [pendingMessage, scrollContainerHeight, activeScrollToResponse, isLoading]);
 
-  // Auto-detect when parent sends a message (e.g. feedback trigger)
+  // Activate when parent explicitly signals this instance should show messages
   useEffect(() => {
-    if (!hasInteracted && (messages.length > 0 || pendingMessage || isLoading)) {
+    if (!hasInteracted && activated) {
       setHasInteracted(true);
     }
-  }, [messages.length, pendingMessage, isLoading, hasInteracted]);
+  }, [activated, hasInteracted]);
 
   // Scroll chat container into view when user first interacts
   useEffect(() => {

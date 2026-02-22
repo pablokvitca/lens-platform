@@ -966,6 +966,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                 }
                 onRetryMessage={handleRetryMessage}
                 scrollToResponse
+                activated
               />
             )}
           </div>
@@ -1318,6 +1319,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                             }
                             onRetryMessage={handleRetryMessage}
                             scrollToResponse
+                            activated
                           />
                           <div className="flex items-center justify-center py-6">
                             <button
