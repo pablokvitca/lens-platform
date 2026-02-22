@@ -1316,6 +1316,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                               handleSendMessage(content, sectionIndex, 0)
                             }
                             onRetryMessage={handleRetryMessage}
+                            scrollToResponse
                           />
                           <div className="flex items-center justify-center py-6">
                             <button

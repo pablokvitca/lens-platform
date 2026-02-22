@@ -95,6 +95,7 @@ type NarrativeChatSectionProps = {
   isLoading: boolean;
   onSendMessage: (content: string) => void;
   onRetryMessage?: () => void;
+  scrollToResponse?: boolean;
 };
 
 /**
@@ -108,6 +109,7 @@ export default function NarrativeChatSection({
   isLoading,
   onSendMessage,
   onRetryMessage,
+  scrollToResponse,
 }: NarrativeChatSectionProps) {
   // Local state - component stays mounted so no need for parent sync
   const [input, setInput] = useState("");
@@ -117,6 +119,7 @@ export default function NarrativeChatSection({
   const [scrollContainerHeight, setScrollContainerHeight] = useState(0);
 
   const currentExchangeRef = useRef<HTMLDivElement>(null);
+  const responseRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -137,25 +140,34 @@ export default function NarrativeChatSection({
   });
 
   // Scroll user's new message to top when they send
+  // When scrollToResponse is true, scroll to the response (Thinking.../streaming) instead
   useLayoutEffect(() => {
     // Need scrollContainerHeight > 0 so minHeight is applied before scrolling
     if (
       pendingMessage &&
-      currentExchangeRef.current &&
       scrollContainerRef.current &&
       scrollContainerHeight > 0
     ) {
-      const container = scrollContainerRef.current;
-      const element = currentExchangeRef.current;
-      const elementTop = element.offsetTop;
+      // scrollToResponse: scroll past the user message to show the tutor's response
+      if (scrollToResponse && isLoading && responseRef.current) {
+        responseRef.current.scrollIntoView({
+          block: "start",
+          behavior: "instant",
+        });
+        return;
+      }
 
-      // Scroll the container (not the viewport) to show the element at the top
-      container.scrollTo({
-        top: elementTop - 24, // 24px matches the scrollMarginTop
-        behavior: "instant",
-      });
+      // Default: scroll to the user's message at the top
+      if (currentExchangeRef.current) {
+        const container = scrollContainerRef.current;
+        const elementTop = currentExchangeRef.current.offsetTop;
+        container.scrollTo({
+          top: elementTop - 24, // 24px matches the scrollMarginTop
+          behavior: "instant",
+        });
+      }
     }
-  }, [pendingMessage, scrollContainerHeight]);
+  }, [pendingMessage, scrollContainerHeight, scrollToResponse, isLoading]);
 
   // Auto-detect when parent sends a message (e.g. feedback trigger)
   useEffect(() => {
@@ -384,9 +396,30 @@ export default function NarrativeChatSection({
                     </div>
                   )}
 
+                </div>
+
+                {/* Response + spacer wrapper. When scrollToResponse is true,
+                   minHeight ensures the response can scroll to viewport top.
+                   As the response grows, the flex-grow spacer shrinks. */}
+                <div
+                  className="flex flex-col flex-grow"
+                  style={
+                    scrollToResponse && isLoading && scrollContainerHeight > 0
+                      ? { minHeight: `${scrollContainerHeight}px` }
+                      : undefined
+                  }
+                >
                   {/* Streaming response */}
                   {isLoading && streamingContent && (
-                    <div className="bg-blue-50 p-3 rounded-lg">
+                    <div
+                      ref={scrollToResponse ? responseRef : undefined}
+                      className="bg-blue-50 p-3 rounded-lg mt-4"
+                      style={
+                        scrollToResponse
+                          ? { scrollMarginTop: "24px" }
+                          : undefined
+                      }
+                    >
                       <div className="text-xs text-gray-500 mb-1">Tutor</div>
                       <div>
                         <ChatMarkdown>{streamingContent}</ChatMarkdown>
@@ -396,15 +429,22 @@ export default function NarrativeChatSection({
 
                   {/* Loading indicator */}
                   {isLoading && !streamingContent && (
-                    <div className="bg-blue-50 p-3 rounded-lg">
+                    <div
+                      ref={scrollToResponse ? responseRef : undefined}
+                      className="bg-blue-50 p-3 rounded-lg mt-4"
+                      style={
+                        scrollToResponse
+                          ? { scrollMarginTop: "24px" }
+                          : undefined
+                      }
+                    >
                       <div className="text-xs text-gray-500 mb-1">Tutor</div>
                       <div className="text-gray-800">Thinking...</div>
                     </div>
                   )}
-                </div>
 
-                {/* Spacer - fills remaining viewport space */}
-                <div className="flex-grow" />
+                  <div className="flex-grow" />
+                </div>
               </div>
             </div>
           ) : (
