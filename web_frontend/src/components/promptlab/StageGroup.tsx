@@ -57,19 +57,37 @@ export default function StageGroup({
     [stageKey, columnRefs],
   );
 
+  const handleRegenerateSection = useCallback(async () => {
+    const columns: ConversationColumnHandle[] = [];
+    for (const [key, handle] of columnRefs.current) {
+      if (key.startsWith(`${stageKey}::`)) {
+        columns.push(handle);
+      }
+    }
+    await Promise.all(columns.map((col) => col.regenerateLastAssistant().catch(() => {})));
+  }, [stageKey, columnRefs]);
+
   return (
     <div className="shrink-0 h-full flex flex-col border-2 border-slate-300 rounded-lg bg-white">
       {/* Group header — sticky left */}
       <div className="sticky left-0 self-start w-[450px] flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200 rounded-tl-lg">
         <h3 className="text-xs font-semibold text-slate-700 truncate">{section.name}</h3>
         <span className="text-[10px] text-slate-400">{section.conversations.length} chats</span>
-        <button
-          onClick={onRemove}
-          className="ml-auto text-slate-400 hover:text-slate-600 text-sm"
-          aria-label="Remove stage group"
-        >
-          &times;
-        </button>
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            onClick={handleRegenerateSection}
+            className="text-[10px] font-medium text-blue-600 hover:text-blue-800 transition-colors"
+          >
+            Regenerate
+          </button>
+          <button
+            onClick={onRemove}
+            className="text-slate-400 hover:text-slate-600 text-sm"
+            aria-label="Remove stage group"
+          >
+            &times;
+          </button>
+        </div>
       </div>
 
       {/* Instructions editor — sticky left */}
