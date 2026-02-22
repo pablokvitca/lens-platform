@@ -28,7 +28,7 @@ interface TestSectionProps {
   sectionIndex: number;
   isAuthenticated: boolean;
   onTestStart: () => void;
-  onTestComplete: () => void;
+  onTestTakingComplete: () => void;
   onMarkComplete: (response?: MarkCompleteResponse) => void;
   onFeedbackTrigger?: (
     questionsAndAnswers: Array<{ question: string; answer: string }>,
@@ -46,7 +46,7 @@ export default function TestSection({
   sectionIndex,
   isAuthenticated,
   onTestStart,
-  onTestComplete,
+  onTestTakingComplete,
   onMarkComplete,
   onFeedbackTrigger,
 }: TestSectionProps) {
@@ -153,7 +153,7 @@ export default function TestSection({
       if (newCompleted.size === questions.length) {
         // All questions answered -- complete the test
         setTestState("completed");
-        onTestComplete();
+        onTestTakingComplete();
 
         // Trigger feedback if enabled
         if (onFeedbackTrigger) {
@@ -222,7 +222,7 @@ export default function TestSection({
     [
       completedQuestions,
       questions,
-      onTestComplete,
+      onTestTakingComplete,
       onMarkComplete,
       onFeedbackTrigger,
       moduleSlug,

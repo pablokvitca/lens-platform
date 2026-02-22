@@ -1285,7 +1285,7 @@ export default function Module({ courseId, moduleId }: ModuleProps) {
                         sectionIndex={sectionIndex}
                         isAuthenticated={isAuthenticated}
                         onTestStart={() => setTestModeActive(true)}
-                        onTestComplete={() => setTestModeActive(false)}
+                        onTestTakingComplete={() => setTestModeActive(false)}
                         onMarkComplete={(response) => handleMarkComplete(sectionIndex, response)}
                         onFeedbackTrigger={
                           section.feedback

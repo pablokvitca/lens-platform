@@ -59,7 +59,7 @@ const defaultProps = {
   sectionIndex: 2,
   isAuthenticated: true,
   onTestStart: vi.fn(),
-  onTestComplete: vi.fn(),
+  onTestTakingComplete: vi.fn(),
   onMarkComplete: vi.fn(),
 };
 
@@ -227,15 +227,15 @@ describe("TestSection completion", () => {
     });
   });
 
-  it("calls onTestComplete when all questions are answered", async () => {
+  it("calls onTestTakingComplete when all questions are answered", async () => {
     const user = userEvent.setup();
-    const onTestComplete = vi.fn();
+    const onTestTakingComplete = vi.fn();
 
     render(
       <TestSection
         section={makeTestSection(2)}
         {...defaultProps}
-        onTestComplete={onTestComplete}
+        onTestTakingComplete={onTestTakingComplete}
       />,
     );
 
@@ -264,7 +264,7 @@ describe("TestSection completion", () => {
     await user.click(completeQ2[0]);
 
     await waitFor(() => {
-      expect(onTestComplete).toHaveBeenCalled();
+      expect(onTestTakingComplete).toHaveBeenCalled();
     });
   });
 
