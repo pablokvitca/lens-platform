@@ -234,7 +234,7 @@ export default function PromptLab() {
       {/* System prompt (left) + stage groups (right, scrollable) */}
       <div className="flex flex-1 min-h-0 gap-3">
         {/* System prompt — anchored left */}
-        <div className="shrink-0 w-[280px] overflow-y-auto">
+        <div className="shrink-0 w-[380px] overflow-y-auto">
           <SystemPromptEditor
             value={systemPrompt}
             onChange={setSystemPrompt}
