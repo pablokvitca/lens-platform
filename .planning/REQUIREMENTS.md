@@ -35,14 +35,14 @@ Requirements for the Tests & Answer Boxes milestone. Each maps to roadmap phases
 
 ### Score Retrieval
 
-- [ ] **SR-01**: API endpoint for reading assessment scores by response_id (completes CRUD layer for assessment_scores)
+- [x] **SR-01**: API endpoint for reading assessment scores by response_id (completes CRUD layer for assessment_scores)
 
 ### Answer Feedback
 
-- [ ] **FB-01**: Content authors can enable AI feedback per question via a field in the question segment markdown
-- [ ] **FB-02**: After submitting a feedback-enabled answer, a chat interface appears below the completed answer with AI-generated initial feedback
-- [ ] **FB-03**: Student can have a multi-turn conversation with the AI about their answer
-- [ ] **FB-04**: Feedback conversation is persisted using existing conversation history storage and restored on return
+- [x] **FB-01**: Content authors can enable AI feedback per question via a field in the question segment markdown
+- [x] **FB-02**: After submitting a feedback-enabled answer, a chat interface appears below the completed answer with AI-generated initial feedback
+- [x] **FB-03**: Student can have a multi-turn conversation with the AI about their answer
+- [x] **FB-04**: Feedback conversation is persisted using existing conversation history storage and restored on return
 
 ## v2 Requirements
 
@@ -103,13 +103,14 @@ Explicitly excluded. Documented to prevent scope creep.
 | AI-02 | Phase 9 | Complete |
 | AI-03 | Phase 9 | Complete |
 | AI-04 | Phase 9 | Complete |
-| SR-01 | Phase 10 | Pending |
-| FB-01 | Phase 11 | Pending |
-| FB-02 | Phase 11 | Pending |
-| FB-03 | Phase 11 | Pending |
-| FB-04 | Phase 11 | Pending |
+| SR-01 | Phase 10 | Complete |
+| FB-01 | (outside GSD) | Complete |
+| FB-02 | (outside GSD) | Complete |
+| FB-03 | (outside GSD) | Complete |
+| FB-04 | (outside GSD) | Complete |
 
 **Coverage:**
 - v1 requirements: 19 total
-- Mapped to phases: 19
+- Mapped to phases: 15 (4 feedback reqs implemented outside GSD)
 - Orphaned: 0
+- All complete

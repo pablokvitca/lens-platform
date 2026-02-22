@@ -3,7 +3,7 @@
 ## Milestones
 
 - v1.0 Mobile Responsiveness - Phases 1-5 (shipped 2026-01-22)
-- v2.0 Tests & Answer Boxes - Phases 6-11
+- v2.0 Tests & Answer Boxes - Phases 6-10 (shipped 2026-02-22)
 
 ## Phases
 
@@ -29,7 +29,6 @@ Phase 5: Motion & Polish (4 plans)
 - [x] **Phase 8: Test Sections** - Grouped assessment questions with test-mode UX
 - [x] **Phase 9: AI Assessment** - LLM-powered scoring with rubrics and mode selection
 - [x] **Phase 10: Score Retrieval API** - GET endpoint completing the assessment_scores CRUD layer
-- [ ] **Phase 11: Answer Feedback Chat** - AI feedback conversation after answer submission
 
 ## Phase Details
 
@@ -94,7 +93,7 @@ Plans:
 
 ## Progress
 
-**Execution Order:** 6 -> 7 -> 8 -> 9 -> 10 -> 11
+**Execution Order:** 6 -> 7 -> 8 -> 9 -> 10
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -108,7 +107,6 @@ Plans:
 | 8. Test Sections | v2.0 | 2/2 | Complete | 2026-02-16 |
 | 9. AI Assessment | v2.0 | 2/2 | Complete | 2026-02-19 |
 | 10. Score Retrieval API | v2.0 | 1/1 | Complete | 2026-02-20 |
-| 11. Answer Feedback Chat | v2.0 | 0/3 | Planned | — |
 
 ### Phase 10: Score Retrieval API
 **Goal**: Assessment scores can be read back from the database via API, completing the CRUD layer for the assessment_scores table
@@ -122,20 +120,3 @@ Plans:
 Plans:
 - [x] 10-01-PLAN.md — TDD: Core query function (get_scores_for_response with ownership JOIN) + GET /scores endpoint + Pydantic models + 4 tests
 
-### Phase 11: Answer Feedback Chat
-**Goal**: After submitting an answer, students can receive AI feedback and have a conversation about their response, controlled by a per-question content field
-**Depends on**: Phase 7 (AnswerBox component and completion flow), Phase 9 (scoring context and prompt infrastructure)
-**Requirements**: FB-01, FB-02, FB-03, FB-04
-**Success Criteria** (what must be TRUE):
-  1. Content authors can enable feedback per question via a field in the question segment markdown (e.g., `feedback:: true`)
-  2. After clicking Finish on a feedback-enabled question, a chat interface appears below the completed answer
-  3. The AI sends an initial feedback message based on the question, learning outcome, and student's answer (streamed via existing SSE infrastructure)
-  4. Student can reply and have a multi-turn conversation with the AI about their answer
-  5. Feedback conversation is persisted using the existing conversation history storage and restored on return
-  6. Same component works for questions in both lesson sections and test sections
-**Plans**: 3 plans
-
-Plans:
-- [ ] 11-01-PLAN.md — Content pipeline: feedback boolean field through content-schema, parser, flattener, and frontend types
-- [ ] 11-02-PLAN.md — TDD: Backend feedback module (prompt builder + SSE endpoint + DB constraint migration) with tests first
-- [ ] 11-03-PLAN.md — FeedbackChat component + AnswerBox integration + session lifecycle + human verification
