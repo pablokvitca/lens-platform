@@ -40,7 +40,8 @@ const EXPECTED_MIN_HEIGHT = VIEWPORT_HEIGHT - 160; // 640
 /** Find the min-height wrapper by its flex layout class on the ref'd div */
 function getMinHeightWrapper(container: HTMLElement): HTMLElement {
   // The wrapper is a div with class "flex flex-col" and a style.minHeight
-  const candidates = container.querySelectorAll<HTMLElement>("div.flex.flex-col");
+  const candidates =
+    container.querySelectorAll<HTMLElement>("div.flex.flex-col");
   for (const el of candidates) {
     if (el.style.minHeight) return el;
   }

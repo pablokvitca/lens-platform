@@ -1,6 +1,13 @@
 // web_frontend_next/src/components/narrative-lesson/NarrativeChatSection.tsx
 
-import { useState, useReducer, useRef, useEffect, useLayoutEffect, Fragment } from "react";
+import {
+  useState,
+  useReducer,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  Fragment,
+} from "react";
 import type { ChatMessage, PendingMessage } from "@/types/module";
 import { useVoiceRecording } from "@/hooks/useVoiceRecording";
 import ChatMarkdown from "@/components/ChatMarkdown";
@@ -36,8 +43,17 @@ export default function NarrativeChatSection({
   activated,
 }: NarrativeChatSectionProps) {
   // View state reducer — centralized state transitions for chat view
-  const [viewState, dispatch] = useReducer(chatViewReducer, initialChatViewState);
-  const { hasInteracted, recentMessagesStartIdx, minHeightWrapperStartIdx, isExpanded, userSentFollowup } = viewState;
+  const [viewState, dispatch] = useReducer(
+    chatViewReducer,
+    initialChatViewState,
+  );
+  const {
+    hasInteracted,
+    recentMessagesStartIdx,
+    minHeightWrapperStartIdx,
+    isExpanded,
+    userSentFollowup,
+  } = viewState;
 
   // Independent UI state
   const [input, setInput] = useState("");
@@ -120,14 +136,17 @@ export default function NarrativeChatSection({
       }
 
       // Smoothly scroll page to center the expanded container
-      containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      containerRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     }
   }, [isExpanded]);
 
   // Activate when parent explicitly signals this instance should show messages
   useEffect(() => {
     if (!hasInteracted && activated) {
-      dispatch({ type: 'ACTIVATE', messagesLength: messages.length });
+      dispatch({ type: "ACTIVATE", messagesLength: messages.length });
     }
   }, [activated, hasInteracted, messages.length]);
 
@@ -179,7 +198,9 @@ export default function NarrativeChatSection({
   // doesn't overshoot the viewport
   const spacerHeight = isExpanded
     ? scrollContainerHeight
-    : (hasInteracted ? Math.max(0, window.innerHeight - 160) : 0);
+    : hasInteracted
+      ? Math.max(0, window.innerHeight - 160)
+      : 0;
 
   // Messages to display based on mode (normal vs expanded)
   // When !hasInteracted, show nothing — prevents shared parent messages leaking into inactive instances
@@ -200,7 +221,11 @@ export default function NarrativeChatSection({
   const showStreaming = hasInteracted && isLoading && !!streamingContent;
   const showThinking = hasInteracted && isLoading && !streamingContent;
   const wrapperMinHeight = hasInteracted && spacerHeight > 0 ? spacerHeight : 0;
-  const scrollMargin = hasInteracted ? (isExpanded ? "24px" : "80px") : undefined;
+  const scrollMargin = hasInteracted
+    ? isExpanded
+      ? "24px"
+      : "80px"
+    : undefined;
 
   // Ratchet: reduce wrapper minHeight as user scrolls up (non-expanded only).
   // As the wrapper moves down in the viewport, its original bottom extends below
@@ -219,7 +244,10 @@ export default function NarrativeChatSection({
 
       const rect = wrapper.getBoundingClientRect();
       // How far the wrapper's original bottom extends below the viewport
-      const overflow = Math.max(0, rect.top + wrapperMinHeight - window.innerHeight);
+      const overflow = Math.max(
+        0,
+        rect.top + wrapperMinHeight - window.innerHeight,
+      );
       const newReduction = Math.max(minHeightReductionRef.current, overflow);
 
       if (newReduction !== minHeightReductionRef.current) {
@@ -237,7 +265,11 @@ export default function NarrativeChatSection({
     e.preventDefault();
     if (input.trim() && !isLoading) {
       triggerHaptic(10); // Subtle haptic feedback on send
-      dispatch({ type: 'SEND_MESSAGE', messagesLength: messages.length, hasScrollToResponse: !!scrollToResponse });
+      dispatch({
+        type: "SEND_MESSAGE",
+        messagesLength: messages.length,
+        hasScrollToResponse: !!scrollToResponse,
+      });
       minHeightReductionRef.current = 0;
       if (minHeightWrapperRef.current) {
         minHeightWrapperRef.current.style.minHeight =
@@ -291,7 +323,7 @@ export default function NarrativeChatSection({
         {isExpanded && (
           <div className="flex justify-center px-3 pt-2 pb-0 shrink-0">
             <button
-              onClick={() => dispatch({ type: 'COLLAPSE' })}
+              onClick={() => dispatch({ type: "COLLAPSE" })}
               className="inline-flex items-center gap-1.5 px-3 py-1 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 rounded-full transition-colors"
             >
               <ChevronDown size={14} />
@@ -309,16 +341,20 @@ export default function NarrativeChatSection({
           style={{ overflowAnchor: "none" }}
           onScroll={isExpanded ? handleScroll : undefined}
         >
-            <div>
-              {/* Expand button (collapsed mode only) */}
-              {!isExpanded && recentMessagesStartIdx > 0 && (() => {
-                const earlierExchanges = messages.slice(0, recentMessagesStartIdx).filter(m => m.role === "user").length;
+          <div>
+            {/* Expand button (collapsed mode only) */}
+            {!isExpanded &&
+              recentMessagesStartIdx > 0 &&
+              (() => {
+                const earlierExchanges = messages
+                  .slice(0, recentMessagesStartIdx)
+                  .filter((m) => m.role === "user").length;
                 return earlierExchanges > 0 ? (
                   <div className="flex justify-center pt-2 pb-4">
                     <button
                       onClick={() => {
                         justExpandedRef.current = true;
-                        dispatch({ type: 'EXPAND' });
+                        dispatch({ type: "EXPAND" });
                       }}
                       className="inline-flex items-center gap-1.5 px-3 py-1 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 rounded-full transition-colors"
                     >
@@ -329,132 +365,135 @@ export default function NarrativeChatSection({
                 ) : null;
               })()}
 
-              {/* Previous messages - natural height */}
-              {previousMessages.length > 0 && (
-                <div className="space-y-4 pb-4 max-w-content mx-auto">
-                  {previousMessages.map((msg, i) => {
-                    const isRecentBoundary = isExpanded && i === recentMessagesStartIdx;
-                    const msgEl =
-                      msg.role === "system" ? (
-                        <div key={i} className="flex justify-center my-3">
-                          <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
-                            {msg.icon && <StageIcon type={msg.icon} small />}
-                            {msg.content}
-                          </span>
-                        </div>
-                      ) : msg.role === "assistant" ? (
-                        <div key={i} className="text-gray-800">
-                          <div className="text-sm text-gray-500 mb-1">Tutor</div>
-                          <ChatMarkdown>{msg.content}</ChatMarkdown>
-                        </div>
-                      ) : (
-                        <div
-                          key={i}
-                          className="ml-auto max-w-[80%] bg-gray-100 text-gray-800 p-3 rounded-2xl"
-                        >
-                          <div className="whitespace-pre-wrap">{msg.content}</div>
-                        </div>
-                      );
-                    return isRecentBoundary ? (
-                      <Fragment key={i}>
-                        <div ref={recentStartRef} />
-                        {msgEl}
-                      </Fragment>
-                    ) : msgEl;
-                  })}
-                </div>
-              )}
-
-              {/* Min-height wrapper — current exchange stays here until user sends again */}
-              <div
-                ref={minHeightWrapperRef}
-                className="flex flex-col"
-                style={{
-                  scrollMarginTop: scrollMargin,
-                  minHeight: wrapperMinHeight > 0 ? `${wrapperMinHeight}px` : undefined,
-                }}
-              >
-                <div className="space-y-4 max-w-content mx-auto w-full">
-                  {/* Messages in current exchange (user + completed assistant) */}
-                  {wrapperMessages.map((msg, i) =>
+            {/* Previous messages - natural height */}
+            {previousMessages.length > 0 && (
+              <div className="space-y-4 pb-4 max-w-content mx-auto">
+                {previousMessages.map((msg, i) => {
+                  const isRecentBoundary =
+                    isExpanded && i === recentMessagesStartIdx;
+                  const msgEl =
                     msg.role === "system" ? (
-                      <div
-                        key={`current-${i}`}
-                        className="flex justify-center my-3"
-                      >
+                      <div key={i} className="flex justify-center my-3">
                         <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
                           {msg.icon && <StageIcon type={msg.icon} small />}
                           {msg.content}
                         </span>
                       </div>
                     ) : msg.role === "assistant" ? (
-                      <div key={`current-${i}`} className="text-gray-800">
+                      <div key={i} className="text-gray-800">
                         <div className="text-sm text-gray-500 mb-1">Tutor</div>
                         <ChatMarkdown>{msg.content}</ChatMarkdown>
                       </div>
                     ) : (
                       <div
-                        key={`current-${i}`}
+                        key={i}
                         className="ml-auto max-w-[80%] bg-gray-100 text-gray-800 p-3 rounded-2xl"
                       >
                         <div className="whitespace-pre-wrap">{msg.content}</div>
                       </div>
-                    ),
-                  )}
-
-                  {/* Pending user message */}
-                  {showPending && (
-                    <div
-                      className={`ml-auto max-w-[80%] p-3 rounded-2xl ${
-                        pendingMessage!.status === "failed"
-                          ? "bg-red-50 border border-red-200"
-                          : "bg-gray-100"
-                      }`}
-                    >
-                      {pendingMessage!.status === "failed" &&
-                        onRetryMessage && (
-                          <div className="flex items-center justify-between mb-1">
-                            <button
-                              onClick={onRetryMessage}
-                              className="text-red-600 hover:text-red-700 text-xs focus:outline-none focus:underline ml-auto"
-                            >
-                              Failed - Click to retry
-                            </button>
-                          </div>
-                        )}
-                      <div className="whitespace-pre-wrap text-gray-800">
-                        {pendingMessage!.content}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Streaming response */}
-                  {showStreaming && (
-                    <div
-                      ref={activeScrollToResponse ? responseRef : undefined}
-                      className="text-gray-800"
-                    >
-                      <div className="text-sm text-gray-500 mb-1">Tutor</div>
-                      <ChatMarkdown>{streamingContent}</ChatMarkdown>
-                    </div>
-                  )}
-
-                  {/* Thinking indicator */}
-                  {showThinking && (
-                    <div
-                      ref={activeScrollToResponse ? responseRef : undefined}
-                      className="text-gray-800"
-                    >
-                      <div className="text-sm text-gray-500 mb-1">Tutor</div>
-                      <div>Thinking...</div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Spacer pushes sticky input to bottom */}
-                <div className="flex-grow" />
+                    );
+                  return isRecentBoundary ? (
+                    <Fragment key={i}>
+                      <div ref={recentStartRef} />
+                      {msgEl}
+                    </Fragment>
+                  ) : (
+                    msgEl
+                  );
+                })}
               </div>
+            )}
+
+            {/* Min-height wrapper — current exchange stays here until user sends again */}
+            <div
+              ref={minHeightWrapperRef}
+              className="flex flex-col"
+              style={{
+                scrollMarginTop: scrollMargin,
+                minHeight:
+                  wrapperMinHeight > 0 ? `${wrapperMinHeight}px` : undefined,
+              }}
+            >
+              <div className="space-y-4 max-w-content mx-auto w-full">
+                {/* Messages in current exchange (user + completed assistant) */}
+                {wrapperMessages.map((msg, i) =>
+                  msg.role === "system" ? (
+                    <div
+                      key={`current-${i}`}
+                      className="flex justify-center my-3"
+                    >
+                      <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
+                        {msg.icon && <StageIcon type={msg.icon} small />}
+                        {msg.content}
+                      </span>
+                    </div>
+                  ) : msg.role === "assistant" ? (
+                    <div key={`current-${i}`} className="text-gray-800">
+                      <div className="text-sm text-gray-500 mb-1">Tutor</div>
+                      <ChatMarkdown>{msg.content}</ChatMarkdown>
+                    </div>
+                  ) : (
+                    <div
+                      key={`current-${i}`}
+                      className="ml-auto max-w-[80%] bg-gray-100 text-gray-800 p-3 rounded-2xl"
+                    >
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    </div>
+                  ),
+                )}
+
+                {/* Pending user message */}
+                {showPending && (
+                  <div
+                    className={`ml-auto max-w-[80%] p-3 rounded-2xl ${
+                      pendingMessage!.status === "failed"
+                        ? "bg-red-50 border border-red-200"
+                        : "bg-gray-100"
+                    }`}
+                  >
+                    {pendingMessage!.status === "failed" && onRetryMessage && (
+                      <div className="flex items-center justify-between mb-1">
+                        <button
+                          onClick={onRetryMessage}
+                          className="text-red-600 hover:text-red-700 text-xs focus:outline-none focus:underline ml-auto"
+                        >
+                          Failed - Click to retry
+                        </button>
+                      </div>
+                    )}
+                    <div className="whitespace-pre-wrap text-gray-800">
+                      {pendingMessage!.content}
+                    </div>
+                  </div>
+                )}
+
+                {/* Streaming response */}
+                {showStreaming && (
+                  <div
+                    ref={activeScrollToResponse ? responseRef : undefined}
+                    className="text-gray-800"
+                  >
+                    <div className="text-sm text-gray-500 mb-1">Tutor</div>
+                    <ChatMarkdown>{streamingContent}</ChatMarkdown>
+                  </div>
+                )}
+
+                {/* Thinking indicator */}
+                {showThinking && (
+                  <div
+                    ref={activeScrollToResponse ? responseRef : undefined}
+                    className="text-gray-800"
+                  >
+                    <div className="text-sm text-gray-500 mb-1">Tutor</div>
+                    <div>Thinking...</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Spacer pushes sticky input to bottom */}
+              <div className="flex-grow" />
             </div>
+          </div>
         </div>
 
         {/* Scroll to bottom button (expanded mode only) */}
@@ -505,9 +544,15 @@ export default function NarrativeChatSection({
         <form
           onSubmit={handleSubmit}
           className={`px-4 pb-4 pt-2 ${isExpanded ? "border-t border-gray-100" : ""}`}
-          style={!isExpanded ? { position: "sticky", bottom: 0, zIndex: 10 } : undefined}
+          style={
+            !isExpanded
+              ? { position: "sticky", bottom: 0, zIndex: 10 }
+              : undefined
+          }
         >
-          <div className={`max-w-content mx-auto ${!isExpanded ? "border border-gray-200 rounded-2xl bg-white shadow-md" : ""}`}>
+          <div
+            className={`max-w-content mx-auto ${!isExpanded ? "border border-gray-200 rounded-2xl bg-white shadow-md" : ""}`}
+          >
             {/* Recording indicator */}
             {recordingState === "recording" && (
               <div className="flex items-center gap-2 justify-center pt-3 px-4">
@@ -640,8 +685,18 @@ export default function NarrativeChatSection({
                     }
                     className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-default min-w-[36px] min-h-[36px] transition-all active:scale-95"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
+                      />
                     </svg>
                   </button>
                 )}

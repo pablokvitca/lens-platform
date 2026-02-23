@@ -10,10 +10,14 @@ export type ChatViewState = {
 };
 
 export type ChatViewAction =
-  | { type: 'ACTIVATE'; messagesLength: number }
-  | { type: 'SEND_MESSAGE'; messagesLength: number; hasScrollToResponse: boolean }
-  | { type: 'EXPAND' }
-  | { type: 'COLLAPSE' };
+  | { type: "ACTIVATE"; messagesLength: number }
+  | {
+      type: "SEND_MESSAGE";
+      messagesLength: number;
+      hasScrollToResponse: boolean;
+    }
+  | { type: "EXPAND" }
+  | { type: "COLLAPSE" };
 
 export const initialChatViewState: ChatViewState = {
   hasInteracted: false,
@@ -24,9 +28,12 @@ export const initialChatViewState: ChatViewState = {
   userSentFollowup: false,
 };
 
-export function chatViewReducer(state: ChatViewState, action: ChatViewAction): ChatViewState {
+export function chatViewReducer(
+  state: ChatViewState,
+  action: ChatViewAction,
+): ChatViewState {
   switch (action.type) {
-    case 'ACTIVATE':
+    case "ACTIVATE":
       if (state.hasInteracted) return state;
       return {
         ...state,
@@ -35,7 +42,7 @@ export function chatViewReducer(state: ChatViewState, action: ChatViewAction): C
         minHeightWrapperStartIdx: action.messagesLength,
       };
 
-    case 'SEND_MESSAGE': {
+    case "SEND_MESSAGE": {
       const nextIdx = state.hasUserSent
         ? Math.max(0, action.messagesLength - RECENT_MESSAGE_COUNT)
         : action.messagesLength;
@@ -49,10 +56,10 @@ export function chatViewReducer(state: ChatViewState, action: ChatViewAction): C
       };
     }
 
-    case 'EXPAND':
+    case "EXPAND":
       return { ...state, isExpanded: true };
 
-    case 'COLLAPSE':
+    case "COLLAPSE":
       return { ...state, isExpanded: false };
   }
 }
