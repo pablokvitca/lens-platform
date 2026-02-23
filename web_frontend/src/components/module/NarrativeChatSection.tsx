@@ -7,6 +7,7 @@ import ChatMarkdown from "@/components/ChatMarkdown";
 import { Tooltip } from "@/components/Tooltip";
 import { StageIcon } from "@/components/module/StageProgressBar";
 import { triggerHaptic } from "@/utils/haptics";
+import { ChevronUp, ChevronDown } from "lucide-react";
 
 type NarrativeChatSectionProps = {
   messages: ChatMessage[];
@@ -37,8 +38,9 @@ export default function NarrativeChatSection({
   const [input, setInput] = useState("");
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [instanceStartIndex, setInstanceStartIndex] = useState(0);
+  const [recentMessagesStartIdx, setRecentMessagesStartIdx] = useState(0);
   const [minHeightWrapperStartIdx, setMinHeightWrapperStartIdx] = useState(0);
+  const RECENT_MESSAGE_COUNT = 6; // ~3 exchanges visible when collapsed
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [scrollContainerHeight, setScrollContainerHeight] = useState(0);
   const [userSentFollowup, setUserSentFollowup] = useState(false);
@@ -166,12 +168,12 @@ export default function NarrativeChatSection({
     ? []
     : isExpanded
       ? messages
-      : messages.slice(instanceStartIndex);
+      : messages.slice(recentMessagesStartIdx);
 
   // --- Derived view state ---
   const adjustedWrapperStart = isExpanded
     ? minHeightWrapperStartIdx
-    : Math.max(0, minHeightWrapperStartIdx - instanceStartIndex);
+    : Math.max(0, minHeightWrapperStartIdx - recentMessagesStartIdx);
   const previousMessages = displayMessages.slice(0, adjustedWrapperStart);
   const wrapperMessages = displayMessages.slice(adjustedWrapperStart);
 
@@ -216,10 +218,8 @@ export default function NarrativeChatSection({
     e.preventDefault();
     if (input.trim() && !isLoading) {
       triggerHaptic(10); // Subtle haptic feedback on send
-      // Record where this instance's messages start (first interaction only)
-      if (!hasInteracted) {
-        setInstanceStartIndex(messages.length);
-      }
+      // Keep only recent messages visible when collapsed — older ones go behind "Show conversation history"
+      setRecentMessagesStartIdx(Math.max(0, messages.length - RECENT_MESSAGE_COUNT));
       // Set split point before sending - current messages become "previous"
       setMinHeightWrapperStartIdx(messages.length);
       minHeightReductionRef.current = 0;
@@ -284,24 +284,30 @@ export default function NarrativeChatSection({
         >
             <div>
               {/* Expand/Minimize buttons */}
-              {!isExpanded && instanceStartIndex > 0 && (() => {
-                const earlierExchanges = messages.slice(0, instanceStartIndex).filter(m => m.role === "user").length;
+              {!isExpanded && recentMessagesStartIdx > 0 && (() => {
+                const earlierExchanges = messages.slice(0, recentMessagesStartIdx).filter(m => m.role === "user").length;
                 return earlierExchanges > 0 ? (
-                  <button
-                    onClick={() => setIsExpanded(true)}
-                    className="w-full text-center py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-gray-50 rounded transition-colors"
-                  >
-                    Show full conversation ({earlierExchanges} earlier {earlierExchanges === 1 ? "exchange" : "exchanges"})
-                  </button>
+                  <div className="flex justify-center pt-2 pb-4">
+                    <button
+                      onClick={() => setIsExpanded(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 rounded-full transition-colors"
+                    >
+                      <ChevronUp size={14} />
+                      {earlierExchanges} earlier
+                    </button>
+                  </div>
                 ) : null;
               })()}
               {isExpanded && (
-                <button
-                  onClick={() => setIsExpanded(false)}
-                  className="w-full text-center py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors"
-                >
-                  Minimize
-                </button>
+                <div className="flex justify-center pt-2 pb-4">
+                  <button
+                    onClick={() => setIsExpanded(false)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 rounded-full transition-colors"
+                  >
+                    <ChevronDown size={14} />
+                    Minimize
+                  </button>
+                </div>
               )}
 
               {/* Previous messages - natural height */}
@@ -310,14 +316,14 @@ export default function NarrativeChatSection({
                   {previousMessages.map((msg, i) =>
                     msg.role === "system" ? (
                       <div key={i} className="flex justify-center my-3">
-                        <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
+                        <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
                           {msg.icon && <StageIcon type={msg.icon} small />}
                           {msg.content}
                         </span>
                       </div>
                     ) : msg.role === "assistant" ? (
                       <div key={i} className="text-gray-800">
-                        <div className="text-xs text-gray-500 mb-1">Tutor</div>
+                        <div className="text-sm text-gray-500 mb-1">Tutor</div>
                         <ChatMarkdown>{msg.content}</ChatMarkdown>
                       </div>
                     ) : (
@@ -349,14 +355,14 @@ export default function NarrativeChatSection({
                         key={`current-${i}`}
                         className="flex justify-center my-3"
                       >
-                        <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
+                        <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full inline-flex items-center gap-1.5">
                           {msg.icon && <StageIcon type={msg.icon} small />}
                           {msg.content}
                         </span>
                       </div>
                     ) : msg.role === "assistant" ? (
                       <div key={`current-${i}`} className="text-gray-800">
-                        <div className="text-xs text-gray-500 mb-1">Tutor</div>
+                        <div className="text-sm text-gray-500 mb-1">Tutor</div>
                         <ChatMarkdown>{msg.content}</ChatMarkdown>
                       </div>
                     ) : (
@@ -401,7 +407,7 @@ export default function NarrativeChatSection({
                       ref={activeScrollToResponse ? responseRef : undefined}
                       className="text-gray-800"
                     >
-                      <div className="text-xs text-gray-500 mb-1">Tutor</div>
+                      <div className="text-sm text-gray-500 mb-1">Tutor</div>
                       <ChatMarkdown>{streamingContent}</ChatMarkdown>
                     </div>
                   )}
@@ -412,7 +418,7 @@ export default function NarrativeChatSection({
                       ref={activeScrollToResponse ? responseRef : undefined}
                       className="text-gray-800"
                     >
-                      <div className="text-xs text-gray-500 mb-1">Tutor</div>
+                      <div className="text-sm text-gray-500 mb-1">Tutor</div>
                       <div>Thinking...</div>
                     </div>
                   )}
